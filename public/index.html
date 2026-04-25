@@ -1,0 +1,1019 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>AI-Driven QA Tools</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <!-- Bootstrap 5 CSS -->
+  <link
+    href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"
+    rel="stylesheet"
+  />
+
+  <style>
+    body {
+      background-color: #f8f9fa;
+    }
+
+    .app-header {
+      background-color: #0d6efd;
+      color: #fff;
+      padding: 0.75rem 1.5rem;
+    }
+
+    .app-header h1 {
+      font-size: 1.4rem;
+      margin: 0;
+    }
+
+    .app-subtitle {
+      font-size: 0.85rem;
+      opacity: 0.85;
+    }
+
+    .main-container {
+      padding: 1rem 1.5rem 2rem;
+    }
+
+    /* To make main content scrollable if height exceeds viewport */
+    .content-wrapper {
+      max-height: calc(100vh - 90px);
+      overflow-y: auto;
+    }
+
+    .nav-panel {
+      border-bottom: 1px solid #dee2e6;
+      margin-bottom: 1rem;
+    }
+
+    .test-scope-layout {
+      display: flex;
+      gap: 1rem;
+    }
+
+    .test-scope-left,
+    .test-scope-right {
+      background: #ffffff;
+      border: 1px solid #dee2e6;
+      border-radius: 0.375rem;
+      padding: 0.75rem;
+    }
+
+    .test-scope-left {
+      width: 28%;
+      min-width: 230px;
+      max-height: calc(100vh - 220px);
+      overflow-y: auto;
+    }
+
+    .test-scope-right {
+      flex: 1;
+      max-height: calc(100vh - 220px);
+      overflow-y: auto;
+    }
+
+    .section-item {
+      cursor: pointer;
+      padding: 0.5rem 0.75rem;
+      border-radius: 0.25rem;
+      margin-bottom: 0.25rem;
+    }
+
+    .section-item.active {
+      background-color: #e7f1ff;
+      border: 1px solid #0d6efd;
+    }
+
+    @media (max-width: 768px) {
+      .test-scope-layout {
+        flex-direction: column;
+      }
+
+      .test-scope-left,
+      .test-scope-right {
+        width: 100%;
+        max-height: none;
+      }
+    }
+
+    textarea.form-control {
+      resize: vertical;
+    }
+  </style>
+</head>
+<body>
+  <!-- Header -->
+  <header class="app-header d-flex flex-column flex-md-row align-items-md-center justify-content-between">
+    <div>
+      <h1>AI-Driven QA Analysis</h1>
+      <div class="app-subtitle">
+        Centralized workspace for QA test analysis and scope management
+      </div>
+    </div>
+  </header>
+
+  <div class="main-container">
+    <!-- Top Menu Panels -->
+    <ul class="nav nav-tabs nav-panel" id="topPanelTabs" role="tablist">
+      <li class="nav-item" role="presentation">
+        <button
+          class="nav-link active"
+          id="form-tab"
+          data-bs-toggle="tab"
+          data-bs-target="#form-pane"
+          type="button"
+          role="tab"
+          aria-controls="form-pane"
+          aria-selected="true"
+        >
+          Form
+        </button>
+      </li>
+      <li class="nav-item dropdown" role="presentation">
+        <button
+          class="nav-link dropdown-toggle"
+          data-bs-toggle="dropdown"
+          type="button"
+          role="button"
+        >
+          Test Results
+        </button>
+        <ul class="dropdown-menu">
+          <li>
+            <button
+              class="dropdown-item"
+              id="test-analysis-tab"
+              data-bs-toggle="tab"
+              data-bs-target="#test-analysis-pane"
+              type="button"
+              role="tab"
+            >
+              Test Analysis
+            </button>
+          </li>
+          <li>
+            <button
+              class="dropdown-item"
+              id="test-scope-tab"
+              data-bs-toggle="tab"
+              data-bs-target="#test-scope-pane"
+              type="button"
+              role="tab"
+            >
+              Test Scope
+            </button>
+          </li>
+        </ul>
+      </li>
+    </ul>
+
+    <div class="tab-content content-wrapper" id="topPanelTabsContent">
+      <!-- Form Panel -->
+      <div
+        class="tab-pane fade show active"
+        id="form-pane"
+        role="tabpanel"
+        aria-labelledby="form-tab"
+      >
+        <div class="card">
+          <div class="card-header">
+            <h5 class="mb-0">Submit Artifacts for QA Analysis</h5>
+          </div>
+          <div class="card-body">
+            <form id="qaForm" class="row g-3">
+              <!-- Prompt ID (to track results) -->
+              <div class="col-md-4">
+                <label for="promptIdInput" class="form-label">Prompt ID</label>
+                <input
+                  type="text"
+                  class="form-control"
+                  id="promptIdInput"
+                  name="promptId"
+                  placeholder="e.g., PRD-1234-Login-Flow"
+                  required
+                />
+                <div class="form-text">
+                  This ID will be used to fetch test analysis and test cases.
+                </div>
+              </div>
+
+              <!-- Context / Project Name -->
+              <div class="col-md-4">
+                <label for="projectNameInput" class="form-label">Project / Feature Name</label>
+                <input
+                  type="text"
+                  class="form-control"
+                  id="projectNameInput"
+                  name="projectName"
+                  placeholder="e.g., User Authentication"
+                />
+              </div>
+
+              <!-- Artifact Type -->
+              <div class="col-md-4">
+                <label for="docTypeSelect" class="form-label">Primary Artifact Type</label>
+                <select
+                  class="form-select"
+                  id="docTypeSelect"
+                  name="docType"
+                >
+                  <option value="prd" selected>PRD</option>
+                  <option value="rfc">RFC</option>
+                  <option value="figma">Figma</option>
+                  <option value="user-story">User Story</option>
+                  <option value="other">Other</option>
+                </select>
+              </div>
+
+              <!-- Artifact URLs -->
+              <div class="col-12">
+                <label for="prdUrlInput" class="form-label">PRD / Specs URL</label>
+                <input
+                  type="url"
+                  class="form-control"
+                  id="prdUrlInput"
+                  name="prdUrl"
+                  placeholder="https://..."
+                />
+              </div>
+
+              <div class="col-12">
+                <label for="rfcUrlInput" class="form-label">RFC URL (optional)</label>
+                <input
+                  type="url"
+                  class="form-control"
+                  id="rfcUrlInput"
+                  name="rfcUrl"
+                  placeholder="https://..."
+                />
+              </div>
+
+              <div class="col-12">
+                <label for="figmaUrlInput" class="form-label">Figma URL (optional)</label>
+                <input
+                  type="url"
+                  class="form-control"
+                  id="figmaUrlInput"
+                  name="figmaUrl"
+                  placeholder="https://figma.com/file/..."
+                />
+              </div>
+
+              <!-- Additional context / instructions -->
+              <div class="col-12">
+                <label for="contextInput" class="form-label">
+                  Additional Context / Notes for AI
+                </label>
+                <textarea
+                  class="form-control"
+                  id="contextInput"
+                  name="context"
+                  rows="4"
+                  placeholder="List key flows, non-functional requirements, constraints, or any special focus for QA..."
+                ></textarea>
+              </div>
+
+              <!-- Raw content block -->
+              <div class="col-12">
+                <label for="rawContentInput" class="form-label">
+                  Raw Content (optional)
+                </label>
+                <textarea
+                  class="form-control"
+                  id="rawContentInput"
+                  name="rawContent"
+                  rows="6"
+                  placeholder="Paste PRD/RFC sections here if not accessible via URLs..."
+                ></textarea>
+              </div>
+
+              <!-- Submit -->
+              <div class="col-12 d-flex align-items-center">
+                <button
+                  type="submit"
+                  class="btn btn-primary me-3"
+                  id="submitFormBtn"
+                >
+                  Submit for Analysis
+                </button>
+                <div id="formStatus" class="small text-muted"></div>
+              </div>
+            </form>
+          </div>
+        </div>
+      </div>
+
+      <!-- Test Analysis Panel -->
+      <div
+        class="tab-pane fade"
+        id="test-analysis-pane"
+        role="tabpanel"
+        aria-labelledby="test-analysis-tab"
+      >
+        <div class="card">
+          <div class="card-header d-flex justify-content-between align-items-center">
+            <h5 class="mb-0">Test Analysis</h5>
+            <div class="d-flex align-items-center gap-2">
+              <input
+                type="text"
+                class="form-control form-control-sm"
+                id="analysisPromptIdInput"
+                placeholder="Prompt ID"
+                style="max-width: 220px;"
+              />
+              <button
+                class="btn btn-sm btn-outline-secondary"
+                id="loadAnalysisBtn"
+              >
+                Load
+              </button>
+              <button
+                class="btn btn-sm btn-outline-success"
+                id="downloadAnalysisBtn"
+                disabled
+              >
+                Download / Mark as Downloaded
+              </button>
+            </div>
+          </div>
+          <div class="card-body">
+            <div id="analysisStatus" class="small text-muted mb-2"></div>
+            <div id="analysisContent" class="border rounded p-3 bg-light" style="min-height: 150px;">
+              <span class="text-muted">No analysis loaded yet. Enter a Prompt ID and click "Load".</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Test Scope Panel -->
+      <div
+        class="tab-pane fade"
+        id="test-scope-pane"
+        role="tabpanel"
+        aria-labelledby="test-scope-tab"
+      >
+        <div class="mb-3 d-flex flex-wrap align-items-center justify-content-between">
+          <div class="d-flex align-items-center gap-2">
+            <label for="scopePromptIdInput" class="form-label mb-0">Prompt ID</label>
+            <input
+              type="text"
+              class="form-control form-control-sm"
+              id="scopePromptIdInput"
+              placeholder="Prompt ID"
+              style="max-width: 220px;"
+            />
+            <button class="btn btn-sm btn-outline-secondary" id="loadScopeBtn">
+              Load Test Scope
+            </button>
+          </div>
+          <div id="scopeStatus" class="small text-muted mt-2 mt-md-0"></div>
+        </div>
+
+        <div class="test-scope-layout">
+          <!-- Left: Sections -->
+          <div class="test-scope-left">
+            <div class="d-flex justify-content-between align-items-center mb-2">
+              <h6 class="mb-0">Sections</h6>
+            </div>
+            <div id="sectionList">
+              <div class="text-muted small">
+                Load a Prompt ID to display sections.
+              </div>
+            </div>
+          </div>
+
+          <!-- Right: Test Cases Table -->
+          <div class="test-scope-right">
+            <div class="d-flex justify-content-between align-items-center mb-2">
+              <h6 class="mb-0" id="selectedSectionTitle">Test Cases</h6>
+            </div>
+
+            <div class="table-responsive">
+              <table class="table table-sm table-hover align-middle mb-0">
+                <thead class="table-light">
+                  <tr>
+                    <th style="width: 80px;">ID</th>
+                    <th>Test Title</th>
+                    <th style="width: 150px;" class="text-end">Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="testCaseTableBody">
+                  <tr>
+                    <td colspan="3" class="text-center text-muted small">
+                      No test cases loaded.
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+      <!-- End Test Scope Panel -->
+    </div>
+  </div>
+
+  <!-- View Test Case Modal -->
+  <div
+    class="modal fade"
+    id="viewTestCaseModal"
+    tabindex="-1"
+    aria-labelledby="viewTestCaseModalLabel"
+    aria-hidden="true"
+  >
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title" id="viewTestCaseModalLabel">Test Case Details</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
+          <dl class="row mb-0">
+            <dt class="col-sm-3">ID</dt>
+            <dd class="col-sm-9" id="viewTcId"></dd>
+
+            <dt class="col-sm-3">Title</dt>
+            <dd class="col-sm-9" id="viewTcTitle"></dd>
+
+            <dt class="col-sm-3">Section</dt>
+            <dd class="col-sm-9" id="viewTcSection"></dd>
+
+            <dt class="col-sm-3">Steps</dt>
+            <dd class="col-sm-9">
+              <pre id="viewTcSteps" class="mb-0" style="white-space: pre-wrap;"></pre>
+            </dd>
+
+            <dt class="col-sm-3 mt-2">Expected Result</dt>
+            <dd class="col-sm-9 mt-2">
+              <pre id="viewTcExpected" class="mb-0" style="white-space: pre-wrap;"></pre>
+            </dd>
+          </dl>
+        </div>
+        <div class="modal-footer">
+          <button
+            type="button"
+            class="btn btn-secondary"
+            data-bs-dismiss="modal"
+          >
+            Close
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Edit Test Case Modal -->
+  <div
+    class="modal fade"
+    id="editTestCaseModal"
+    tabindex="-1"
+    aria-labelledby="editTestCaseModalLabel"
+    aria-hidden="true"
+  >
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+      <div class="modal-content">
+        <form id="editTestCaseForm">
+          <div class="modal-header">
+            <h5 class="modal-title" id="editTestCaseModalLabel">Edit Test Case</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+          </div>
+          <div class="modal-body">
+            <input type="hidden" id="editTcId" />
+            <input type="hidden" id="editTcPromptId" />
+            <div class="mb-3">
+              <label for="editTcTitle" class="form-label">Test Title</label>
+              <input
+                type="text"
+                class="form-control"
+                id="editTcTitle"
+                required
+              />
+            </div>
+            <div class="mb-3">
+              <label for="editTcSection" class="form-label">Section</label>
+              <input
+                type="text"
+                class="form-control"
+                id="editTcSection"
+                required
+              />
+            </div>
+            <div class="mb-3">
+              <label for="editTcSteps" class="form-label">Steps</label>
+              <textarea
+                class="form-control"
+                id="editTcSteps"
+                rows="5"
+                required
+              ></textarea>
+            </div>
+            <div class="mb-3">
+              <label for="editTcExpected" class="form-label">Expected Result</label>
+              <textarea
+                class="form-control"
+                id="editTcExpected"
+                rows="4"
+                required
+              ></textarea>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button
+              type="button"
+              class="btn btn-secondary"
+              data-bs-dismiss="modal"
+            >
+              Cancel
+            </button>
+            <button type="submit" class="btn btn-primary">
+              Save Changes
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- Delete Confirmation Modal -->
+  <div
+    class="modal fade"
+    id="deleteTestCaseModal"
+    tabindex="-1"
+    aria-labelledby="deleteTestCaseModalLabel"
+    aria-hidden="true"
+  >
+    <div class="modal-dialog">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title" id="deleteTestCaseModalLabel">
+            Delete Test Case
+          </h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
+          <p id="deleteMessage">
+            Are you sure you want to delete this test case?
+          </p>
+          <input type="hidden" id="deleteTcId" />
+          <input type="hidden" id="deleteTcPromptId" />
+        </div>
+        <div class="modal-footer">
+          <button
+            type="button"
+            class="btn btn-secondary"
+            data-bs-dismiss="modal"
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            class="btn btn-danger"
+            id="confirmDeleteBtn"
+          >
+            Delete
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Bootstrap JS + dependencies (Bundle includes Popper) -->
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+
+  <script>
+    // --- Helper: simple fetch wrapper ---
+    async function apiRequest(url, options = {}) {
+      const response = await fetch(url, {
+        headers: {
+          "Content-Type": "application/json",
+          ...(options.headers || {})
+        },
+        ...options,
+      });
+      if (!response.ok) {
+        const text = await response.text();
+        throw new Error(text || response.statusText);
+      }
+      return response.json();
+    }
+
+    // --- FORM: Submit to /ask ---
+    const qaForm = document.getElementById("qaForm");
+    const formStatus = document.getElementById("formStatus");
+    const submitFormBtn = document.getElementById("submitFormBtn");
+
+    qaForm.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      formStatus.textContent = "";
+      submitFormBtn.disabled = true;
+      submitFormBtn.textContent = "Submitting...";
+
+      const payload = {
+        promptId: document.getElementById("promptIdInput").value.trim(),
+        projectName: document.getElementById("projectNameInput").value.trim(),
+        docType: document.getElementById("docTypeSelect").value,
+        prdUrl: document.getElementById("prdUrlInput").value.trim(),
+        rfcUrl: document.getElementById("rfcUrlInput").value.trim(),
+        figmaUrl: document.getElementById("figmaUrlInput").value.trim(),
+        context: document.getElementById("contextInput").value.trim(),
+        rawContent: document.getElementById("rawContentInput").value.trim(),
+      };
+
+      if (!payload.promptId) {
+        formStatus.textContent = "Prompt ID is required.";
+        submitFormBtn.disabled = false;
+        submitFormBtn.textContent = "Submit for Analysis";
+        return;
+      }
+
+      try {
+        // Adjust payload structure to match your backend
+        await apiRequest("/ask", {
+          method: "POST",
+          body: JSON.stringify(payload),
+        });
+
+        formStatus.textContent = "Submitted successfully. You can open Test Results with this Prompt ID.";
+        formStatus.classList.remove("text-danger");
+        formStatus.classList.add("text-success");
+      } catch (err) {
+        formStatus.textContent = "Submission failed: " + err.message;
+        formStatus.classList.remove("text-success");
+        formStatus.classList.add("text-danger");
+      } finally {
+        submitFormBtn.disabled = false;
+        submitFormBtn.textContent = "Submit for Analysis";
+      }
+    });
+
+    // --- TEST ANALYSIS: /testanalys/{promptID} ---
+    const loadAnalysisBtn = document.getElementById("loadAnalysisBtn");
+    const downloadAnalysisBtn = document.getElementById("downloadAnalysisBtn");
+    const analysisPromptIdInput = document.getElementById("analysisPromptIdInput");
+    const analysisStatus = document.getElementById("analysisStatus");
+    const analysisContent = document.getElementById("analysisContent");
+
+    let currentAnalysisPromptId = null;
+
+    loadAnalysisBtn.addEventListener("click", async () => {
+      const promptId = analysisPromptIdInput.value.trim();
+      if (!promptId) {
+        analysisStatus.textContent = "Prompt ID is required.";
+        return;
+      }
+
+      analysisStatus.textContent = "Loading analysis...";
+      downloadAnalysisBtn.disabled = true;
+      currentAnalysisPromptId = promptId;
+
+      try {
+        // Expected response example:
+        // { analysis: "string with test analysis..." }
+        const data = await apiRequest(`/testanalys/${encodeURIComponent(promptId)}`);
+
+        analysisContent.innerHTML = "";
+        const pre = document.createElement("pre");
+        pre.style.whiteSpace = "pre-wrap";
+        pre.textContent = data.analysis || "No analysis content returned.";
+        analysisContent.appendChild(pre);
+
+        analysisStatus.textContent = "Analysis loaded.";
+        downloadAnalysisBtn.disabled = false;
+      } catch (err) {
+        analysisContent.innerHTML = '<span class="text-danger">Failed to load analysis.</span>';
+        analysisStatus.textContent = err.message;
+        downloadAnalysisBtn.disabled = true;
+      }
+    });
+
+    downloadAnalysisBtn.addEventListener("click", async () => {
+      if (!currentAnalysisPromptId) return;
+
+      downloadAnalysisBtn.disabled = true;
+      downloadAnalysisBtn.textContent = "Updating...";
+
+      try {
+        // If you want to mark the analysis as downloaded / update any status,
+        // you can implement your own endpoint, e.g. POST /testanalys/{promptID}/download
+        // For now, we'll just simulate a call:
+        await apiRequest(`/testanalys/${encodeURIComponent(currentAnalysisPromptId)}/download`, {
+          method: "POST",
+          body: JSON.stringify({ downloadedAt: new Date().toISOString() }),
+        });
+
+        analysisStatus.textContent = "Analysis marked as downloaded.";
+      } catch (err) {
+        analysisStatus.textContent = "Download update failed: " + err.message;
+      } finally {
+        downloadAnalysisBtn.disabled = false;
+        downloadAnalysisBtn.textContent = "Download / Mark as Downloaded";
+      }
+    });
+
+    // --- TEST SCOPE: /getTestcases/{promptID} ---
+    const scopePromptIdInput = document.getElementById("scopePromptIdInput");
+    const loadScopeBtn = document.getElementById("loadScopeBtn");
+    const scopeStatus = document.getElementById("scopeStatus");
+    const sectionListEl = document.getElementById("sectionList");
+    const testCaseTableBody = document.getElementById("testCaseTableBody");
+    const selectedSectionTitle = document.getElementById("selectedSectionTitle");
+
+    let allTestCases = []; // raw data from backend
+    let sections = [];     // derived sections
+    let selectedSection = null;
+    let currentScopePromptId = null;
+
+    loadScopeBtn.addEventListener("click", () => {
+      const promptId = scopePromptIdInput.value.trim();
+      if (!promptId) {
+        scopeStatus.textContent = "Prompt ID is required.";
+        return;
+      }
+      loadTestScope(promptId);
+    });
+
+    async function loadTestScope(promptId) {
+      scopeStatus.textContent = "Loading test cases...";
+      currentScopePromptId = promptId;
+      allTestCases = [];
+      sections = [];
+      selectedSection = null;
+      sectionListEl.innerHTML = "";
+      testCaseTableBody.innerHTML = `
+        <tr><td colspan="3" class="text-center text-muted small">
+          Loading...
+        </td></tr>`;
+
+      try {
+        // Expected response example:
+        // {
+        //   testcases: [
+        //     { id: "TC-1", title: "Login with valid credentials", section: "Login", steps: "...", expected: "..." },
+        //     ...
+        //   ]
+        // }
+        const data = await apiRequest(`/testcase/${encodeURIComponent(promptId)}`);
+        const rawSections = Array.isArray(data.data.testCases) ? data.data.testCases : [];
+        allTestCases = rawSections.flatMap(group =>
+          (group["test cases"] || []).map(tc => ({
+            ...tc,
+            section: group.section || "Uncategorized",
+            steps: Array.isArray(tc.steps) ? tc.steps.join("\n") : (tc.steps || ""),
+            expected: tc.expectedResult || tc.expected || "",
+          }))
+        );
+
+        if (!allTestCases.length) {
+          scopeStatus.textContent = "No test cases found for this Prompt ID.";
+          sectionListEl.innerHTML = '<div class="text-muted small">No sections available.</div>';
+          testCaseTableBody.innerHTML = `
+            <tr><td colspan="3" class="text-center text-muted small">
+              No test cases available.
+            </td></tr>`;
+          return;
+        }
+
+        // Build sections from test cases
+        const sectionMap = new Map();
+        allTestCases.forEach(tc => {
+          const sec = (tc.section || "Uncategorized").trim();
+          if (!sectionMap.has(sec)) {
+            sectionMap.set(sec, []);
+          }
+          sectionMap.get(sec).push(tc);
+        });
+
+        sections = Array.from(sectionMap.entries()).map(([name, tcs]) => ({
+          name,
+          testcases: tcs,
+        }));
+
+        renderSections();
+        // Auto-select first section
+        if (sections.length) {
+          selectSection(sections[0].name);
+        }
+
+        scopeStatus.textContent = `Loaded ${allTestCases.length} test case(s) across ${sections.length} section(s).`;
+      } catch (err) {
+        scopeStatus.textContent = "Failed to load test scope: " + err.message;
+        sectionListEl.innerHTML = '<div class="text-danger small">Error loading sections.</div>';
+        testCaseTableBody.innerHTML = `
+          <tr><td colspan="3" class="text-center text-danger small">
+            Error loading test cases.
+          </td></tr>`;
+      }
+    }
+
+    function renderSections() {
+      sectionListEl.innerHTML = "";
+      sections.forEach(sec => {
+        const div = document.createElement("div");
+        div.className = "section-item";
+        if (sec.name === selectedSection) {
+          div.classList.add("active");
+        }
+        div.textContent = `${sec.name} (${sec.testcases.length})`;
+        div.dataset.section = sec.name;
+        div.addEventListener("click", () => {
+          selectSection(sec.name);
+        });
+        sectionListEl.appendChild(div);
+      });
+    }
+
+    function selectSection(sectionName) {
+      selectedSection = sectionName;
+      renderSections();
+
+      const section = sections.find(s => s.name === sectionName);
+      selectedSectionTitle.textContent = `Test Cases — ${sectionName}`;
+
+      const tcs = section ? section.testcases : [];
+      if (!tcs.length) {
+        testCaseTableBody.innerHTML = `
+          <tr><td colspan="3" class="text-center text-muted small">
+            No test cases in this section.
+          </td></tr>`;
+        return;
+      }
+
+      testCaseTableBody.innerHTML = "";
+      tcs.forEach(tc => {
+        const tr = document.createElement("tr");
+
+        const tdId = document.createElement("td");
+        tdId.textContent = tc.id || "";
+        tr.appendChild(tdId);
+
+        const tdTitle = document.createElement("td");
+        tdTitle.textContent = tc.title || "";
+        tr.appendChild(tdTitle);
+
+        const tdActions = document.createElement("td");
+        tdActions.className = "text-end";
+        tdActions.innerHTML = `
+          <button class="btn btn-sm btn-outline-secondary me-1">See Detail</button>
+          <button class="btn btn-sm btn-outline-primary me-1">Edit</button>
+          <button class="btn btn-sm btn-outline-danger">Delete</button>
+        `;
+
+        const [btnView, btnEdit, btnDelete] = tdActions.querySelectorAll("button");
+
+        btnView.addEventListener("click", () => openViewModal(tc));
+        btnEdit.addEventListener("click", () => openEditModal(tc));
+        btnDelete.addEventListener("click", () => openDeleteModal(tc));
+
+        tr.appendChild(tdActions);
+        testCaseTableBody.appendChild(tr);
+      });
+    }
+
+    // --- Modals logic ---
+
+    // View
+    const viewTestCaseModal = new bootstrap.Modal(document.getElementById("viewTestCaseModal"));
+    function openViewModal(tc) {
+    console.log(tc)
+      document.getElementById("viewTcId").textContent = tc.id || "";
+      document.getElementById("viewTcTitle").textContent = tc.title || "";
+      document.getElementById("viewTcSection").textContent = tc.section || "";
+      document.getElementById("viewTcSteps").textContent = tc.steps || "";
+      document.getElementById("viewTcExpected").textContent = tc.expected || "";
+      viewTestCaseModal.show();
+    }
+
+    // Edit
+    const editTestCaseModal = new bootstrap.Modal(document.getElementById("editTestCaseModal"));
+    const editTestCaseForm = document.getElementById("editTestCaseForm");
+
+    function openEditModal(tc) {
+      document.getElementById("editTcId").value = tc.id || "";
+      document.getElementById("editTcPromptId").value = currentScopePromptId || "";
+      document.getElementById("editTcTitle").value = tc.title || "";
+      document.getElementById("editTcSection").value = tc.section || "";
+      document.getElementById("editTcSteps").value = tc.steps || "";
+      document.getElementById("editTcExpected").value = tc.expected || "";
+      editTestCaseModal.show();
+    }
+
+    editTestCaseForm.addEventListener("submit", async (e) => {
+      e.preventDefault();
+
+      const tcId = document.getElementById("editTcId").value;
+      const promptId = document.getElementById("editTcPromptId").value;
+      const updated = {
+        id: tcId,
+        promptId: promptId,
+        title: document.getElementById("editTcTitle").value.trim(),
+        section: document.getElementById("editTcSection").value.trim(),
+        steps: document.getElementById("editTcSteps").value.trim(),
+        expected: document.getElementById("editTcExpected").value.trim(),
+      };
+
+      try {
+        await apiRequest("/updateTestCase", {
+          method: "POST",
+          body: JSON.stringify(updated),
+        });
+
+        // Update local data to reflect changes
+        allTestCases = allTestCases.map(tc => tc.id === tcId ? { ...tc, ...updated } : tc);
+
+        // Rebuild sections and keep current selection
+        const prevSection = selectedSection;
+        const sectionMap = new Map();
+        allTestCases.forEach(tc => {
+          const sec = (tc.section || "Uncategorized").trim();
+          if (!sectionMap.has(sec)) {
+            sectionMap.set(sec, []);
+          }
+          sectionMap.get(sec).push(tc);
+        });
+        sections = Array.from(sectionMap.entries()).map(([name, tcs]) => ({
+          name,
+          testcases: tcs,
+        }));
+
+        // Keep same section if still exists, otherwise default to first
+        const sectionNames = sections.map(s => s.name);
+        if (prevSection && sectionNames.includes(prevSection)) {
+          selectSection(prevSection);
+        } else if (sections.length) {
+          selectSection(sections[0].name);
+        }
+
+        editTestCaseModal.hide();
+      } catch (err) {
+        alert("Failed to update test case: " + err.message);
+      }
+    });
+
+    // Delete
+    const deleteTestCaseModal = new bootstrap.Modal(document.getElementById("deleteTestCaseModal"));
+    const confirmDeleteBtn = document.getElementById("confirmDeleteBtn");
+
+    function openDeleteModal(tc) {
+      document.getElementById("deleteTcId").value = tc.id || "";
+      document.getElementById("deleteTcPromptId").value = currentScopePromptId || "";
+      document.getElementById("deleteMessage").textContent =
+        `Are you sure you want to delete test case "${tc.title || tc.id}"?`;
+      deleteTestCaseModal.show();
+    }
+
+    confirmDeleteBtn.addEventListener("click", async () => {
+      const tcId = document.getElementById("deleteTcId").value;
+      const promptId = document.getElementById("deleteTcPromptId").value;
+
+      confirmDeleteBtn.disabled = true;
+      confirmDeleteBtn.textContent = "Deleting...";
+
+      try {
+        await apiRequest(`/deleteTestCase/${encodeURIComponent(promptId)}/${encodeURIComponent(tcId)}`, {
+          method: "DELETE",
+        });
+
+        // Remove from local data
+        allTestCases = allTestCases.filter(tc => tc.id !== tcId);
+
+        // Rebuild sections and keep selection if possible
+        const prevSection = selectedSection;
+        const sectionMap = new Map();
+        allTestCases.forEach(tc => {
+          const sec = (tc.section || "Uncategorized").trim();
+          if (!sectionMap.has(sec)) {
+            sectionMap.set(sec, []);
+          }
+          sectionMap.get(sec).push(tc);
+        });
+        sections = Array.from(sectionMap.entries()).map(([name, tcs]) => ({
+          name,
+          testcases: tcs,
+        }));
+
+        const sectionNames = sections.map(s => s.name);
+        if (prevSection && sectionNames.includes(prevSection)) {
+          selectSection(prevSection);
+        } else if (sections.length) {
+          selectSection(sections[0].name);
+        } else {
+          sectionListEl.innerHTML = '<div class="text-muted small">No sections available.</div>';
+          testCaseTableBody.innerHTML = `
+            <tr><td colspan="3" class="text-center text-muted small">
+              No test cases available.
+            </td></tr>`;
+          selectedSectionTitle.textContent = "Test Cases";
+        }
+
+        deleteTestCaseModal.hide();
+      } catch (err) {
+        alert("Failed to delete test case: " + err.message);
+      } finally {
+        confirmDeleteBtn.disabled = false;
+        confirmDeleteBtn.textContent = "Delete";
+      }
+    });
+  </script>
+</body>
+</html>
