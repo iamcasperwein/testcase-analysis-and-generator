@@ -5,8 +5,8 @@ const getDashboard = async (req, res) => {
         const prompts = await DashboardService.getPromptData();
 
         const total      = prompts.length;
-        const completed  = prompts.filter(p => /completed|done/i.test(p.status || "")).length;
-        const inProgress = prompts.filter(p => /processing|in_progress/i.test(p.status || "")).length;
+        const completed  = prompts.filter(p => /COMPLETED|DONE/i.test(p.status || "")).length;
+        const inProgress = prompts.filter(p => /PROCESSING|IN_PROGRESS/i.test(p.status || "")).length;
 
         const turnarounds = prompts
             .filter(p => p.startAt && p.endAt)

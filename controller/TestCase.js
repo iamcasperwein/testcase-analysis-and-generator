@@ -18,7 +18,7 @@ const getTestCases = async (req, res) => {
   }
 };
 
-const getAnalyzeData = async (req, res) => {
+const getAnalyzeResult = async (req, res) => {
   try {
     const { promptId } = req.params;
 
@@ -36,7 +36,39 @@ const getAnalyzeData = async (req, res) => {
   }
 };
 
+const editTestCase = async (req, res) => {
+  try {
+    const promptId = String(req.query.promptID || req.query.promptId || req.body.promptID || req.body.promptId || "").trim();
+    const testcaseId = String(req.query.testcaseId || req.body.testcaseId || req.body.id || "").trim();
+
+    if (!promptId || !testcaseId) {
+      return res.status(400).json({
+        success: false,
+        error: "promptID and testcaseId are required",
+      });
+    }
+
+    const result = await TestCaseService.editTestCase(promptId, testcaseId, req.body || {});
+    res.status(200).json({
+      success: true,
+      message: "Test case updated successfully",
+      data: result,
+    });
+  } catch (error) {
+    if (error.code === "ENOENT") {
+      return res.status(404).json({ success: false, error: "Test case data not found" });
+    }
+
+    if (error.statusCode) {
+      return res.status(error.statusCode).json({ success: false, error: error.message });
+    }
+
+    res.status(500).json({ success: false, error: error.message });
+  }
+};
+
 module.exports = {
   getTestCases,
-  getAnalyzeData,
+  getAnalyzeResult,
+  editTestCase,
 };
