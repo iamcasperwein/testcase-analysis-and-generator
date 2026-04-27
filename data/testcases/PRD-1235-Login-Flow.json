@@ -45,19 +45,6 @@
                     "expectedResult": "Complex or less immediate fields (e.g., 'Confirm Password' if it's separate from 'Password', or optional additional details) are only revealed when necessary, simplifying the initial user interaction. Fields appear logically as user progresses."
                 },
                 {
-                    "id": "TC-UI-004",
-                    "title": "Display and Separation of Alternative Login Methods",
-                    "type": "positive",
-                    "priority": "high",
-                    "preconditions": [
-                        "App is on the login/registration screen."
-                    ],
-                    "steps": [
-                        "Observe the section for social login buttons."
-                    ],
-                    "expectedResult": "Social login buttons (e.g., Google, Facebook, Apple) are clearly separated from the primary email/password fields. They display recognizable brand logos and are distinct, unambiguous, and easily tappable."
-                },
-                {
                     "id": "TC-UI-005",
                     "title": "Keyboard Interaction and UI Overlap",
                     "type": "positive",
@@ -91,7 +78,7 @@
             "test cases": [
                 {
                     "id": "TC-REG-001",
-                    "title": "Successful User Registration with Valid Credentials Successful User Registration with Valid Credentials Successful User Registration with Valid Credentials Successful User Registration with Valid Credentials Successful User Registration with Valid Credentials" ,
+                    "title": "Successful User Registration with Valid Credentials Successful User Registration with Valid Credentials Successful User Registration with Valid Credentials Successful User Registration with Valid Credentials Successful User Registration with Valid Credentials",
                     "type": "positive",
                     "priority": "high",
                     "preconditions": [
@@ -449,6 +436,24 @@
                         "Open the expired password reset link."
                     ],
                     "expectedResult": "An error message indicating the link is expired or invalid is displayed. The user is prompted to initiate the 'Forgot Password' flow again, providing a clear path to recovery."
+                }
+            ]
+        },
+        {
+            "section": "UI/UX & vcc",
+            "test cases": [
+                {
+                    "id": "TC-UI-004",
+                    "title": "Display and Separation of Alternative Login Methods",
+                    "type": "positive",
+                    "priority": "high",
+                    "preconditions": [
+                        "App is on the login/registration screen."
+                    ],
+                    "steps": [
+                        "Observe the section for social login buttons."
+                    ],
+                    "expectedResult": "Social login buttons (e.g., Google, Facebook, Apple) are clearly separated from the primary email/password fields. They display recognizable brand logos and are distinct, unambiguous, and easily tappable.v"
                 }
             ]
         }

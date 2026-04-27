@@ -1793,6 +1793,20 @@
         figmaUrl: figmaPreview.name || "",
         context: document.getElementById("contextInput").value.trim(),
         rawContent: [manualRawContent, ...contextBlocks].filter(Boolean).join("\n\n"),
+        documents: {
+          prd: {
+            name: prdPreview.name || "",
+            content: prdPreview.content || "",
+          },
+          rfc: {
+            name: rfcPreview.name || "",
+            content: rfcPreview.content || "",
+          },
+          figma: {
+            name: figmaPreview.name || "",
+            content: figmaPreview.content || "",
+          },
+        },
       };
 
       if (!payload.promptId) {
@@ -2370,7 +2384,7 @@
       };
 
       try {
-        await apiRequest("/updateTestCase", {
+        await apiRequest(`/testcase/edit?testcaseId=${encodeURIComponent(tcId)}&promptID=${encodeURIComponent(promptId)}`, {
           method: "POST",
           body: JSON.stringify(updated),
         });
@@ -2591,10 +2605,12 @@
 
     function getStatusBadge(status) {
       const map = {
-        COMPLETED:   "bg-success",
-        PROCESSING:  "bg-warning text-dark",
-        IN_PROGRESS: "bg-warning text-dark",
-        FAILED:      "bg-danger",
+        completed:   "bg-success",
+        done:        "bg-success",
+        processing:  "bg-warning text-dark",
+        in_progress: "bg-warning text-dark",
+        failed:      "bg-danger",
+        error:       "bg-danger",
       };
       const key = String(status || "").toLowerCase().replace(/ /g, "_");
       const cls = map[key] || "bg-secondary";

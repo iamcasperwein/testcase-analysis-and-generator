@@ -12,4 +12,16 @@ function readDataFile(fileName) {
     }
 }
 
-module.exports = { readDataFile };
+function writeDataFile(fileName, data) {
+    const filePath = path.join(__dirname, '../data', fileName);
+    try {
+        const content = typeof data === 'string' ? data : JSON.stringify(data, null, 4);
+        fs.writeFileSync(filePath, content, 'utf8');
+        return filePath;
+    } catch (error) {
+        console.error(`Error writing file ${filePath}:`, error.message);
+        throw error;
+    }
+}
+
+module.exports = { readDataFile, writeDataFile };
