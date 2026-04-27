@@ -91,9 +91,9 @@
     }
 
     .sidebar-toggle-btn {
-      border: 1px solid #d7e5ff;
-      background: #f5f9ff;
-      color: #3d5e93;
+      border: 1px solid #9fbef0;
+      background: #ffffff;
+      color: #1f4f96;
       width: 28px;
       height: 28px;
       border-radius: 0.45rem;
@@ -102,11 +102,13 @@
       justify-content: center;
       cursor: pointer;
       transition: all 0.2s ease;
+      box-shadow: 0 2px 8px rgba(13, 110, 253, 0.15);
     }
 
     .sidebar-toggle-btn:hover {
-      background: #eaf2ff;
-      border-color: #bed5ff;
+      background: #e9f1ff;
+      border-color: #7fa8e6;
+      color: #143f7f;
     }
 
     .side-nav {
@@ -208,14 +210,15 @@
     }
 
     .test-scope-left.is-collapsed h6,
-    .test-scope-left.is-collapsed #sectionList {
+    .test-scope-left.is-collapsed #sectionList,
+    .test-scope-left.is-collapsed .section-filter-toggle {
       display: none;
     }
 
     .panel-collapse-btn {
-      border: 1px solid #d7e5ff;
-      background: #f5f9ff;
-      color: #3d5e93;
+      border: 1px solid #9fbef0;
+      background: #ffffff;
+      color: #1f4f96;
       width: 24px;
       height: 24px;
       border-radius: 0.45rem;
@@ -224,11 +227,20 @@
       justify-content: center;
       cursor: pointer;
       transition: all 0.2s ease;
+      box-shadow: 0 2px 8px rgba(13, 110, 253, 0.15);
+    }
+
+    .panel-collapse-btn i,
+    .sidebar-toggle-btn i {
+      font-size: 0.95rem;
+      font-weight: 700;
+      line-height: 1;
     }
 
     .panel-collapse-btn:hover {
-      background: #eaf2ff;
-      border-color: #bed5ff;
+      background: #e9f1ff;
+      border-color: #7fa8e6;
+      color: #143f7f;
     }
 
     .test-scope-left.is-collapsed .panel-collapse-btn {
@@ -349,6 +361,135 @@
       font-weight: 600;
     }
 
+    .analysis-content-shell {
+      border: 1px solid #dbe7fb;
+      border-radius: 0.7rem;
+      background: #f8fbff;
+      min-height: 350px;
+      overflow: hidden;
+    }
+
+    .analysis-layout {
+      display: grid;
+      grid-template-columns: 260px minmax(0, 1fr);
+      height: calc(100vh - 220px);
+      min-height: 350px;
+      overflow: hidden;
+    }
+
+    .analysis-toc {
+      border-right: 1px solid #dbe7fb;
+      background: #f4f8ff;
+      overflow-y: auto;
+      padding: 0.6rem;
+      height: 100%;
+    }
+
+    .analysis-toc-title {
+      font-size: 0.76rem;
+      font-weight: 700;
+      color: #55719a;
+      letter-spacing: 0.03em;
+      text-transform: uppercase;
+      margin-bottom: 0.5rem;
+    }
+
+    .analysis-toc-item {
+      width: 100%;
+      text-align: left;
+      border: 1px solid transparent;
+      background: transparent;
+      color: #34527f;
+      font-size: 0.84rem;
+      line-height: 1.28;
+      border-radius: 0.45rem;
+      padding: 0.38rem 0.5rem;
+      margin-bottom: 0.2rem;
+      transition: all 0.2s ease;
+    }
+
+    .analysis-toc-item:hover {
+      background: #eaf2ff;
+      border-color: #d4e4ff;
+    }
+
+    .analysis-toc-item.active {
+      background: linear-gradient(90deg, #e2eeff 0%, #f1f7ff 100%);
+      border-color: #91b8f6;
+      color: #1f477f;
+      box-shadow: 0 4px 12px rgba(13, 110, 253, 0.12);
+    }
+
+    .analysis-toc-item.level-2 {
+      padding-left: 1rem;
+    }
+
+    .analysis-toc-item.level-3,
+    .analysis-toc-item.level-4 {
+      padding-left: 1.4rem;
+      font-size: 0.81rem;
+    }
+
+    .analysis-doc {
+      overflow-y: auto;
+      padding: 0.95rem 1.1rem;
+      background: #fff;
+      height: 100%;
+    }
+
+    .analysis-doc-empty,
+    .analysis-toc-empty {
+      color: #7487a6;
+      font-size: 0.88rem;
+      padding: 0.2rem;
+    }
+
+    .analysis-doc-section {
+      scroll-margin-top: 0.8rem;
+      margin-bottom: 1.2rem;
+      border-bottom: 1px solid #eef4ff;
+      padding-bottom: 0.85rem;
+    }
+
+    .analysis-doc-section:last-child {
+      border-bottom: 0;
+      margin-bottom: 0.2rem;
+      padding-bottom: 0.2rem;
+    }
+
+    .analysis-doc h2,
+    .analysis-doc h3,
+    .analysis-doc h4 {
+      color: #224f89;
+      margin-bottom: 0.5rem;
+      line-height: 1.3;
+      font-weight: 700;
+    }
+
+    .analysis-doc h2 {
+      font-size: 1.08rem;
+    }
+
+    .analysis-doc h3 {
+      font-size: 0.98rem;
+    }
+
+    .analysis-doc h4 {
+      font-size: 0.92rem;
+    }
+
+    .analysis-doc p {
+      margin-bottom: 0.42rem;
+      color: #334e77;
+      font-size: 0.9rem;
+      line-height: 1.5;
+      white-space: pre-wrap;
+    }
+
+    .analysis-doc p.analysis-list-line {
+      margin-bottom: 0.3rem;
+    }
+
     .section-item {
       cursor: pointer;
       padding: 0.45rem 0.6rem;
@@ -455,6 +596,35 @@
       margin-left: -0.15rem;
     }
 
+    .section-filter-toggle {
+      font-size: 0.76rem;
+      color: #4b5f84;
+      margin-bottom: 0.4rem;
+      padding: 0.2rem 0.1rem;
+      padding-left: 2.1rem;
+    }
+
+    .section-filter-toggle .form-check-input {
+      transform: none;
+      margin-top: 0.1rem;
+      margin-left: -2.1rem;
+      width: 1.95rem;
+      height: 1.05rem;
+      background-color: #e3eaf7;
+      border-color: #a8bddf;
+      box-shadow: none;
+    }
+
+    .section-filter-toggle .form-check-input:checked {
+      background-color: #3b82f6;
+      border-color: #3b82f6;
+    }
+
+    .section-filter-toggle .form-check-label {
+      font-weight: 600;
+      color: #4b648d;
+    }
+
     .icon-action-btn:hover {
       transform: translateY(-1px);
       box-shadow: 0 6px 16px rgba(13, 110, 253, 0.20);
@@ -507,11 +677,320 @@
       .scope-table {
         min-width: 760px;
       }
+
+      .analysis-layout {
+        grid-template-columns: 1fr;
+        max-height: none;
+      }
+
+      .analysis-toc {
+        border-right: 0;
+        border-bottom: 1px solid #dbe7fb;
+        max-height: 180px;
+      }
+
+      .analysis-doc {
+        max-height: 55vh;
+      }
     }
 
     textarea.form-control {
       resize: vertical;
     }
+
+    /* ---- PROMPT SEARCHABLE DROPDOWN ---- */
+    .prompt-select-wrap {
+      position: relative;
+      min-width: 240px;
+      max-width: 300px;
+    }
+
+    .prompt-select-trigger {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.35rem;
+      cursor: pointer;
+      background: #fff;
+      border: 1px solid #d8e5f8;
+      border-radius: 0.55rem;
+      padding: 0.3rem 0.6rem;
+      font-size: 0.86rem;
+      color: #3f5375;
+      user-select: none;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      min-height: 31px;
+    }
+
+    .prompt-select-trigger:hover {
+      border-color: #8ab4ff;
+    }
+
+    .prompt-select-trigger.open {
+      border-color: #8ab4ff;
+      box-shadow: 0 0 0 0.15rem rgba(13,110,253,0.12);
+    }
+
+    .prompt-select-trigger-text {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      flex: 1;
+      color: #3f5375;
+    }
+
+    .prompt-select-trigger-text.placeholder {
+      color: #a3afc2;
+    }
+
+    .prompt-select-dropdown {
+      display: none;
+      position: absolute;
+      top: calc(100% + 4px);
+      left: 0;
+      min-width: 100%;
+      max-width: 340px;
+      z-index: 9999;
+      background: #fff;
+      border: 1px solid #c8d9f6;
+      border-radius: 0.55rem;
+      box-shadow: 0 8px 28px rgba(13,110,253,0.13);
+      overflow: hidden;
+    }
+
+    .prompt-select-dropdown.open {
+      display: block;
+    }
+
+    .prompt-select-search {
+      width: 100%;
+      border: none;
+      border-bottom: 1px solid #e3ecfa;
+      padding: 0.4rem 0.65rem;
+      font-size: 0.84rem;
+      outline: none;
+      color: #2e4a75;
+      background: #f6f9ff;
+    }
+
+    .prompt-select-options {
+      max-height: 220px;
+      overflow-y: auto;
+    }
+
+    .prompt-select-option {
+      padding: 0.42rem 0.65rem;
+      font-size: 0.85rem;
+      cursor: pointer;
+      color: #2e4a75;
+      display: flex;
+      flex-direction: column;
+      gap: 0.05rem;
+      border-bottom: 1px solid #f0f5ff;
+    }
+
+    .prompt-select-option:last-child { border-bottom: 0; }
+
+    .prompt-select-option:hover,
+    .prompt-select-option.focused {
+      background: #edf4ff;
+    }
+
+    .prompt-select-option.selected {
+      background: #deeaff;
+      font-weight: 600;
+    }
+
+    .prompt-select-option-id {
+      font-weight: 600;
+      color: #1a4a8c;
+      font-size: 0.82rem;
+    }
+
+    .prompt-select-option-name {
+      font-size: 0.76rem;
+      color: #6b82a8;
+    }
+
+    .prompt-select-no-results {
+      padding: 0.6rem 0.65rem;
+      font-size: 0.82rem;
+      color: #8a9fc2;
+      text-align: center;
+    }
+
+    /* ---- DASHBOARD ---- */
+    .dash-header-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 1.2rem;
+    }
+
+    .dash-header-title {
+      font-size: 1.1rem;
+      font-weight: 700;
+      color: #1a3e72;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .dash-status-bar {
+      font-size: 0.78rem;
+      color: #8a9fc2;
+      margin-bottom: 1rem;
+    }
+
+    .dash-stat-grid {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 1rem;
+      margin-bottom: 1.4rem;
+    }
+
+    @media (max-width: 1200px) { .dash-stat-grid { grid-template-columns: repeat(3, 1fr); } }
+    @media (max-width: 700px)  { .dash-stat-grid { grid-template-columns: repeat(2, 1fr); } }
+
+    .dash-stat-card {
+      background: #fff;
+      border: 1px solid #e3edf8;
+      border-radius: 0.85rem;
+      padding: 1.1rem 1.15rem 0.95rem;
+      box-shadow: 0 2px 14px rgba(13,110,253,0.06);
+      display: flex;
+      flex-direction: column;
+      gap: 0.25rem;
+      position: relative;
+      overflow: hidden;
+      transition: box-shadow 0.18s ease, transform 0.18s ease;
+    }
+
+    .dash-stat-card:hover {
+      box-shadow: 0 8px 28px rgba(13,110,253,0.13);
+      transform: translateY(-2px);
+    }
+
+    .dash-stat-card::before {
+      content: "";
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 3px;
+      border-radius: 0.85rem 0.85rem 0 0;
+    }
+
+    .dash-stat-card.blue::before   { background: linear-gradient(90deg, #0d6efd, #4d9fff); }
+    .dash-stat-card.green::before  { background: linear-gradient(90deg, #20c997, #60e8c3); }
+    .dash-stat-card.orange::before { background: linear-gradient(90deg, #fd7e14, #ffaa60); }
+    .dash-stat-card.purple::before { background: linear-gradient(90deg, #6f42c1, #a57de8); }
+    .dash-stat-card.teal::before   { background: linear-gradient(90deg, #0dcaf0, #6cdff7); }
+
+    .dash-stat-icon {
+      font-size: 1.25rem;
+      margin-bottom: 0.15rem;
+      opacity: 0.85;
+    }
+
+    .dash-stat-card.blue   .dash-stat-icon { color: #0d6efd; }
+    .dash-stat-card.green  .dash-stat-icon { color: #20c997; }
+    .dash-stat-card.orange .dash-stat-icon { color: #fd7e14; }
+    .dash-stat-card.purple .dash-stat-icon { color: #6f42c1; }
+    .dash-stat-card.teal   .dash-stat-icon { color: #0dcaf0; }
+
+    .dash-stat-label {
+      font-size: 0.7rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.07em;
+      color: #7a8fb0;
+    }
+
+    .dash-stat-value {
+      font-size: 2.1rem;
+      font-weight: 800;
+      color: #1a3e72;
+      line-height: 1;
+      margin: 0.1rem 0;
+    }
+
+    .dash-stat-sub {
+      font-size: 0.72rem;
+      color: #a0b2cc;
+    }
+
+    .dash-divider {
+      border: none;
+      border-top: 1px solid #edf3fb;
+      margin: 0.4rem 0 1.1rem;
+    }
+
+    .dash-section-title {
+      font-size: 0.78rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.07em;
+      color: #4e6a92;
+      margin-bottom: 0.65rem;
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+    }
+
+    .dash-table { font-size: 0.86rem; }
+
+    .dash-table thead th {
+      background: #f4f8ff;
+      color: #3b5b8e;
+      font-weight: 700;
+      font-size: 0.76rem;
+      padding: 0.55rem 0.7rem;
+      position: sticky;
+      top: 0;
+      z-index: 2;
+      white-space: nowrap;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      border-bottom: 2px solid #dde8fb;
+    }
+
+    .dash-table td {
+      padding: 0.55rem 0.7rem;
+      vertical-align: middle;
+      color: #2f4a72;
+      border-bottom: 1px solid #f0f6ff;
+    }
+
+    .dash-table tbody tr:last-child td { border-bottom: 0; }
+    .dash-table tbody tr:hover td { background: #f5f9ff; }
+
+    .dash-table-wrap {
+      max-height: calc(100vh - 420px);
+      min-height: 120px;
+      overflow-y: auto;
+      border: 1px solid #dde8fb;
+      border-radius: 0.65rem;
+      box-shadow: 0 2px 8px rgba(13,110,253,0.04);
+    }
+
+    .dash-prompt-link {
+      cursor: pointer;
+      color: #1a5ec7;
+      font-weight: 600;
+      font-size: 0.84rem;
+    }
+
+    .dash-prompt-link:hover { color: #0a3b8a; text-decoration: underline; }
+
+    .dash-empty {
+      text-align: center;
+      padding: 2.5rem 1rem;
+      color: #7a90b2;
+      font-size: 0.9rem;
+    }
+
+    .dash-refresh-btn { font-size: 0.82rem; }
   </style>
 </head>
 <body>
@@ -537,13 +1016,26 @@
         <div class="nav nav-pills flex-column nav-panel side-nav" id="topPanelTabs" role="tablist" aria-orientation="vertical">
           <button
             class="nav-link active"
+            id="dashboard-tab"
+            data-bs-toggle="tab"
+            data-bs-target="#dashboard-pane"
+            type="button"
+            role="tab"
+            aria-controls="dashboard-pane"
+            aria-selected="true"
+          >
+            <i class="bi bi-speedometer2"></i>
+            <span>Dashboard</span>
+          </button>
+          <button
+            class="nav-link"
             id="form-tab"
             data-bs-toggle="tab"
             data-bs-target="#form-pane"
             type="button"
             role="tab"
             aria-controls="form-pane"
-            aria-selected="true"
+            aria-selected="false"
           >
             <i class="bi bi-ui-checks-grid"></i>
             <span>Form</span>
@@ -579,9 +1071,89 @@
 
       <main class="content-panel">
         <div class="tab-content content-wrapper" id="topPanelTabsContent">
-      <!-- Form Panel -->
+      <!-- Dashboard Panel -->
       <div
         class="tab-pane fade show active"
+        id="dashboard-pane"
+        role="tabpanel"
+        aria-labelledby="dashboard-tab"
+      >
+        <div class="card" style="border-radius:0.85rem;border:1px solid rgba(13,110,253,0.09);box-shadow:0 8px 32px rgba(13,110,253,0.07);background:#fff;">
+          <div class="card-body" style="padding:1.25rem 1.35rem 1.1rem;">
+
+            <div class="dash-header-bar">
+              <div class="dash-header-title"><i class="bi bi-speedometer2"></i> Dashboard</div>
+              <button class="btn btn-sm btn-outline-secondary dash-refresh-btn" id="dashRefreshBtn">
+                <i class="bi bi-arrow-clockwise me-1"></i>Refresh
+              </button>
+            </div>
+
+            <div id="dashStatus" class="dash-status-bar"></div>
+
+            <!-- Stat cards -->
+            <div class="dash-stat-grid" id="dashStatGrid">
+              <div class="dash-stat-card blue">
+                <div class="dash-stat-icon"><i class="bi bi-collection"></i></div>
+                <div class="dash-stat-label">Total Prompts</div>
+                <div class="dash-stat-value" id="dashStatTotal">—</div>
+                <div class="dash-stat-sub">all time</div>
+              </div>
+              <div class="dash-stat-card green">
+                <div class="dash-stat-icon"><i class="bi bi-check-circle"></i></div>
+                <div class="dash-stat-label">Completed</div>
+                <div class="dash-stat-value" id="dashStatCompleted">—</div>
+                <div class="dash-stat-sub">with test cases</div>
+              </div>
+              <div class="dash-stat-card orange">
+                <div class="dash-stat-icon"><i class="bi bi-hourglass-split"></i></div>
+                <div class="dash-stat-label">In Progress</div>
+                <div class="dash-stat-value" id="dashStatInProgress">—</div>
+                <div class="dash-stat-sub">processing</div>
+              </div>
+              <div class="dash-stat-card purple">
+                <div class="dash-stat-icon"><i class="bi bi-stopwatch"></i></div>
+                <div class="dash-stat-label">Avg Turnaround</div>
+                <div class="dash-stat-value" id="dashStatAvgTime">—</div>
+                <div class="dash-stat-sub">per prompt</div>
+              </div>
+              <div class="dash-stat-card teal">
+                <div class="dash-stat-icon"><i class="bi bi-list-check"></i></div>
+                <div class="dash-stat-label">Total Test Cases</div>
+                <div class="dash-stat-value" id="dashStatTotalTc">—</div>
+                <div class="dash-stat-sub">generated</div>
+              </div>
+            </div>
+
+            <hr class="dash-divider" />
+
+            <!-- Prompt table -->
+            <div class="dash-section-title"><i class="bi bi-table"></i>Recent Prompts</div>
+            <div class="dash-table-wrap">
+              <table class="table table-sm table-hover mb-0 dash-table">
+                <thead>
+                  <tr>
+                    <th>Prompt ID</th>
+                    <th>Project</th>
+                    <th>Status</th>
+                    <th>Test Cases</th>
+                    <th>Turnaround</th>
+                    <th>Created At</th>
+                    <th class="text-end">Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="dashTableBody">
+                  <tr><td colspan="7" class="dash-empty">Loading...</td></tr>
+                </tbody>
+              </table>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+      <!-- Form Panel -->
+      <div
+        class="tab-pane fade"
         id="form-pane"
         role="tabpanel"
         aria-labelledby="form-tab"
@@ -756,32 +1328,38 @@
           <div class="card-header d-flex justify-content-between align-items-center">
             <h5 class="mb-0">Test Analysis</h5>
             <div class="d-flex align-items-center gap-2">
-              <input
-                type="text"
-                class="form-control form-control-sm"
-                id="analysisPromptIdInput"
-                placeholder="Prompt ID"
-                style="max-width: 220px;"
-              />
-              <button
-                class="btn btn-sm btn-outline-secondary"
-                id="loadAnalysisBtn"
-              >
-                Load
-              </button>
+              <div class="prompt-select-wrap" id="analysisPromptSelectWrap">
+                <div class="prompt-select-trigger" id="analysisPromptTrigger" tabindex="0">
+                  <span class="prompt-select-trigger-text placeholder" id="analysisPromptTriggerText">Select a prompt...</span>
+                  <i class="bi bi-chevron-down" style="font-size:0.75rem;flex-shrink:0;"></i>
+                </div>
+                <div class="prompt-select-dropdown" id="analysisPromptDropdown">
+                  <input type="text" class="prompt-select-search" id="analysisPromptSearch" placeholder="Search prompt..." autocomplete="off" />
+                  <div class="prompt-select-options" id="analysisPromptOptions"></div>
+                </div>
+              </div>
+              <input type="hidden" id="analysisPromptIdInput" />
               <button
                 class="btn btn-sm btn-outline-success"
                 id="downloadAnalysisBtn"
                 disabled
               >
-                Download / Mark as Downloaded
+                <i class="bi bi-download me-1"></i>Download
               </button>
             </div>
           </div>
           <div class="card-body">
             <div id="analysisStatus" class="small text-muted mb-2"></div>
-            <div id="analysisContent" class="border rounded p-3 bg-light" style="min-height: 150px;">
-              <span class="text-muted">No analysis loaded yet. Enter a Prompt ID and click "Load".</span>
+            <div id="analysisContent" class="analysis-content-shell">
+              <div class="analysis-layout">
+                <aside id="analysisToc" class="analysis-toc" aria-label="Analysis table of contents">
+                  <div class="analysis-toc-title">Contents</div>
+                  <div class="analysis-toc-empty">No sections yet.</div>
+                </aside>
+                <section id="analysisDoc" class="analysis-doc" aria-label="Analysis document">
+                  <div class="analysis-doc-empty">No analysis loaded yet. Enter a Prompt ID and click "Load".</div>
+                </section>
+              </div>
             </div>
           </div>
         </div>
@@ -796,17 +1374,17 @@
       >
         <div class="scope-toolbar mb-3 d-flex flex-wrap align-items-center justify-content-between">
           <div class="d-flex align-items-center gap-2">
-            <label for="scopePromptIdInput" class="form-label mb-0">Prompt ID</label>
-            <input
-              type="text"
-              class="form-control form-control-sm"
-              id="scopePromptIdInput"
-              placeholder="Prompt ID"
-              style="max-width: 220px;"
-            />
-            <button class="btn btn-sm btn-outline-secondary" id="loadScopeBtn">
-              <i class="bi bi-stars me-1"></i>Load Test Scope
-            </button>
+            <div class="prompt-select-wrap" id="scopePromptSelectWrap">
+              <div class="prompt-select-trigger" id="scopePromptTrigger" tabindex="0">
+                <span class="prompt-select-trigger-text placeholder" id="scopePromptTriggerText">Select a prompt...</span>
+                <i class="bi bi-chevron-down" style="font-size:0.75rem;flex-shrink:0;"></i>
+              </div>
+              <div class="prompt-select-dropdown" id="scopePromptDropdown">
+                <input type="text" class="prompt-select-search" id="scopePromptSearch" placeholder="Search prompt..." autocomplete="off" />
+                <div class="prompt-select-options" id="scopePromptOptions"></div>
+              </div>
+            </div>
+            <input type="hidden" id="scopePromptIdInput" />
           </div>
           <div id="scopeStatus" class="small text-muted mt-2 mt-md-0"></div>
         </div>
@@ -819,6 +1397,10 @@
               <button type="button" class="panel-collapse-btn" id="sectionPanelToggleBtn" aria-label="Collapse sections" title="Collapse sections">
                 <i class="bi bi-chevron-left"></i>
               </button>
+            </div>
+            <div class="form-check form-switch section-filter-toggle">
+              <input class="form-check-input" type="checkbox" role="switch" id="focusSectionToggle" checked>
+              <label class="form-check-label" for="focusSectionToggle">Show selected section only</label>
             </div>
             <div id="sectionList">
               <div class="text-muted small">
@@ -891,6 +1473,11 @@
             <dt class="col-sm-3">Section</dt>
             <dd class="col-sm-9" id="viewTcSection"></dd>
 
+            <dt class="col-sm-3">Preconditions</dt>
+            <dd class="col-sm-9">
+              <pre id="viewTcPreconditions" class="mb-0" style="white-space: pre-wrap;"></pre>
+            </dd>
+
             <dt class="col-sm-3">Steps</dt>
             <dd class="col-sm-9">
               <pre id="viewTcSteps" class="mb-0" style="white-space: pre-wrap;"></pre>
@@ -950,6 +1537,15 @@
                 id="editTcSection"
                 required
               />
+            </div>
+            <div class="mb-3">
+              <label for="editTcPreconditions" class="form-label">Preconditions</label>
+              <textarea
+                class="form-control"
+                id="editTcPreconditions"
+                rows="3"
+                placeholder="One precondition per line"
+              ></textarea>
             </div>
             <div class="mb-3">
               <label for="editTcSteps" class="form-label">Steps</label>
@@ -1036,18 +1632,58 @@
   <script>
     // --- Helper: simple fetch wrapper ---
     async function apiRequest(url, options = {}) {
-      const response = await fetch(url, {
-        headers: {
-          "Content-Type": "application/json",
-          ...(options.headers || {})
-        },
-        ...options,
-      });
-      if (!response.ok) {
-        const text = await response.text();
-        throw new Error(text || response.statusText);
+      const isAbsolute = /^https?:\/\//i.test(url);
+      const normalizedPath = String(url || "").startsWith("/") ? String(url) : `/${String(url || "")}`;
+      const backendPort = "3001";
+
+      const candidates = [];
+      if (isAbsolute) {
+        candidates.push(url);
+      } else {
+        if (window.location.protocol === "file:") {
+          candidates.push(`http://localhost:${backendPort}${normalizedPath}`);
+        } else {
+          candidates.push(normalizedPath);
+
+          const isLocalHost = /^(localhost|127\.0\.0\.1)$/i.test(window.location.hostname);
+          if (isLocalHost && window.location.port !== backendPort) {
+            candidates.push(`http://localhost:${backendPort}${normalizedPath}`);
+          }
+        }
       }
-      return response.json();
+
+      let lastError = null;
+
+      for (const requestUrl of candidates) {
+        try {
+          const response = await fetch(requestUrl, {
+            headers: {
+              "Content-Type": "application/json",
+              ...(options.headers || {}),
+            },
+            ...options,
+          });
+
+          const rawText = await response.text();
+          const contentType = response.headers.get("content-type") || "";
+          const isJson = contentType.includes("application/json");
+          const parsedBody = isJson && rawText ? JSON.parse(rawText) : (rawText || null);
+
+          if (!response.ok) {
+            const backendMessage =
+              (parsedBody && typeof parsedBody === "object" && (parsedBody.error || parsedBody.message))
+              || (typeof parsedBody === "string" ? parsedBody : "")
+              || response.statusText;
+            throw new Error(`${response.status} ${backendMessage}`.trim());
+          }
+
+          return parsedBody;
+        } catch (err) {
+          lastError = err;
+        }
+      }
+
+      throw new Error(lastError?.message || "Failed to fetch API");
     }
 
     const appLayout = document.querySelector(".app-layout");
@@ -1186,73 +1822,212 @@
       }
     });
 
-    // --- TEST ANALYSIS: /testanalys/{promptID} ---
-    const loadAnalysisBtn = document.getElementById("loadAnalysisBtn");
+    // --- TEST ANALYSIS: /testcase/getAnalyzeResult/{promptID} ---
     const downloadAnalysisBtn = document.getElementById("downloadAnalysisBtn");
     const analysisPromptIdInput = document.getElementById("analysisPromptIdInput");
     const analysisStatus = document.getElementById("analysisStatus");
-    const analysisContent = document.getElementById("analysisContent");
+    const analysisToc = document.getElementById("analysisToc");
+    const analysisDoc = document.getElementById("analysisDoc");
 
     let currentAnalysisPromptId = null;
+    let currentAnalysisText = "";
 
-    loadAnalysisBtn.addEventListener("click", async () => {
-      const promptId = analysisPromptIdInput.value.trim();
+    async function doLoadAnalysis(promptId) {
       if (!promptId) {
-        analysisStatus.textContent = "Prompt ID is required.";
+        analysisStatus.textContent = "Select a prompt to load analysis.";
         return;
       }
 
       analysisStatus.textContent = "Loading analysis...";
       downloadAnalysisBtn.disabled = true;
       currentAnalysisPromptId = promptId;
+      currentAnalysisText = "";
 
       try {
-        // Expected response example:
-        // { analysis: "string with test analysis..." }
-        const data = await apiRequest(`/testanalys/${encodeURIComponent(promptId)}`);
+        const response = await apiRequest(`/testcase/getAnalyzeResult/${encodeURIComponent(promptId)}`);
+        const payload = response && typeof response === "object" && response.data ? response.data : response;
+        currentAnalysisText = typeof payload?.analysis === "string" ? payload.analysis : "";
 
-        analysisContent.innerHTML = "";
-        const pre = document.createElement("pre");
-        pre.style.whiteSpace = "pre-wrap";
-        pre.textContent = data.analysis || "No analysis content returned.";
-        analysisContent.appendChild(pre);
+        renderAnalysisDocument(currentAnalysisText);
 
         analysisStatus.textContent = "Analysis loaded.";
-        downloadAnalysisBtn.disabled = false;
+        downloadAnalysisBtn.disabled = !currentAnalysisText.trim();
       } catch (err) {
-        analysisContent.innerHTML = '<span class="text-danger">Failed to load analysis.</span>';
+        analysisToc.innerHTML = '<div class="analysis-toc-title">Contents</div><div class="analysis-toc-empty text-danger">Failed to load sections.</div>';
+        analysisDoc.innerHTML = '<div class="analysis-doc-empty text-danger">Failed to load analysis.</div>';
         analysisStatus.textContent = err.message;
         downloadAnalysisBtn.disabled = true;
       }
-    });
+    }
+
+    function parseAnalysisSections(rawText) {
+      const lines = String(rawText || "").replace(/\r\n?/g, "\n").split("\n");
+      const parsedSections = [];
+      let currentSection = null;
+      const introLines = [];
+
+      lines.forEach((line) => {
+        const trimmed = line.trim();
+        const hasLeadingWhitespace = /^\s+/.test(line);
+        const headingMatch = trimmed.match(/^(\d+(?:\.\d+)*)\.?\s+(.+)$/);
+
+        if (headingMatch && !hasLeadingWhitespace) {
+          currentSection = {
+            numbering: headingMatch[1],
+            title: headingMatch[2].trim(),
+            level: headingMatch[1].split(".").length,
+            lines: [],
+          };
+          parsedSections.push(currentSection);
+          return;
+        }
+
+        if (!currentSection) {
+          introLines.push(line);
+          return;
+        }
+
+        currentSection.lines.push(line);
+      });
+
+      const hasIntro = introLines.some((line) => line.trim());
+      if (hasIntro) {
+        parsedSections.unshift({
+          numbering: "",
+          title: "Introduction",
+          level: 1,
+          lines: introLines,
+        });
+      }
+
+      return parsedSections.map((section, index) => ({
+        ...section,
+        id: `analysis-section-${index + 1}`,
+      }));
+    }
+
+    function renderAnalysisBodyLines(container, lines) {
+      const usefulLines = Array.isArray(lines) ? lines : [];
+      const hasContent = usefulLines.some((line) => line.trim());
+
+      if (!hasContent) {
+        const emptyP = document.createElement("p");
+        emptyP.className = "text-muted mb-0";
+        emptyP.textContent = "No additional details.";
+        container.appendChild(emptyP);
+        return;
+      }
+
+      usefulLines.forEach((line) => {
+        const trimmed = line.trim();
+        if (!trimmed) {
+          return;
+        }
+
+        const listMatch = line.match(/^(\s*)([-*]|\d+\.)\s+(.+)$/);
+        const p = document.createElement("p");
+
+        if (listMatch) {
+          const indentSpaces = listMatch[1].replace(/\t/g, "  ").length;
+          const indentLevel = Math.min(5, Math.floor(indentSpaces / 2));
+          const bullet = /\d+\./.test(listMatch[2]) ? listMatch[2] : "•";
+          p.classList.add("analysis-list-line");
+          p.style.paddingLeft = `${indentLevel * 1.15}rem`;
+          p.textContent = `${bullet} ${listMatch[3].trim()}`;
+        } else {
+          p.textContent = trimmed;
+        }
+
+        container.appendChild(p);
+      });
+    }
+
+    function setActiveAnalysisTocItem(sectionId) {
+      analysisToc.querySelectorAll(".analysis-toc-item").forEach((item) => {
+        item.classList.toggle("active", item.dataset.sectionId === sectionId);
+      });
+    }
+
+    function renderAnalysisDocument(rawText) {
+      const sections = parseAnalysisSections(rawText);
+
+      analysisToc.innerHTML = '<div class="analysis-toc-title">Contents</div>';
+      analysisDoc.innerHTML = "";
+
+      if (!sections.length) {
+        const tocEmpty = document.createElement("div");
+        tocEmpty.className = "analysis-toc-empty";
+        tocEmpty.textContent = "No sections found in analysis.";
+        analysisToc.appendChild(tocEmpty);
+
+        const docEmpty = document.createElement("div");
+        docEmpty.className = "analysis-doc-empty";
+        docEmpty.textContent = "No analysis content returned.";
+        analysisDoc.appendChild(docEmpty);
+        return;
+      }
+
+      sections.forEach((section, index) => {
+        const tocBtn = document.createElement("button");
+        tocBtn.type = "button";
+        tocBtn.className = `analysis-toc-item level-${Math.min(4, section.level)}`;
+        tocBtn.dataset.sectionId = section.id;
+        tocBtn.textContent = `${section.numbering ? `${section.numbering} ` : ""}${section.title}`;
+        tocBtn.addEventListener("click", () => {
+          const target = document.getElementById(section.id);
+          if (target) {
+            target.scrollIntoView({ behavior: "smooth", block: "start" });
+            setActiveAnalysisTocItem(section.id);
+          }
+        });
+        analysisToc.appendChild(tocBtn);
+
+        const sectionEl = document.createElement("section");
+        sectionEl.className = "analysis-doc-section";
+        sectionEl.id = section.id;
+
+        const headingTag = section.level <= 1 ? "h2" : section.level === 2 ? "h3" : "h4";
+        const headingEl = document.createElement(headingTag);
+        headingEl.textContent = `${section.numbering ? `${section.numbering}. ` : ""}${section.title}`;
+        sectionEl.appendChild(headingEl);
+
+        renderAnalysisBodyLines(sectionEl, section.lines);
+        analysisDoc.appendChild(sectionEl);
+
+        if (index === 0) {
+          setActiveAnalysisTocItem(section.id);
+        }
+      });
+    }
 
     downloadAnalysisBtn.addEventListener("click", async () => {
-      if (!currentAnalysisPromptId) return;
+      if (!currentAnalysisPromptId || !currentAnalysisText.trim()) return;
 
       downloadAnalysisBtn.disabled = true;
-      downloadAnalysisBtn.textContent = "Updating...";
+      downloadAnalysisBtn.textContent = "Downloading...";
 
       try {
-        // If you want to mark the analysis as downloaded / update any status,
-        // you can implement your own endpoint, e.g. POST /testanalys/{promptID}/download
-        // For now, we'll just simulate a call:
-        await apiRequest(`/testanalys/${encodeURIComponent(currentAnalysisPromptId)}/download`, {
-          method: "POST",
-          body: JSON.stringify({ downloadedAt: new Date().toISOString() }),
-        });
+        const blob = new Blob([currentAnalysisText], { type: "text/plain;charset=utf-8" });
+        const url = URL.createObjectURL(blob);
+        const anchor = document.createElement("a");
+        anchor.href = url;
+        anchor.download = `${currentAnalysisPromptId}-analysis.txt`;
+        document.body.appendChild(anchor);
+        anchor.click();
+        anchor.remove();
+        URL.revokeObjectURL(url);
 
-        analysisStatus.textContent = "Analysis marked as downloaded.";
+        analysisStatus.textContent = "Analysis downloaded.";
       } catch (err) {
-        analysisStatus.textContent = "Download update failed: " + err.message;
+        analysisStatus.textContent = "Download failed: " + err.message;
       } finally {
         downloadAnalysisBtn.disabled = false;
-        downloadAnalysisBtn.textContent = "Download / Mark as Downloaded";
+        downloadAnalysisBtn.textContent = "Download";
       }
     });
 
-    // --- TEST SCOPE: /getTestcases/{promptID} ---
+    // --- TEST SCOPE: /testcase/{promptID} ---
     const scopePromptIdInput = document.getElementById("scopePromptIdInput");
-    const loadScopeBtn = document.getElementById("loadScopeBtn");
     const scopeStatus = document.getElementById("scopeStatus");
     const sectionListEl = document.getElementById("sectionList");
     const testCaseTableBody = document.getElementById("testCaseTableBody");
@@ -1260,24 +2035,39 @@
     const selectedSectionTitle = document.getElementById("selectedSectionTitle");
     const allViewFilters = document.getElementById("allViewFilters");
     const toggleIdColumn = document.getElementById("toggleIdColumn");
+    const focusSectionToggle = document.getElementById("focusSectionToggle");
 
     let allTestCases = []; // raw data from backend
     let sections = [];     // derived sections
     let selectedSection = "all";
     let currentScopePromptId = null;
-
-    loadScopeBtn.addEventListener("click", () => {
-      const promptId = scopePromptIdInput.value.trim();
-      if (!promptId) {
-        scopeStatus.textContent = "Prompt ID is required.";
-        return;
-      }
-      loadTestScope(promptId);
-    });
+    let focusSelectedSectionOnly = true;
 
     toggleIdColumn.addEventListener("change", () => {
       applyAllViewColumnVisibility();
     });
+
+    focusSectionToggle.addEventListener("change", () => {
+      setFocusSelectedSectionOnly(focusSectionToggle.checked);
+    });
+
+    function setFocusSelectedSectionOnly(isEnabled) {
+      focusSelectedSectionOnly = isEnabled;
+      focusSectionToggle.checked = isEnabled;
+      localStorage.setItem("qa_focus_selected_section_only", isEnabled ? "1" : "0");
+
+      if (!sections.length) return;
+
+      if (selectedSection === "all") {
+        selectedSectionTitle.textContent = "All Test Cases";
+      } else {
+        selectedSectionTitle.textContent = focusSelectedSectionOnly
+          ? `Test Cases · ${selectedSection}`
+          : `All Test Cases · ${selectedSection}`;
+      }
+
+      renderAllTestCases();
+    }
 
     function getVisibleColumnsCount() {
       let visibleColumns = 3;
@@ -1328,6 +2118,9 @@
           (group["test cases"] || []).map(tc => ({
             ...tc,
             section: group.section || "Uncategorized",
+            preconditions: Array.isArray(tc.preconditions)
+              ? tc.preconditions.join("\n")
+              : (tc.preconditions || ""),
             steps: Array.isArray(tc.steps) ? tc.steps.join("\n") : (tc.steps || ""),
             expected: tc.expectedResult || tc.expected || "",
           }))
@@ -1447,8 +2240,20 @@
         return;
       }
 
+      const sectionsToRender = (focusSelectedSectionOnly && selectedSection !== "all")
+        ? sections.filter(section => section.name === selectedSection)
+        : sections;
+
+      if (!sectionsToRender.length) {
+        testCaseTableBody.innerHTML = `
+          <tr><td colspan="3" class="text-center text-muted small">
+            No test cases available.
+          </td></tr>`;
+        return;
+      }
+
       testCaseTableBody.innerHTML = "";
-      sections.forEach(section => {
+      sectionsToRender.forEach(section => {
         const sectionRow = document.createElement("tr");
         sectionRow.className = "scope-section-row";
         sectionRow.dataset.sectionHeader = section.name;
@@ -1486,6 +2291,16 @@
       selectedSection = sectionName;
       renderSections();
 
+      if (focusSelectedSectionOnly) {
+        if (sectionName === "all") {
+          selectedSectionTitle.textContent = "All Test Cases";
+        } else {
+          selectedSectionTitle.textContent = `Test Cases · ${sectionName}`;
+        }
+        renderAllTestCases();
+        return;
+      }
+
       if (sectionName === "all") {
         selectedSectionTitle.textContent = "All Test Cases";
         applyAllViewColumnVisibility();
@@ -1508,6 +2323,8 @@
       }
     }
 
+    setFocusSelectedSectionOnly(localStorage.getItem("qa_focus_selected_section_only") !== "0");
+
     // --- Modals logic ---
 
     // View
@@ -1516,6 +2333,7 @@
       document.getElementById("viewTcId").textContent = tc.id || "";
       document.getElementById("viewTcTitle").textContent = tc.title || "";
       document.getElementById("viewTcSection").textContent = tc.section || "";
+      document.getElementById("viewTcPreconditions").textContent = tc.preconditions || "";
       document.getElementById("viewTcSteps").textContent = tc.steps || "";
       document.getElementById("viewTcExpected").textContent = tc.expected || "";
       viewTestCaseModal.show();
@@ -1530,6 +2348,7 @@
       document.getElementById("editTcPromptId").value = currentScopePromptId || "";
       document.getElementById("editTcTitle").value = tc.title || "";
       document.getElementById("editTcSection").value = tc.section || "";
+      document.getElementById("editTcPreconditions").value = tc.preconditions || "";
       document.getElementById("editTcSteps").value = tc.steps || "";
       document.getElementById("editTcExpected").value = tc.expected || "";
       editTestCaseModal.show();
@@ -1545,6 +2364,7 @@
         promptId: promptId,
         title: document.getElementById("editTcTitle").value.trim(),
         section: document.getElementById("editTcSection").value.trim(),
+        preconditions: document.getElementById("editTcPreconditions").value.trim(),
         steps: document.getElementById("editTcSteps").value.trim(),
         expected: document.getElementById("editTcExpected").value.trim(),
       };
@@ -1635,6 +2455,236 @@
         confirmDeleteBtn.textContent = "Delete";
       }
     });
+
+    // --- PROMPT DROPDOWN ---
+    let allPrompts = []; // [{promptId, projectName}]
+
+    function buildPromptDropdown(optionsEl, searchEl, triggerTextEl, triggerEl, dropdownEl, hiddenInput, onChange) {
+      function renderOptions(filter) {
+        const q = (filter || "").toLowerCase();
+        const filtered = allPrompts.filter(p =>
+          p.promptId.toLowerCase().includes(q) ||
+          (p.projectName || "").toLowerCase().includes(q)
+        );
+        optionsEl.innerHTML = "";
+        if (!filtered.length) {
+          optionsEl.innerHTML = `<div class="prompt-select-no-results">No prompts found.</div>`;
+          return;
+        }
+        filtered.forEach(p => {
+          const div = document.createElement("div");
+          div.className = "prompt-select-option" + (hiddenInput.value === p.promptId ? " selected" : "");
+          div.innerHTML = `<span class="prompt-select-option-id">${p.promptId}</span>${p.projectName ? `<span class="prompt-select-option-name">${p.projectName}</span>` : ""}`;
+          div.addEventListener("mousedown", (e) => {
+            e.preventDefault();
+            selectPrompt(p);
+          });
+          optionsEl.appendChild(div);
+        });
+      }
+
+      function selectPrompt(p) {
+        hiddenInput.value = p.promptId;
+        triggerTextEl.textContent = p.projectName ? `${p.promptId} — ${p.projectName}` : p.promptId;
+        triggerTextEl.classList.remove("placeholder");
+        closeDropdown();
+        if (onChange) onChange(p.promptId);
+      }
+
+      function openDropdown() {
+        dropdownEl.classList.add("open");
+        triggerEl.classList.add("open");
+        searchEl.value = "";
+        renderOptions("");
+        searchEl.focus();
+      }
+
+      function closeDropdown() {
+        dropdownEl.classList.remove("open");
+        triggerEl.classList.remove("open");
+      }
+
+      triggerEl.addEventListener("click", () => {
+        dropdownEl.classList.contains("open") ? closeDropdown() : openDropdown();
+      });
+
+      triggerEl.addEventListener("keydown", (e) => {
+        if (e.key === "Enter" || e.key === " ") { e.preventDefault(); openDropdown(); }
+      });
+
+      searchEl.addEventListener("input", () => renderOptions(searchEl.value));
+
+      searchEl.addEventListener("keydown", (e) => {
+        if (e.key === "Escape") closeDropdown();
+      });
+
+      document.addEventListener("click", (e) => {
+        if (!triggerEl.contains(e.target) && !dropdownEl.contains(e.target)) closeDropdown();
+      });
+
+      return { renderOptions, selectPromptById: (id) => {
+        const p = allPrompts.find(x => x.promptId === id);
+        if (p) selectPrompt(p);
+      }};
+    }
+
+    // Build dropdowns (will populate once prompts are loaded)
+    const analysisDropdown = buildPromptDropdown(
+      document.getElementById("analysisPromptOptions"),
+      document.getElementById("analysisPromptSearch"),
+      document.getElementById("analysisPromptTriggerText"),
+      document.getElementById("analysisPromptTrigger"),
+      document.getElementById("analysisPromptDropdown"),
+      document.getElementById("analysisPromptIdInput"),
+      (id) => { doLoadAnalysis(id); }
+    );
+
+    const scopeDropdown = buildPromptDropdown(
+      document.getElementById("scopePromptOptions"),
+      document.getElementById("scopePromptSearch"),
+      document.getElementById("scopePromptTriggerText"),
+      document.getElementById("scopePromptTrigger"),
+      document.getElementById("scopePromptDropdown"),
+      document.getElementById("scopePromptIdInput"),
+      (id) => { loadTestScope(id); }
+    );
+
+    async function loadAllPrompts() {
+      try {
+        const resp = await apiRequest("/dashboard/prompts");
+        const list = resp?.data ?? resp;
+        allPrompts = Array.isArray(list) ? list : [];
+      } catch (e) {
+        allPrompts = [];
+      }
+    }
+
+    // Load prompts on startup and refresh dropdowns when tabs are shown
+    loadAllPrompts();
+    document.getElementById("test-analysis-tab").addEventListener("shown.bs.tab", loadAllPrompts);
+    document.getElementById("test-scope-tab").addEventListener("shown.bs.tab", loadAllPrompts);
+
+    // --- DASHBOARD ---
+    const dashRefreshBtn    = document.getElementById("dashRefreshBtn");
+    const dashStatus        = document.getElementById("dashStatus");
+    const dashTableBody     = document.getElementById("dashTableBody");
+    const dashStatTotal     = document.getElementById("dashStatTotal");
+    const dashStatCompleted = document.getElementById("dashStatCompleted");
+    const dashStatInProgress= document.getElementById("dashStatInProgress");
+    const dashStatAvgTime   = document.getElementById("dashStatAvgTime");
+    const dashStatTotalTc   = document.getElementById("dashStatTotalTc");
+
+    function formatDashDate(str) {
+      if (!str) return "—";
+      try {
+        return new Date(str).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" });
+      } catch { return str; }
+    }
+
+    function formatDuration(ms) {
+      if (ms == null || isNaN(ms)) return "—";
+      const s = Math.round(ms / 1000);
+      if (s < 60) return `${s}s`;
+      const m = Math.floor(s / 60), rem = s % 60;
+      return `${m}m ${rem}s`;
+    }
+
+    function getStatusBadge(status) {
+      const map = {
+        COMPLETED:   "bg-success",
+        PROCESSING:  "bg-warning text-dark",
+        IN_PROGRESS: "bg-warning text-dark",
+        FAILED:      "bg-danger",
+      };
+      const key = String(status || "").toLowerCase().replace(/ /g, "_");
+      const cls = map[key] || "bg-secondary";
+      return `<span class="badge ${cls}">${status || "unknown"}</span>`;
+    }
+
+    async function loadDashboard() {
+      dashStatus.textContent = "Loading...";
+      dashTableBody.innerHTML = `<tr><td colspan="7" class="dash-empty"><div class="spinner-border spinner-border-sm text-primary me-2" role="status"></div>Fetching data...</td></tr>`;
+
+      try {
+        const resp = await apiRequest("/dashboard");
+        const data = resp?.data ?? resp;
+
+        const prompts   = Array.isArray(data?.prompts) ? data.prompts :
+                          Array.isArray(data)           ? data         : [];
+
+        const total     = data?.totalPrompts    ?? prompts.length;
+        const completed = data?.completed       ?? prompts.filter(p => /completed|done/i.test(p.status || "")).length;
+        const inProg    = data?.inProgress      ?? prompts.filter(p => /processing|in_progress/i.test(p.status || "")).length;
+        const avgMs     = data?.avgTurnaroundMs ?? null;
+        const totalTc   = data?.totalTestCases  ?? prompts.reduce((acc, p) => acc + (p.testCaseCount ?? 0), 0);
+
+        dashStatTotal.textContent       = total;
+        dashStatCompleted.textContent   = completed;
+        dashStatInProgress.textContent  = inProg;
+        dashStatAvgTime.textContent     = avgMs != null ? formatDuration(avgMs) : "—";
+        dashStatTotalTc.textContent     = totalTc || "—";
+
+        if (!prompts.length) {
+          dashTableBody.innerHTML = `<tr><td colspan="7" class="dash-empty">No prompts found.</td></tr>`;
+          dashStatus.textContent = "Dashboard loaded.";
+          return;
+        }
+
+        dashTableBody.innerHTML = "";
+        prompts.forEach(p => {
+          const promptId = p.promptId || p.id || "—";
+          const project  = p.projectName || p.project || "—";
+          const status   = p.status || "—";
+          const tc       = p.testCaseCount ?? "—";
+          const duration = p.turnaroundMs != null ? formatDuration(p.turnaroundMs) : "—";
+          const created  = formatDashDate(p.createdAt || p.created_at);
+
+          const tr = document.createElement("tr");
+          tr.innerHTML = `
+            <td><span class="dash-prompt-link" data-promptid="${promptId}">${promptId}</span></td>
+            <td>${project}</td>
+            <td>${getStatusBadge(status)}</td>
+            <td>${tc}</td>
+            <td>${duration}</td>
+            <td>${created}</td>
+            <td>
+              <button class="btn btn-sm btn-outline-primary py-0 px-1 dash-view-analysis" data-id="${promptId}" title="View Analysis" style="font-size:0.75rem;"><i class="bi bi-bar-chart-line"></i></button>
+              <button class="btn btn-sm btn-outline-secondary py-0 px-1 ms-1 dash-view-testcases" data-id="${promptId}" title="View Test Cases" style="font-size:0.75rem;"><i class="bi bi-list-check"></i></button>
+            </td>`;
+          dashTableBody.appendChild(tr);
+        });
+
+        dashTableBody.querySelectorAll(".dash-prompt-link, .dash-view-analysis").forEach(el => {
+          el.addEventListener("click", () => {
+            const id = el.dataset.promptid || el.dataset.id;
+            document.getElementById("analysisPromptIdInput").value = id;
+            analysisDropdown.selectPromptById(id);
+            document.getElementById("test-analysis-tab").click();
+            doLoadAnalysis(id);
+          });
+        });
+
+        dashTableBody.querySelectorAll(".dash-view-testcases").forEach(el => {
+          el.addEventListener("click", () => {
+            const id = el.dataset.id;
+            document.getElementById("scopePromptIdInput").value = id;
+            scopeDropdown.selectPromptById(id);
+            document.getElementById("test-scope-tab").click();
+            loadTestScope(id);
+          });
+        });
+
+        dashStatus.textContent = `Dashboard loaded · ${prompts.length} prompt(s).`;
+      } catch (err) {
+        dashTableBody.innerHTML = `<tr><td colspan="7" class="dash-empty text-danger">Failed to load dashboard: ${err.message}</td></tr>`;
+        dashStatus.textContent = err.message;
+      }
+    }
+
+    dashRefreshBtn.addEventListener("click", loadDashboard);
+    document.getElementById("dashboard-tab").addEventListener("shown.bs.tab", loadDashboard);
+    loadDashboard();
+
   </script>
 </body>
 </html>

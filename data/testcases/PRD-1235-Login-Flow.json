@@ -1,0 +1,456 @@
+{
+    "feature": "login/register flow",
+    "testCases": [
+        {
+            "section": "UI/UX & Responsiveness",
+            "test cases": [
+                {
+                    "id": "TC-UI-001",
+                    "title": "Initial Login/Registration Screen Layout & Thumb-Reachability",
+                    "type": "positive",
+                    "priority": "high",
+                    "preconditions": [
+                        "App is installed and launched on Android/iOS device."
+                    ],
+                    "steps": [
+                        "Navigate to the initial login/registration screen."
+                    ],
+                    "expectedResult": "The primary action buttons (e.g., 'Sign In', 'Sign Up') are high-contrast, easily visible, and located within optimal thumb-reach on typical mobile screen sizes. Input fields are clearly labeled and sized appropriately for touch input. Layout is minimalist and conversion-focused."
+                },
+                {
+                    "id": "TC-UI-002",
+                    "title": "Seamless Transition between Sign In and Sign Up States",
+                    "type": "positive",
+                    "priority": "high",
+                    "preconditions": [
+                        "App is on the initial login/registration screen."
+                    ],
+                    "steps": [
+                        "If on Sign In, tap the 'Sign Up' link/button.",
+                        "If on Sign Up, tap the 'Sign In' link/button."
+                    ],
+                    "expectedResult": "Smooth and clear animations transition between the Sign In and Sign Up forms. The user remains oriented and the shift is aesthetically pleasing, without abrupt changes or visual glitches."
+                },
+                {
+                    "id": "TC-UI-003",
+                    "title": "Progressive Disclosure of Fields (if applicable)",
+                    "type": "positive",
+                    "priority": "medium",
+                    "preconditions": [
+                        "App is on the registration screen."
+                    ],
+                    "steps": [
+                        "Start filling out the registration form."
+                    ],
+                    "expectedResult": "Complex or less immediate fields (e.g., 'Confirm Password' if it's separate from 'Password', or optional additional details) are only revealed when necessary, simplifying the initial user interaction. Fields appear logically as user progresses."
+                },
+                {
+                    "id": "TC-UI-004",
+                    "title": "Display and Separation of Alternative Login Methods",
+                    "type": "positive",
+                    "priority": "high",
+                    "preconditions": [
+                        "App is on the login/registration screen."
+                    ],
+                    "steps": [
+                        "Observe the section for social login buttons."
+                    ],
+                    "expectedResult": "Social login buttons (e.g., Google, Facebook, Apple) are clearly separated from the primary email/password fields. They display recognizable brand logos and are distinct, unambiguous, and easily tappable."
+                },
+                {
+                    "id": "TC-UI-005",
+                    "title": "Keyboard Interaction and UI Overlap",
+                    "type": "positive",
+                    "priority": "medium",
+                    "preconditions": [
+                        "App is on the login/registration screen."
+                    ],
+                    "steps": [
+                        "Tap on various input fields to bring up the keyboard."
+                    ],
+                    "expectedResult": "The virtual keyboard appears without overlapping critical input fields or primary action buttons. The UI adjusts appropriately (e.g., scrolls, resizes) to ensure all active elements are visible and accessible."
+                },
+                {
+                    "id": "TC-UI-006",
+                    "title": "Orientation Change (Portrait to Landscape and vice versa)",
+                    "type": "positive",
+                    "priority": "low",
+                    "preconditions": [
+                        "App is on the login/registration screen on a mobile device."
+                    ],
+                    "steps": [
+                        "Rotate the device from portrait to landscape.",
+                        "Rotate the device back from landscape to portrait."
+                    ],
+                    "expectedResult": "The layout of the login/registration screen adapts smoothly to both portrait and landscape orientations, maintaining readability, usability, and optimal thumb-reach where applicable, without any UI distortions or data loss in fields."
+                }
+            ]
+        },
+        {
+            "section": "Registration - Positive Scenarios",
+            "test cases": [
+                {
+                    "id": "TC-REG-001",
+                    "title": "Successful User Registration with Valid Credentials Successful User Registration with Valid Credentials Successful User Registration with Valid Credentials Successful User Registration with Valid Credentials Successful User Registration with Valid Credentials" ,
+                    "type": "positive",
+                    "priority": "high",
+                    "preconditions": [
+                        "App is on the registration screen.",
+                        "User has a unique, valid email address not already registered.",
+                        "User has a password meeting all strength requirements."
+                    ],
+                    "steps": [
+                        "Enter a unique valid email address in the 'Email' field.",
+                        "Enter a strong password in the 'Password' field.",
+                        "If 'Confirm Password' is present, re-enter the strong password.",
+                        "Tap the 'Sign Up' button."
+                    ],
+                    "expectedResult": "User account is successfully created. User is either logged in automatically and redirected to the main app dashboard, or shown a clear success message and prompted to log in. No error messages are displayed."
+                }
+            ]
+        },
+        {
+            "section": "Registration - Negative Scenarios",
+            "test cases": [
+                {
+                    "id": "TC-REG-002",
+                    "title": "Registration Attempt with Existing Email Address",
+                    "type": "negative",
+                    "priority": "high",
+                    "preconditions": [
+                        "App is on the registration screen.",
+                        "An account already exists with a specific email address."
+                    ],
+                    "steps": [
+                        "Enter an email address that is already registered.",
+                        "Enter a valid password.",
+                        "Tap the 'Sign Up' button."
+                    ],
+                    "expectedResult": "An instant, inline, and unambiguous error message is displayed (e.g., 'This email is already registered. Please log in or use a different email.') The user is not allowed to register with the existing email. A direct path/link to the login screen or 'Forgot Password' should be available if appropriate."
+                },
+                {
+                    "id": "TC-REG-003",
+                    "title": "Registration Attempt with Invalid Email Format",
+                    "type": "negative",
+                    "priority": "high",
+                    "preconditions": [
+                        "App is on the registration screen."
+                    ],
+                    "steps": [
+                        "Enter an email address in an invalid format (e.g., 'test@', 'test', 'test@domain').",
+                        "Move focus out of the email field."
+                    ],
+                    "expectedResult": "Instant, inline feedback is provided directly beneath the email input field, clearly stating the email format is invalid (e.g., 'Please enter a valid email address.'). The 'Sign Up' button should remain disabled or display an error upon submission until the email is valid."
+                },
+                {
+                    "id": "TC-REG-004",
+                    "title": "Registration Attempt with Weak Password (Inline Feedback)",
+                    "type": "negative",
+                    "priority": "high",
+                    "preconditions": [
+                        "App is on the registration screen."
+                    ],
+                    "steps": [
+                        "Enter a valid email address.",
+                        "Enter a password that does not meet the specified strength requirements (e.g., too short, missing special characters) into the 'Password' field."
+                    ],
+                    "expectedResult": "Instant, inline feedback (e.g., 'Password is too short', 'Password must contain a number') is displayed directly beneath the password input field. Contextual tooltips (if active) should update to reflect unmet requirements. The 'Sign Up' button should remain disabled or display an error upon submission until the password meets requirements."
+                },
+                {
+                    "id": "TC-REG-005",
+                    "title": "Registration Attempt with Empty Required Fields",
+                    "type": "negative",
+                    "priority": "high",
+                    "preconditions": [
+                        "App is on the registration screen."
+                    ],
+                    "steps": [
+                        "Attempt to tap 'Sign Up' with one or more required fields (e.g., Email, Password) left blank.",
+                        "Alternatively, tap into and then out of a required field without entering data."
+                    ],
+                    "expectedResult": "Instant, inline error messages are displayed for each blank required field (e.g., 'Email is required', 'Password is required'). The 'Sign Up' button should remain disabled or prevent submission until all required fields are filled."
+                }
+            ]
+        },
+        {
+            "section": "Login - Positive Scenarios",
+            "test cases": [
+                {
+                    "id": "TC-LOG-001",
+                    "title": "Successful User Login with Valid Credentials",
+                    "type": "positive",
+                    "priority": "high",
+                    "preconditions": [
+                        "App is on the login screen.",
+                        "User has a registered account with known valid email and password."
+                    ],
+                    "steps": [
+                        "Enter the registered email address in the 'Email' field.",
+                        "Enter the correct password in the 'Password' field.",
+                        "Tap the 'Sign In' button."
+                    ],
+                    "expectedResult": "User is successfully authenticated and redirected to the main app dashboard/home screen. No error messages are displayed."
+                },
+                {
+                    "id": "TC-LOG-002",
+                    "title": "Password Visibility Toggle Functionality",
+                    "type": "positive",
+                    "priority": "medium",
+                    "preconditions": [
+                        "App is on the login/registration screen.",
+                        "Password field is visible."
+                    ],
+                    "steps": [
+                        "Enter characters into the 'Password' field.",
+                        "Tap the 'show password'/'hide password' icon (e.g., eye icon)."
+                    ],
+                    "expectedResult": "The password text toggles between visible plain text and hidden masked characters correctly. The icon changes appropriately to indicate its current state (e.g., open eye for visible, crossed-out eye for hidden)."
+                }
+            ]
+        },
+        {
+            "section": "Login - Negative Scenarios",
+            "test cases": [
+                {
+                    "id": "TC-LOG-003",
+                    "title": "Login Attempt with Non-existent Email Address",
+                    "type": "negative",
+                    "priority": "high",
+                    "preconditions": [
+                        "App is on the login screen."
+                    ],
+                    "steps": [
+                        "Enter an email address that is not registered.",
+                        "Enter any password (even a strong one).",
+                        "Tap the 'Sign In' button."
+                    ],
+                    "expectedResult": "An unambiguous error message is displayed (e.g., 'Invalid email or password.' or 'Account not found.'). The user is not logged in. A direct path to 'Forgot Password' should be clearly visible and accessible."
+                },
+                {
+                    "id": "TC-LOG-004",
+                    "title": "Login Attempt with Correct Email but Incorrect Password",
+                    "type": "negative",
+                    "priority": "high",
+                    "preconditions": [
+                        "App is on the login screen.",
+                        "User has a registered account with known valid email."
+                    ],
+                    "steps": [
+                        "Enter a registered email address.",
+                        "Enter an incorrect password.",
+                        "Tap the 'Sign In' button."
+                    ],
+                    "expectedResult": "An unambiguous error message is displayed (e.g., 'Invalid email or password.' or 'Incorrect password.'). The user is not logged in. A direct path to 'Forgot Password' should be clearly visible and accessible."
+                },
+                {
+                    "id": "TC-LOG-005",
+                    "title": "Login Attempt with Invalid Email Format",
+                    "type": "negative",
+                    "priority": "high",
+                    "preconditions": [
+                        "App is on the login screen."
+                    ],
+                    "steps": [
+                        "Enter an email address in an invalid format (e.g., 'user@', 'invalid').",
+                        "Move focus out of the email field."
+                    ],
+                    "expectedResult": "Instant, inline feedback is provided directly beneath the email input field, clearly stating the email format is invalid (e.g., 'Please enter a valid email address.'). The 'Sign In' button should remain disabled or display an error upon submission until the email is valid."
+                },
+                {
+                    "id": "TC-LOG-006",
+                    "title": "Login Attempt with Blank Email/Password Fields",
+                    "type": "negative",
+                    "priority": "high",
+                    "preconditions": [
+                        "App is on the login screen."
+                    ],
+                    "steps": [
+                        "Leave 'Email' field blank, enter a password, tap 'Sign In'.",
+                        "Leave 'Password' field blank, enter an email, tap 'Sign In'.",
+                        "Leave both fields blank, tap 'Sign In'."
+                    ],
+                    "expectedResult": "Instant, inline error messages are displayed for each blank required field (e.g., 'Email is required', 'Password is required'). The 'Sign In' button should remain disabled or prevent submission until both required fields are filled."
+                },
+                {
+                    "id": "TC-LOG-007",
+                    "title": "Direct Path to Forgot Password from Failed Login",
+                    "type": "positive",
+                    "priority": "high",
+                    "preconditions": [
+                        "App is on the login screen."
+                    ],
+                    "steps": [
+                        "Attempt to log in with incorrect credentials (e.g., invalid password).",
+                        "Observe the screen after the error message appears."
+                    ],
+                    "expectedResult": "A clear and direct link/button to the 'Forgot Password' flow is visible and easily accessible immediately after a failed login attempt, facilitating error recovery without user ambiguity."
+                }
+            ]
+        },
+        {
+            "section": "Form Validation & Contextual Assistance",
+            "test cases": [
+                {
+                    "id": "TC-VAL-001",
+                    "title": "Real-time Inline Email Format Validation",
+                    "type": "positive",
+                    "priority": "high",
+                    "preconditions": [
+                        "App is on login/registration screen."
+                    ],
+                    "steps": [
+                        "Start typing an email address into the 'Email' field (e.g., 'user').",
+                        "Continue typing to make it invalid (e.g., 'user@').",
+                        "Continue typing to make it valid (e.g., 'user@example.com')."
+                    ],
+                    "expectedResult": "Error message for invalid format appears instantly and inline when the email is invalid, and disappears instantly when the email becomes valid. This feedback occurs without requiring the user to tap away or submit."
+                },
+                {
+                    "id": "TC-VAL-002",
+                    "title": "Real-time Inline Password Strength Feedback and Tooltips",
+                    "type": "positive",
+                    "priority": "high",
+                    "preconditions": [
+                        "App is on the registration screen.",
+                        "Password requirements are defined (e.g., min length, uppercase, number, special char)."
+                    ],
+                    "steps": [
+                        "Start typing a password into the 'Password' field, gradually adding characters that meet requirements."
+                    ],
+                    "expectedResult": "As the password is typed, instant, inline feedback (e.g., strength indicator: 'Weak', 'Medium', 'Strong') and contextual tooltips/lists of requirements appear directly beneath the field. As each requirement is met, it should visually update (e.g., turn green, checkmark) and eventually disappear, leaving only unmet requirements (or disappearing entirely if all are met), preventing error fatigue."
+                }
+            ]
+        },
+        {
+            "section": "Social Login (Android/iOS Specific)",
+            "test cases": [
+                {
+                    "id": "TC-SOC-001",
+                    "title": "Successful Login/Registration with Google Account (First Time)",
+                    "type": "positive",
+                    "priority": "high",
+                    "preconditions": [
+                        "App is on login/registration screen (Android/iOS).",
+                        "User has an active Google account on the device not yet linked to the app."
+                    ],
+                    "steps": [
+                        "Tap the 'Continue with Google' button.",
+                        "Select the desired Google account (if prompted).",
+                        "Grant necessary permissions (if prompted)."
+                    ],
+                    "expectedResult": "User is successfully logged in or registered via Google. The app redirects to the main dashboard. A new account is created or linked seamlessly without requiring manual input for email/password. Recognizable Google UI is used for the authentication flow."
+                },
+                {
+                    "id": "TC-SOC-002",
+                    "title": "Successful Login with Existing Google Account (Subsequent Times)",
+                    "type": "positive",
+                    "priority": "high",
+                    "preconditions": [
+                        "App is on login/registration screen (Android/iOS).",
+                        "User previously registered/logged in with a Google account."
+                    ],
+                    "steps": [
+                        "Tap the 'Continue with Google' button.",
+                        "Select the previously used Google account (if prompted)."
+                    ],
+                    "expectedResult": "User is successfully logged into their existing account via Google, redirected to the main dashboard, typically without needing to re-enter credentials or grant permissions."
+                },
+                {
+                    "id": "TC-SOC-003",
+                    "title": "Social Login - Network Connectivity Error",
+                    "type": "negative",
+                    "priority": "medium",
+                    "preconditions": [
+                        "App is on login/registration screen (Android/iOS).",
+                        "Device has no internet connection."
+                    ],
+                    "steps": [
+                        "Tap any social login button (e.g., 'Continue with Google')."
+                    ],
+                    "expectedResult": "An appropriate error message is displayed, indicating a network issue (e.g., 'No internet connection. Please check your network and try again.'). The social login flow does not proceed."
+                }
+            ]
+        },
+        {
+            "section": "Forgot Password / Account Recovery",
+            "test cases": [
+                {
+                    "id": "TC-FP-001",
+                    "title": "Initiate Forgot Password with Valid, Registered Email",
+                    "type": "positive",
+                    "priority": "high",
+                    "preconditions": [
+                        "App is on the login screen.",
+                        "User has a registered account with known valid email."
+                    ],
+                    "steps": [
+                        "Tap the 'Forgot Password' link/button.",
+                        "Enter a valid, registered email address in the 'Email' field.",
+                        "Tap the 'Send Reset Link' (or equivalent) button."
+                    ],
+                    "expectedResult": "A success message is displayed (e.g., 'If an account exists with this email, a password reset link has been sent.') and the user is guided on checking their email. The email with the reset link is sent to the provided address."
+                },
+                {
+                    "id": "TC-FP-002",
+                    "title": "Initiate Forgot Password with Non-existent Email",
+                    "type": "negative",
+                    "priority": "medium",
+                    "preconditions": [
+                        "App is on the 'Forgot Password' screen."
+                    ],
+                    "steps": [
+                        "Enter an email address that is not registered.",
+                        "Tap the 'Send Reset Link' button."
+                    ],
+                    "expectedResult": "A generic success message is displayed (e.g., 'If an account exists with this email...') to prevent user enumeration, but no email is sent. No specific error message indicating 'email not found' should be displayed."
+                },
+                {
+                    "id": "TC-FP-003",
+                    "title": "Reset Password via Email Link - Successful",
+                    "type": "positive",
+                    "priority": "high",
+                    "preconditions": [
+                        "User has initiated 'Forgot Password' for a valid email.",
+                        "User has received a valid, non-expired password reset link in their email.",
+                        "User is accessing the link from their mobile device."
+                    ],
+                    "steps": [
+                        "Open the password reset link from the email on the mobile device.",
+                        "Enter a new strong password in the 'New Password' field.",
+                        "Enter the same password in the 'Confirm New Password' field.",
+                        "Tap the 'Reset Password' button."
+                    ],
+                    "expectedResult": "The new password is successfully set. The user is either automatically logged in, redirected to the login screen with a success message, or shown a clear success confirmation. The link should open within the app (deep linking) if implemented, or in a web browser, leading to a mobile-optimized password reset form."
+                },
+                {
+                    "id": "TC-FP-004",
+                    "title": "Reset Password with Weak or Mismatched New Passwords",
+                    "type": "negative",
+                    "priority": "high",
+                    "preconditions": [
+                        "User is on the 'Reset Password' form (after clicking a valid link)."
+                    ],
+                    "steps": [
+                        "Enter a weak password in 'New Password' field.",
+                        "Enter a different password in 'Confirm New Password' field.",
+                        "Tap 'Reset Password'."
+                    ],
+                    "expectedResult": "Instant, inline validation feedback is provided for weak password and mismatched passwords, similar to the registration flow. The password is not reset, and an appropriate error message is displayed, guiding the user to correct the input."
+                },
+                {
+                    "id": "TC-FP-005",
+                    "title": "Reset Password via Expired Reset Link",
+                    "type": "negative",
+                    "priority": "medium",
+                    "preconditions": [
+                        "User has an expired password reset link (e.g., link generated and time limit passed)."
+                    ],
+                    "steps": [
+                        "Open the expired password reset link."
+                    ],
+                    "expectedResult": "An error message indicating the link is expired or invalid is displayed. The user is prompted to initiate the 'Forgot Password' flow again, providing a clear path to recovery."
+                }
+            ]
+        }
+    ]
+}

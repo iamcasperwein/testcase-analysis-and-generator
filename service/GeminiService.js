@@ -34,9 +34,9 @@ const buildTestCasePrompt = ({ feature, platform, prdText, additionalContext }) 
         }
     Only return valid JSON.
     `.trim();
-    };
+};
 
-    const generateTestCases = async ({ feature, platform, prdText, additionalContext }) => {
+const generateTestCases = async ({ feature, platform, prdText, additionalContext }) => {
     const prompt = buildTestCasePrompt({
         feature,
         platform,

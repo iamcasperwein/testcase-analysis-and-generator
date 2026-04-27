@@ -8,6 +8,7 @@ const path = require('path');
 
 const gemini = require("./routes/gemini")
 const testCaseRouter = require("./routes/testcaseRouter")
+const dashboardRouter = require("./routes/dashboardRouter")
 
 const app = express()
 const port = process.env.PORT || 3000
@@ -27,7 +28,7 @@ app.get('/', (req, res) => {
 
 app.use("/gemini", gemini)
 app.use("/testcase", testCaseRouter)
-
+app.use("/dashboard", dashboardRouter)
 
 
 
