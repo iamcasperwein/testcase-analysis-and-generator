@@ -91,7 +91,7 @@
             "test cases": [
                 {
                     "id": "TC-REG-001",
-                    "title": "Successful User Registration with Valid Credentials",
+                    "title": "Successful User Registration with Valid Credentials Successful User Registration with Valid Credentials Successful User Registration with Valid Credentials Successful User Registration with Valid Credentials Successful User Registration with Valid Credentials" ,
                     "type": "positive",
                     "priority": "high",
                     "preconditions": [

@@ -5,46 +5,181 @@
   <title>AI-Driven QA Tools</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
 
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+
   <!-- Bootstrap 5 CSS -->
   <link
     href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"
     rel="stylesheet"
   />
+  <link
+    href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css"
+    rel="stylesheet"
+  />
 
   <style>
     body {
-      background-color: #f8f9fa;
+      font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      background:
+        radial-gradient(circle at 10% 10%, rgba(13, 110, 253, 0.10), transparent 28%),
+        radial-gradient(circle at 90% 25%, rgba(111, 66, 193, 0.10), transparent 30%),
+        radial-gradient(circle at 20% 90%, rgba(32, 201, 151, 0.08), transparent 28%),
+        #f5f8ff;
     }
 
     .app-header {
       background-color: #0d6efd;
       color: #fff;
-      padding: 0.75rem 1.5rem;
+      padding: 0.35rem 0.9rem;
+      min-height: 52px;
+      display: flex;
+      align-items: center;
     }
 
     .app-header h1 {
-      font-size: 1.4rem;
+      font-size: 1.05rem;
+      line-height: 1;
       margin: 0;
     }
 
     .app-subtitle {
-      font-size: 0.85rem;
-      opacity: 0.85;
+      display: none;
     }
 
     .main-container {
-      padding: 1rem 1.5rem 2rem;
+      padding: 0.5rem 1rem 1rem;
+    }
+
+    .app-layout {
+      display: grid;
+      grid-template-columns: 220px minmax(0, 1fr);
+      gap: 0.75rem;
+      align-items: start;
+    }
+
+    .app-layout.sidebar-collapsed {
+      grid-template-columns: 64px minmax(0, 1fr);
+    }
+
+    .side-panel {
+      border: 1px solid rgba(13, 110, 253, 0.10);
+      box-shadow: 0 10px 30px rgba(13, 110, 253, 0.06);
+      backdrop-filter: blur(6px);
+      background: rgba(255, 255, 255, 0.88);
+      border-radius: 0.75rem;
+      padding: 0.55rem;
+      position: sticky;
+      top: 0.5rem;
+    }
+
+    .side-panel-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 0.25rem;
+    }
+
+    .side-panel-title {
+      font-size: 0.72rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: #6f7f98;
+      padding: 0.15rem 0.35rem 0.45rem;
+      font-weight: 600;
+    }
+
+    .sidebar-toggle-btn {
+      border: 1px solid #9fbef0;
+      background: #ffffff;
+      color: #1f4f96;
+      width: 28px;
+      height: 28px;
+      border-radius: 0.45rem;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      box-shadow: 0 2px 8px rgba(13, 110, 253, 0.15);
+    }
+
+    .sidebar-toggle-btn:hover {
+      background: #e9f1ff;
+      border-color: #7fa8e6;
+      color: #143f7f;
+    }
+
+    .side-nav {
+      gap: 0.25rem;
+    }
+
+    .side-nav .nav-link {
+      text-align: left;
+      border-radius: 0.55rem;
+      font-size: 0.9rem;
+      font-weight: 500;
+      color: #3f5375;
+      padding: 0.48rem 0.62rem;
+      border: 1px solid transparent;
+      transition: all 0.2s ease;
+      display: flex;
+      align-items: center;
+      gap: 0.45rem;
+    }
+
+    .side-nav .nav-link:hover {
+      background: #f4f8ff;
+      border-color: #d9e8ff;
+      color: #264b7f;
+    }
+
+    .side-nav .nav-link.active {
+      background: linear-gradient(90deg, #e8f1ff 0%, #f5f8ff 100%);
+      border-color: #7db0ff;
+      color: #1f4b88;
+      box-shadow: 0 4px 12px rgba(13, 110, 253, 0.14);
+    }
+
+    .app-layout.sidebar-collapsed .side-panel {
+      padding: 0.45rem;
+    }
+
+    .app-layout.sidebar-collapsed .side-panel-title {
+      display: none;
+    }
+
+    .app-layout.sidebar-collapsed .side-nav .nav-link {
+      justify-content: center;
+      padding: 0.48rem 0;
+    }
+
+    .app-layout.sidebar-collapsed .side-nav .nav-link span {
+      display: none;
+    }
+
+    .content-panel {
+      min-width: 0;
+    }
+
+    .card,
+    .test-scope-left,
+    .test-scope-right {
+      border: 1px solid rgba(13, 110, 253, 0.10);
+      box-shadow: 0 10px 30px rgba(13, 110, 253, 0.06);
+      backdrop-filter: blur(6px);
+      background: rgba(255, 255, 255, 0.88);
     }
 
     /* To make main content scrollable if height exceeds viewport */
     .content-wrapper {
-      max-height: calc(100vh - 90px);
+      max-height: calc(100vh - 74px);
       overflow-y: auto;
     }
 
     .nav-panel {
-      border-bottom: 1px solid #dee2e6;
-      margin-bottom: 1rem;
+      margin: 0;
     }
 
     .test-scope-layout {
@@ -54,38 +189,480 @@
 
     .test-scope-left,
     .test-scope-right {
-      background: #ffffff;
-      border: 1px solid #dee2e6;
-      border-radius: 0.375rem;
+      border-radius: 0.75rem;
       padding: 0.75rem;
     }
 
     .test-scope-left {
-      width: 28%;
-      min-width: 230px;
-      max-height: calc(100vh - 220px);
+      width: 22%;
+      min-width: 185px;
+      max-height: calc(100vh - 165px);
       overflow-y: auto;
+      font-size: 0.86rem;
+      transition: width 0.2s ease, min-width 0.2s ease, padding 0.2s ease;
+    }
+
+    .test-scope-left.is-collapsed {
+      width: 54px;
+      min-width: 54px;
+      padding: 0.45rem;
+      overflow: hidden;
+    }
+
+    .test-scope-left.is-collapsed h6,
+    .test-scope-left.is-collapsed #sectionList,
+    .test-scope-left.is-collapsed .section-filter-toggle {
+      display: none;
+    }
+
+    .panel-collapse-btn {
+      border: 1px solid #9fbef0;
+      background: #ffffff;
+      color: #1f4f96;
+      width: 24px;
+      height: 24px;
+      border-radius: 0.45rem;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      box-shadow: 0 2px 8px rgba(13, 110, 253, 0.15);
+    }
+
+    .panel-collapse-btn i,
+    .sidebar-toggle-btn i {
+      font-size: 0.95rem;
+      font-weight: 700;
+      line-height: 1;
+    }
+
+    .panel-collapse-btn:hover {
+      background: #e9f1ff;
+      border-color: #7fa8e6;
+      color: #143f7f;
+    }
+
+    .test-scope-left.is-collapsed .panel-collapse-btn {
+      width: 28px;
+      height: 28px;
     }
 
     .test-scope-right {
       flex: 1;
-      max-height: calc(100vh - 220px);
+      max-height: calc(100vh - 165px);
       overflow-y: auto;
+    }
+
+    .scope-toolbar {
+      margin-bottom: 0.45rem !important;
+    }
+
+    .scope-toolbar .form-label,
+    .scope-toolbar .form-control,
+    .scope-toolbar .btn,
+    .scope-toolbar #scopeStatus {
+      font-size: 0.9rem;
+    }
+
+    .form-card {
+      border-radius: 0.9rem;
+      overflow: hidden;
+    }
+
+    .form-card .card-header {
+      background: linear-gradient(90deg, rgba(13, 110, 253, 0.10), rgba(13, 110, 253, 0.03));
+      border-bottom: 1px solid rgba(13, 110, 253, 0.12);
+      padding: 0.8rem 0.95rem;
+    }
+
+    .form-card .card-header h5 {
+      font-size: 0.98rem;
+      font-weight: 600;
+      color: #234f89;
+    }
+
+    .form-intro {
+      background: #f6f9ff;
+      border: 1px solid #d8e7ff;
+      border-radius: 0.6rem;
+      padding: 0.5rem 0.65rem;
+      font-size: 0.82rem;
+      color: #46618a;
+    }
+
+    .modern-form .form-section-title {
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+      margin-bottom: 0.1rem;
+      font-size: 0.8rem;
+      font-weight: 700;
+      letter-spacing: 0.02em;
+      text-transform: uppercase;
+      color: #446289;
+    }
+
+    .modern-form .form-label {
+      font-size: 0.81rem;
+      font-weight: 600;
+      color: #3f587e;
+      margin-bottom: 0.3rem;
+    }
+
+    .modern-form .form-control,
+    .modern-form .form-select {
+      border-radius: 0.55rem;
+      border-color: #d8e5f8;
+      font-size: 0.88rem;
+      min-height: 36px;
+    }
+
+    .form-control::placeholder,
+    .form-select::placeholder,
+    textarea::placeholder,
+    input::placeholder {
+      color: #a3afc2 !important;
+      opacity: 1;
+    }
+
+    .modern-form .form-control:focus,
+    .modern-form .form-select:focus {
+      border-color: #8ab4ff;
+      box-shadow: 0 0 0 0.15rem rgba(13, 110, 253, 0.12);
+    }
+
+    .modern-form .form-text {
+      font-size: 0.74rem;
+      color: #6b7f9c;
+    }
+
+    .modern-form .input-group-text {
+      background: #f4f8ff;
+      border-color: #d8e5f8;
+      color: #5575a2;
+      font-size: 0.85rem;
+    }
+
+    .form-submit-bar {
+      position: sticky;
+      bottom: 0;
+      z-index: 1;
+      background: linear-gradient(180deg, rgba(255, 255, 255, 0.86), rgba(255, 255, 255, 0.97));
+      border-top: 1px solid #e3ecfa;
+      padding-top: 0.55rem;
+      margin-top: 0.1rem;
+    }
+
+    .form-submit-bar .btn {
+      border-radius: 0.55rem;
+      font-size: 0.86rem;
+      padding: 0.4rem 0.85rem;
+      font-weight: 600;
+    }
+
+    .analysis-content-shell {
+      border: 1px solid #dbe7fb;
+      border-radius: 0.7rem;
+      background: #f8fbff;
+      min-height: 350px;
+      overflow: hidden;
+    }
+
+    .analysis-layout {
+      display: grid;
+      grid-template-columns: 260px minmax(0, 1fr);
+      height: calc(100vh - 220px);
+      min-height: 350px;
+      overflow: hidden;
+    }
+
+    .analysis-toc {
+      border-right: 1px solid #dbe7fb;
+      background: #f4f8ff;
+      overflow-y: auto;
+      padding: 0.6rem;
+      height: 100%;
+    }
+
+    .analysis-toc-title {
+      font-size: 0.76rem;
+      font-weight: 700;
+      color: #55719a;
+      letter-spacing: 0.03em;
+      text-transform: uppercase;
+      margin-bottom: 0.5rem;
+    }
+
+    .analysis-toc-item {
+      width: 100%;
+      text-align: left;
+      border: 1px solid transparent;
+      background: transparent;
+      color: #34527f;
+      font-size: 0.84rem;
+      line-height: 1.28;
+      border-radius: 0.45rem;
+      padding: 0.38rem 0.5rem;
+      margin-bottom: 0.2rem;
+      transition: all 0.2s ease;
+    }
+
+    .analysis-toc-item:hover {
+      background: #eaf2ff;
+      border-color: #d4e4ff;
+    }
+
+    .analysis-toc-item.active {
+      background: linear-gradient(90deg, #e2eeff 0%, #f1f7ff 100%);
+      border-color: #91b8f6;
+      color: #1f477f;
+      box-shadow: 0 4px 12px rgba(13, 110, 253, 0.12);
+    }
+
+    .analysis-toc-item.level-2 {
+      padding-left: 1rem;
+    }
+
+    .analysis-toc-item.level-3,
+    .analysis-toc-item.level-4 {
+      padding-left: 1.4rem;
+      font-size: 0.81rem;
+    }
+
+    .analysis-doc {
+      overflow-y: auto;
+      padding: 0.95rem 1.1rem;
+      background: #fff;
+      height: 100%;
+    }
+
+    .analysis-doc-empty,
+    .analysis-toc-empty {
+      color: #7487a6;
+      font-size: 0.88rem;
+      padding: 0.2rem;
+    }
+
+    .analysis-doc-section {
+      scroll-margin-top: 0.8rem;
+      margin-bottom: 1.2rem;
+      border-bottom: 1px solid #eef4ff;
+      padding-bottom: 0.85rem;
+    }
+
+    .analysis-doc-section:last-child {
+      border-bottom: 0;
+      margin-bottom: 0.2rem;
+      padding-bottom: 0.2rem;
+    }
+
+    .analysis-doc h2,
+    .analysis-doc h3,
+    .analysis-doc h4 {
+      color: #224f89;
+      margin-bottom: 0.5rem;
+      line-height: 1.3;
+      font-weight: 700;
+    }
+
+    .analysis-doc h2 {
+      font-size: 1.08rem;
+    }
+
+    .analysis-doc h3 {
+      font-size: 0.98rem;
+    }
+
+    .analysis-doc h4 {
+      font-size: 0.92rem;
+    }
+
+    .analysis-doc p {
+      margin-bottom: 0.42rem;
+      color: #334e77;
+      font-size: 0.9rem;
+      line-height: 1.5;
+      white-space: pre-wrap;
+    }
+
+    .analysis-doc p.analysis-list-line {
+      margin-bottom: 0.3rem;
     }
 
     .section-item {
       cursor: pointer;
-      padding: 0.5rem 0.75rem;
-      border-radius: 0.25rem;
+      padding: 0.45rem 0.6rem;
+      border-radius: 0.5rem;
       margin-bottom: 0.25rem;
+      border: 1px solid transparent;
+      transition: all 0.2s ease;
+      font-size: 0.9em;
+      line-height: 1.25;
+    }
+
+    .test-scope-left h6 {
+      font-size: 0.95rem;
+    }
+
+    .scope-table {
+      font-size: 0.88rem;
+    }
+
+    .scope-table th,
+    .scope-table td {
+      padding: 0.24rem 0.38rem;
+    }
+
+    .scope-table td[data-col="id"],
+    .scope-table td[data-col="title"] {
+      font-size: 0.82rem;
+      line-height: 1.2;
+    }
+
+    .scope-table.id-hidden td[data-col="title"],
+    .scope-table.id-hidden th[data-col="title"] {
+      padding-left: 0.78rem;
+    }
+
+    .scope-table tr.testcase-row td[data-col="id"] {
+      padding-left: 0.72rem;
+    }
+
+    .scope-table.id-hidden tr.testcase-row td[data-col="title"] {
+      padding-left: 0.72rem;
+    }
+
+    .scope-table th[data-col="id"],
+    .scope-table td[data-col="id"] {
+      width: 130px;
+      min-width: 130px;
+      white-space: nowrap;
+    }
+
+    .scope-table .badge {
+      font-size: 0.7rem;
+      font-weight: 600;
+    }
+
+    .section-item:hover {
+      background-color: #f4f8ff;
+      border-color: #d8e7ff;
+      transform: translateX(2px);
     }
 
     .section-item.active {
-      background-color: #e7f1ff;
-      border: 1px solid #0d6efd;
+      background: linear-gradient(90deg, #e8f1ff 0%, #f5f8ff 100%);
+      border: 1px solid #7db0ff;
+      box-shadow: 0 4px 14px rgba(13, 110, 253, 0.15);
+    }
+
+    .scope-table thead th {
+      position: sticky;
+      top: 0;
+      z-index: 2;
+      background: #f7f9ff;
+    }
+
+    .scope-section-row td {
+      background: #f7f9ff;
+      font-weight: 600;
+      color: #3b5b89;
+      border-top: 1px solid #dbe8ff;
+    }
+
+    .icon-action-btn {
+      width: 26px;
+      height: 26px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 50%;
+      transition: transform 0.15s ease, box-shadow 0.2s ease;
+    }
+
+    .all-view-filters {
+      font-size: 0.78rem;
+      color: #4b5f84;
+      gap: 0.4rem;
+    }
+
+    .all-view-filters .form-check-input {
+      transform: scale(0.85);
+      margin-top: 0.15rem;
+    }
+
+    .all-view-filters .form-check-label {
+      margin-left: -0.15rem;
+    }
+
+    .section-filter-toggle {
+      font-size: 0.76rem;
+      color: #4b5f84;
+      margin-bottom: 0.4rem;
+      padding: 0.2rem 0.1rem;
+      padding-left: 2.1rem;
+    }
+
+    .section-filter-toggle .form-check-input {
+      transform: none;
+      margin-top: 0.1rem;
+      margin-left: -2.1rem;
+      width: 1.95rem;
+      height: 1.05rem;
+      background-color: #e3eaf7;
+      border-color: #a8bddf;
+      box-shadow: none;
+    }
+
+    .section-filter-toggle .form-check-input:checked {
+      background-color: #3b82f6;
+      border-color: #3b82f6;
+    }
+
+    .section-filter-toggle .form-check-label {
+      font-weight: 600;
+      color: #4b648d;
+    }
+
+    .icon-action-btn:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 6px 16px rgba(13, 110, 253, 0.20);
+    }
+
+    .row-focus {
+      animation: rowPulse 1.2s ease;
+    }
+
+    @keyframes rowPulse {
+      0% { background-color: rgba(13, 110, 253, 0.18); }
+      100% { background-color: transparent; }
     }
 
     @media (max-width: 768px) {
+      .app-layout {
+        grid-template-columns: 1fr;
+        gap: 0.55rem;
+      }
+
+      .side-panel {
+        position: static;
+        padding: 0.45rem;
+      }
+
+      .side-panel-title {
+        display: none;
+      }
+
+      .side-nav {
+        flex-direction: row;
+        overflow-x: auto;
+      }
+
+      .side-nav .nav-link {
+        white-space: nowrap;
+      }
+
       .test-scope-layout {
         flex-direction: column;
       }
@@ -93,18 +670,332 @@
       .test-scope-left,
       .test-scope-right {
         width: 100%;
+        min-width: 0;
         max-height: none;
+      }
+
+      .scope-table {
+        min-width: 760px;
+      }
+
+      .analysis-layout {
+        grid-template-columns: 1fr;
+        max-height: none;
+      }
+
+      .analysis-toc {
+        border-right: 0;
+        border-bottom: 1px solid #dbe7fb;
+        max-height: 180px;
+      }
+
+      .analysis-doc {
+        max-height: 55vh;
       }
     }
 
     textarea.form-control {
       resize: vertical;
     }
+
+    /* ---- PROMPT SEARCHABLE DROPDOWN ---- */
+    .prompt-select-wrap {
+      position: relative;
+      min-width: 240px;
+      max-width: 300px;
+    }
+
+    .prompt-select-trigger {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.35rem;
+      cursor: pointer;
+      background: #fff;
+      border: 1px solid #d8e5f8;
+      border-radius: 0.55rem;
+      padding: 0.3rem 0.6rem;
+      font-size: 0.86rem;
+      color: #3f5375;
+      user-select: none;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      min-height: 31px;
+    }
+
+    .prompt-select-trigger:hover {
+      border-color: #8ab4ff;
+    }
+
+    .prompt-select-trigger.open {
+      border-color: #8ab4ff;
+      box-shadow: 0 0 0 0.15rem rgba(13,110,253,0.12);
+    }
+
+    .prompt-select-trigger-text {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      flex: 1;
+      color: #3f5375;
+    }
+
+    .prompt-select-trigger-text.placeholder {
+      color: #a3afc2;
+    }
+
+    .prompt-select-dropdown {
+      display: none;
+      position: absolute;
+      top: calc(100% + 4px);
+      left: 0;
+      min-width: 100%;
+      max-width: 340px;
+      z-index: 9999;
+      background: #fff;
+      border: 1px solid #c8d9f6;
+      border-radius: 0.55rem;
+      box-shadow: 0 8px 28px rgba(13,110,253,0.13);
+      overflow: hidden;
+    }
+
+    .prompt-select-dropdown.open {
+      display: block;
+    }
+
+    .prompt-select-search {
+      width: 100%;
+      border: none;
+      border-bottom: 1px solid #e3ecfa;
+      padding: 0.4rem 0.65rem;
+      font-size: 0.84rem;
+      outline: none;
+      color: #2e4a75;
+      background: #f6f9ff;
+    }
+
+    .prompt-select-options {
+      max-height: 220px;
+      overflow-y: auto;
+    }
+
+    .prompt-select-option {
+      padding: 0.42rem 0.65rem;
+      font-size: 0.85rem;
+      cursor: pointer;
+      color: #2e4a75;
+      display: flex;
+      flex-direction: column;
+      gap: 0.05rem;
+      border-bottom: 1px solid #f0f5ff;
+    }
+
+    .prompt-select-option:last-child { border-bottom: 0; }
+
+    .prompt-select-option:hover,
+    .prompt-select-option.focused {
+      background: #edf4ff;
+    }
+
+    .prompt-select-option.selected {
+      background: #deeaff;
+      font-weight: 600;
+    }
+
+    .prompt-select-option-id {
+      font-weight: 600;
+      color: #1a4a8c;
+      font-size: 0.82rem;
+    }
+
+    .prompt-select-option-name {
+      font-size: 0.76rem;
+      color: #6b82a8;
+    }
+
+    .prompt-select-no-results {
+      padding: 0.6rem 0.65rem;
+      font-size: 0.82rem;
+      color: #8a9fc2;
+      text-align: center;
+    }
+
+    /* ---- DASHBOARD ---- */
+    .dash-header-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 1.2rem;
+    }
+
+    .dash-header-title {
+      font-size: 1.1rem;
+      font-weight: 700;
+      color: #1a3e72;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .dash-status-bar {
+      font-size: 0.78rem;
+      color: #8a9fc2;
+      margin-bottom: 1rem;
+    }
+
+    .dash-stat-grid {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 1rem;
+      margin-bottom: 1.4rem;
+    }
+
+    @media (max-width: 1200px) { .dash-stat-grid { grid-template-columns: repeat(3, 1fr); } }
+    @media (max-width: 700px)  { .dash-stat-grid { grid-template-columns: repeat(2, 1fr); } }
+
+    .dash-stat-card {
+      background: #fff;
+      border: 1px solid #e3edf8;
+      border-radius: 0.85rem;
+      padding: 1.1rem 1.15rem 0.95rem;
+      box-shadow: 0 2px 14px rgba(13,110,253,0.06);
+      display: flex;
+      flex-direction: column;
+      gap: 0.25rem;
+      position: relative;
+      overflow: hidden;
+      transition: box-shadow 0.18s ease, transform 0.18s ease;
+    }
+
+    .dash-stat-card:hover {
+      box-shadow: 0 8px 28px rgba(13,110,253,0.13);
+      transform: translateY(-2px);
+    }
+
+    .dash-stat-card::before {
+      content: "";
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 3px;
+      border-radius: 0.85rem 0.85rem 0 0;
+    }
+
+    .dash-stat-card.blue::before   { background: linear-gradient(90deg, #0d6efd, #4d9fff); }
+    .dash-stat-card.green::before  { background: linear-gradient(90deg, #20c997, #60e8c3); }
+    .dash-stat-card.orange::before { background: linear-gradient(90deg, #fd7e14, #ffaa60); }
+    .dash-stat-card.purple::before { background: linear-gradient(90deg, #6f42c1, #a57de8); }
+    .dash-stat-card.teal::before   { background: linear-gradient(90deg, #0dcaf0, #6cdff7); }
+
+    .dash-stat-icon {
+      font-size: 1.25rem;
+      margin-bottom: 0.15rem;
+      opacity: 0.85;
+    }
+
+    .dash-stat-card.blue   .dash-stat-icon { color: #0d6efd; }
+    .dash-stat-card.green  .dash-stat-icon { color: #20c997; }
+    .dash-stat-card.orange .dash-stat-icon { color: #fd7e14; }
+    .dash-stat-card.purple .dash-stat-icon { color: #6f42c1; }
+    .dash-stat-card.teal   .dash-stat-icon { color: #0dcaf0; }
+
+    .dash-stat-label {
+      font-size: 0.7rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.07em;
+      color: #7a8fb0;
+    }
+
+    .dash-stat-value {
+      font-size: 2.1rem;
+      font-weight: 800;
+      color: #1a3e72;
+      line-height: 1;
+      margin: 0.1rem 0;
+    }
+
+    .dash-stat-sub {
+      font-size: 0.72rem;
+      color: #a0b2cc;
+    }
+
+    .dash-divider {
+      border: none;
+      border-top: 1px solid #edf3fb;
+      margin: 0.4rem 0 1.1rem;
+    }
+
+    .dash-section-title {
+      font-size: 0.78rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.07em;
+      color: #4e6a92;
+      margin-bottom: 0.65rem;
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+    }
+
+    .dash-table { font-size: 0.86rem; }
+
+    .dash-table thead th {
+      background: #f4f8ff;
+      color: #3b5b8e;
+      font-weight: 700;
+      font-size: 0.76rem;
+      padding: 0.55rem 0.7rem;
+      position: sticky;
+      top: 0;
+      z-index: 2;
+      white-space: nowrap;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      border-bottom: 2px solid #dde8fb;
+    }
+
+    .dash-table td {
+      padding: 0.55rem 0.7rem;
+      vertical-align: middle;
+      color: #2f4a72;
+      border-bottom: 1px solid #f0f6ff;
+    }
+
+    .dash-table tbody tr:last-child td { border-bottom: 0; }
+    .dash-table tbody tr:hover td { background: #f5f9ff; }
+
+    .dash-table-wrap {
+      max-height: calc(100vh - 420px);
+      min-height: 120px;
+      overflow-y: auto;
+      border: 1px solid #dde8fb;
+      border-radius: 0.65rem;
+      box-shadow: 0 2px 8px rgba(13,110,253,0.04);
+    }
+
+    .dash-prompt-link {
+      cursor: pointer;
+      color: #1a5ec7;
+      font-weight: 600;
+      font-size: 0.84rem;
+    }
+
+    .dash-prompt-link:hover { color: #0a3b8a; text-decoration: underline; }
+
+    .dash-empty {
+      text-align: center;
+      padding: 2.5rem 1rem;
+      color: #7a90b2;
+      font-size: 0.9rem;
+    }
+
+    .dash-refresh-btn { font-size: 0.82rem; }
   </style>
 </head>
 <body>
   <!-- Header -->
-  <header class="app-header d-flex flex-column flex-md-row align-items-md-center justify-content-between">
+  <header class="app-header">
     <div>
       <h1>AI-Driven QA Analysis</h1>
       <div class="app-subtitle">
@@ -114,74 +1005,177 @@
   </header>
 
   <div class="main-container">
-    <!-- Top Menu Panels -->
-    <ul class="nav nav-tabs nav-panel" id="topPanelTabs" role="tablist">
-      <li class="nav-item" role="presentation">
-        <button
-          class="nav-link active"
-          id="form-tab"
-          data-bs-toggle="tab"
-          data-bs-target="#form-pane"
-          type="button"
-          role="tab"
-          aria-controls="form-pane"
-          aria-selected="true"
-        >
-          Form
-        </button>
-      </li>
-      <li class="nav-item dropdown" role="presentation">
-        <button
-          class="nav-link dropdown-toggle"
-          data-bs-toggle="dropdown"
-          type="button"
-          role="button"
-        >
-          Test Results
-        </button>
-        <ul class="dropdown-menu">
-          <li>
-            <button
-              class="dropdown-item"
-              id="test-analysis-tab"
-              data-bs-toggle="tab"
-              data-bs-target="#test-analysis-pane"
-              type="button"
-              role="tab"
-            >
-              Test Analysis
-            </button>
-          </li>
-          <li>
-            <button
-              class="dropdown-item"
-              id="test-scope-tab"
-              data-bs-toggle="tab"
-              data-bs-target="#test-scope-pane"
-              type="button"
-              role="tab"
-            >
-              Test Scope
-            </button>
-          </li>
-        </ul>
-      </li>
-    </ul>
+    <div class="app-layout">
+      <aside class="side-panel" aria-label="Main navigation">
+        <div class="side-panel-header">
+          <div class="side-panel-title">QA Workspace</div>
+          <button type="button" class="sidebar-toggle-btn" id="sidebarToggleBtn" aria-label="Collapse sidebar" title="Collapse sidebar">
+            <i class="bi bi-layout-sidebar-inset"></i>
+          </button>
+        </div>
+        <div class="nav nav-pills flex-column nav-panel side-nav" id="topPanelTabs" role="tablist" aria-orientation="vertical">
+          <button
+            class="nav-link active"
+            id="dashboard-tab"
+            data-bs-toggle="tab"
+            data-bs-target="#dashboard-pane"
+            type="button"
+            role="tab"
+            aria-controls="dashboard-pane"
+            aria-selected="true"
+          >
+            <i class="bi bi-speedometer2"></i>
+            <span>Dashboard</span>
+          </button>
+          <button
+            class="nav-link"
+            id="form-tab"
+            data-bs-toggle="tab"
+            data-bs-target="#form-pane"
+            type="button"
+            role="tab"
+            aria-controls="form-pane"
+            aria-selected="false"
+          >
+            <i class="bi bi-ui-checks-grid"></i>
+            <span>Form</span>
+          </button>
+          <button
+            class="nav-link"
+            id="test-analysis-tab"
+            data-bs-toggle="tab"
+            data-bs-target="#test-analysis-pane"
+            type="button"
+            role="tab"
+            aria-controls="test-analysis-pane"
+            aria-selected="false"
+          >
+            <i class="bi bi-bar-chart-line"></i>
+            <span>Test Analysis</span>
+          </button>
+          <button
+            class="nav-link"
+            id="test-scope-tab"
+            data-bs-toggle="tab"
+            data-bs-target="#test-scope-pane"
+            type="button"
+            role="tab"
+            aria-controls="test-scope-pane"
+            aria-selected="false"
+          >
+            <i class="bi bi-list-check"></i>
+            <span>Test Cases</span>
+          </button>
+        </div>
+      </aside>
 
-    <div class="tab-content content-wrapper" id="topPanelTabsContent">
-      <!-- Form Panel -->
+      <main class="content-panel">
+        <div class="tab-content content-wrapper" id="topPanelTabsContent">
+      <!-- Dashboard Panel -->
       <div
         class="tab-pane fade show active"
+        id="dashboard-pane"
+        role="tabpanel"
+        aria-labelledby="dashboard-tab"
+      >
+        <div class="card" style="border-radius:0.85rem;border:1px solid rgba(13,110,253,0.09);box-shadow:0 8px 32px rgba(13,110,253,0.07);background:#fff;">
+          <div class="card-body" style="padding:1.25rem 1.35rem 1.1rem;">
+
+            <div class="dash-header-bar">
+              <div class="dash-header-title"><i class="bi bi-speedometer2"></i> Dashboard</div>
+              <button class="btn btn-sm btn-outline-secondary dash-refresh-btn" id="dashRefreshBtn">
+                <i class="bi bi-arrow-clockwise me-1"></i>Refresh
+              </button>
+            </div>
+
+            <div id="dashStatus" class="dash-status-bar"></div>
+
+            <!-- Stat cards -->
+            <div class="dash-stat-grid" id="dashStatGrid">
+              <div class="dash-stat-card blue">
+                <div class="dash-stat-icon"><i class="bi bi-collection"></i></div>
+                <div class="dash-stat-label">Total Prompts</div>
+                <div class="dash-stat-value" id="dashStatTotal">—</div>
+                <div class="dash-stat-sub">all time</div>
+              </div>
+              <div class="dash-stat-card green">
+                <div class="dash-stat-icon"><i class="bi bi-check-circle"></i></div>
+                <div class="dash-stat-label">Completed</div>
+                <div class="dash-stat-value" id="dashStatCompleted">—</div>
+                <div class="dash-stat-sub">with test cases</div>
+              </div>
+              <div class="dash-stat-card orange">
+                <div class="dash-stat-icon"><i class="bi bi-hourglass-split"></i></div>
+                <div class="dash-stat-label">In Progress</div>
+                <div class="dash-stat-value" id="dashStatInProgress">—</div>
+                <div class="dash-stat-sub">processing</div>
+              </div>
+              <div class="dash-stat-card purple">
+                <div class="dash-stat-icon"><i class="bi bi-stopwatch"></i></div>
+                <div class="dash-stat-label">Avg Turnaround</div>
+                <div class="dash-stat-value" id="dashStatAvgTime">—</div>
+                <div class="dash-stat-sub">per prompt</div>
+              </div>
+              <div class="dash-stat-card teal">
+                <div class="dash-stat-icon"><i class="bi bi-list-check"></i></div>
+                <div class="dash-stat-label">Total Test Cases</div>
+                <div class="dash-stat-value" id="dashStatTotalTc">—</div>
+                <div class="dash-stat-sub">generated</div>
+              </div>
+            </div>
+
+            <hr class="dash-divider" />
+
+            <!-- Prompt table -->
+            <div class="dash-section-title"><i class="bi bi-table"></i>Recent Prompts</div>
+            <div class="dash-table-wrap">
+              <table class="table table-sm table-hover mb-0 dash-table">
+                <thead>
+                  <tr>
+                    <th>Prompt ID</th>
+                    <th>Project</th>
+                    <th>Status</th>
+                    <th>Test Cases</th>
+                    <th>Turnaround</th>
+                    <th>Created At</th>
+                    <th class="text-end">Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="dashTableBody">
+                  <tr><td colspan="7" class="dash-empty">Loading...</td></tr>
+                </tbody>
+              </table>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+      <!-- Form Panel -->
+      <div
+        class="tab-pane fade"
         id="form-pane"
         role="tabpanel"
         aria-labelledby="form-tab"
       >
-        <div class="card">
+        <div class="card form-card">
           <div class="card-header">
-            <h5 class="mb-0">Submit Artifacts for QA Analysis</h5>
+            <h5 class="mb-0"><i class="bi bi-magic me-1"></i>Submit Artifacts for QA Analysis</h5>
           </div>
           <div class="card-body">
-            <form id="qaForm" class="row g-3">
+            <form id="qaForm" class="row g-3 modern-form">
+              <div class="col-12">
+                <div class="form-intro d-flex align-items-center gap-2">
+                  <i class="bi bi-lightning-charge"></i>
+                  <span>Tip: add Prompt ID + at least one source file (or Raw Content) for better AI output quality.</span>
+                </div>
+              </div>
+
+              <div class="col-12 form-section-title">
+                <i class="bi bi-sliders"></i>
+                <span>General Information</span>
+              </div>
+
               <!-- Prompt ID (to track results) -->
               <div class="col-md-4">
                 <label for="promptIdInput" class="form-label">Prompt ID</label>
@@ -190,7 +1184,7 @@
                   class="form-control"
                   id="promptIdInput"
                   name="promptId"
-                  placeholder="e.g., PRD-1234-Login-Flow"
+                  placeholder=""
                   required
                 />
                 <div class="form-text">
@@ -206,7 +1200,6 @@
                   class="form-control"
                   id="projectNameInput"
                   name="projectName"
-                  placeholder="e.g., User Authentication"
                 />
               </div>
 
@@ -226,38 +1219,57 @@
                 </select>
               </div>
 
-              <!-- Artifact URLs -->
+              <div class="col-12 form-section-title mt-1">
+                <i class="bi bi-link-45deg"></i>
+                <span>Artifact Sources</span>
+              </div>
+
+              <!-- Artifact Files -->
               <div class="col-12">
-                <label for="prdUrlInput" class="form-label">PRD / Specs URL</label>
-                <input
-                  type="url"
-                  class="form-control"
-                  id="prdUrlInput"
-                  name="prdUrl"
-                  placeholder="https://..."
-                />
+                <label for="prdUrlInput" class="form-label">PRD / Specs File</label>
+                <div class="input-group">
+                  <span class="input-group-text"><i class="bi bi-file-earmark-text"></i></span>
+                  <input
+                    type="file"
+                    class="form-control"
+                    id="prdUrlInput"
+                    name="prdUrl"
+                    accept=".txt,.md,.pdf,.doc,.docx,.json"
+                  />
+                </div>
               </div>
 
               <div class="col-12">
-                <label for="rfcUrlInput" class="form-label">RFC URL (optional)</label>
-                <input
-                  type="url"
-                  class="form-control"
-                  id="rfcUrlInput"
-                  name="rfcUrl"
-                  placeholder="https://..."
-                />
+                <label for="rfcUrlInput" class="form-label">RFC File (optional)</label>
+                <div class="input-group">
+                  <span class="input-group-text"><i class="bi bi-diagram-3"></i></span>
+                  <input
+                    type="file"
+                    class="form-control"
+                    id="rfcUrlInput"
+                    name="rfcUrl"
+                    accept=".txt,.md,.pdf,.doc,.docx,.json"
+                  />
+                </div>
               </div>
 
               <div class="col-12">
-                <label for="figmaUrlInput" class="form-label">Figma URL (optional)</label>
-                <input
-                  type="url"
-                  class="form-control"
-                  id="figmaUrlInput"
-                  name="figmaUrl"
-                  placeholder="https://figma.com/file/..."
-                />
+                <label for="figmaUrlInput" class="form-label">Figma Export File (optional)</label>
+                <div class="input-group">
+                  <span class="input-group-text"><i class="bi bi-palette"></i></span>
+                  <input
+                    type="file"
+                    class="form-control"
+                    id="figmaUrlInput"
+                    name="figmaUrl"
+                    accept=".txt,.md,.json,.csv,.pdf,.png,.jpg,.jpeg"
+                  />
+                </div>
+              </div>
+
+              <div class="col-12 form-section-title mt-1">
+                <i class="bi bi-journal-text"></i>
+                <span>Context & Content</span>
               </div>
 
               <!-- Additional context / instructions -->
@@ -283,18 +1295,19 @@
                   class="form-control"
                   id="rawContentInput"
                   name="rawContent"
-                  rows="6"
-                  placeholder="Paste PRD/RFC sections here if not accessible via URLs..."
+                  rows="5"
+                  placeholder="Paste PRD/RFC sections here if not available as files..."
                 ></textarea>
               </div>
 
               <!-- Submit -->
-              <div class="col-12 d-flex align-items-center">
+              <div class="col-12 form-submit-bar d-flex align-items-center">
                 <button
                   type="submit"
                   class="btn btn-primary me-3"
                   id="submitFormBtn"
                 >
+                  <i class="bi bi-send me-1"></i>
                   Submit for Analysis
                 </button>
                 <div id="formStatus" class="small text-muted"></div>
@@ -315,32 +1328,38 @@
           <div class="card-header d-flex justify-content-between align-items-center">
             <h5 class="mb-0">Test Analysis</h5>
             <div class="d-flex align-items-center gap-2">
-              <input
-                type="text"
-                class="form-control form-control-sm"
-                id="analysisPromptIdInput"
-                placeholder="Prompt ID"
-                style="max-width: 220px;"
-              />
-              <button
-                class="btn btn-sm btn-outline-secondary"
-                id="loadAnalysisBtn"
-              >
-                Load
-              </button>
+              <div class="prompt-select-wrap" id="analysisPromptSelectWrap">
+                <div class="prompt-select-trigger" id="analysisPromptTrigger" tabindex="0">
+                  <span class="prompt-select-trigger-text placeholder" id="analysisPromptTriggerText">Select a prompt...</span>
+                  <i class="bi bi-chevron-down" style="font-size:0.75rem;flex-shrink:0;"></i>
+                </div>
+                <div class="prompt-select-dropdown" id="analysisPromptDropdown">
+                  <input type="text" class="prompt-select-search" id="analysisPromptSearch" placeholder="Search prompt..." autocomplete="off" />
+                  <div class="prompt-select-options" id="analysisPromptOptions"></div>
+                </div>
+              </div>
+              <input type="hidden" id="analysisPromptIdInput" />
               <button
                 class="btn btn-sm btn-outline-success"
                 id="downloadAnalysisBtn"
                 disabled
               >
-                Download / Mark as Downloaded
+                <i class="bi bi-download me-1"></i>Download
               </button>
             </div>
           </div>
           <div class="card-body">
             <div id="analysisStatus" class="small text-muted mb-2"></div>
-            <div id="analysisContent" class="border rounded p-3 bg-light" style="min-height: 150px;">
-              <span class="text-muted">No analysis loaded yet. Enter a Prompt ID and click "Load".</span>
+            <div id="analysisContent" class="analysis-content-shell">
+              <div class="analysis-layout">
+                <aside id="analysisToc" class="analysis-toc" aria-label="Analysis table of contents">
+                  <div class="analysis-toc-title">Contents</div>
+                  <div class="analysis-toc-empty">No sections yet.</div>
+                </aside>
+                <section id="analysisDoc" class="analysis-doc" aria-label="Analysis document">
+                  <div class="analysis-doc-empty">No analysis loaded yet. Enter a Prompt ID and click "Load".</div>
+                </section>
+              </div>
             </div>
           </div>
         </div>
@@ -353,19 +1372,19 @@
         role="tabpanel"
         aria-labelledby="test-scope-tab"
       >
-        <div class="mb-3 d-flex flex-wrap align-items-center justify-content-between">
+        <div class="scope-toolbar mb-3 d-flex flex-wrap align-items-center justify-content-between">
           <div class="d-flex align-items-center gap-2">
-            <label for="scopePromptIdInput" class="form-label mb-0">Prompt ID</label>
-            <input
-              type="text"
-              class="form-control form-control-sm"
-              id="scopePromptIdInput"
-              placeholder="Prompt ID"
-              style="max-width: 220px;"
-            />
-            <button class="btn btn-sm btn-outline-secondary" id="loadScopeBtn">
-              Load Test Scope
-            </button>
+            <div class="prompt-select-wrap" id="scopePromptSelectWrap">
+              <div class="prompt-select-trigger" id="scopePromptTrigger" tabindex="0">
+                <span class="prompt-select-trigger-text placeholder" id="scopePromptTriggerText">Select a prompt...</span>
+                <i class="bi bi-chevron-down" style="font-size:0.75rem;flex-shrink:0;"></i>
+              </div>
+              <div class="prompt-select-dropdown" id="scopePromptDropdown">
+                <input type="text" class="prompt-select-search" id="scopePromptSearch" placeholder="Search prompt..." autocomplete="off" />
+                <div class="prompt-select-options" id="scopePromptOptions"></div>
+              </div>
+            </div>
+            <input type="hidden" id="scopePromptIdInput" />
           </div>
           <div id="scopeStatus" class="small text-muted mt-2 mt-md-0"></div>
         </div>
@@ -375,6 +1394,13 @@
           <div class="test-scope-left">
             <div class="d-flex justify-content-between align-items-center mb-2">
               <h6 class="mb-0">Sections</h6>
+              <button type="button" class="panel-collapse-btn" id="sectionPanelToggleBtn" aria-label="Collapse sections" title="Collapse sections">
+                <i class="bi bi-chevron-left"></i>
+              </button>
+            </div>
+            <div class="form-check form-switch section-filter-toggle">
+              <input class="form-check-input" type="checkbox" role="switch" id="focusSectionToggle" checked>
+              <label class="form-check-label" for="focusSectionToggle">Show selected section only</label>
             </div>
             <div id="sectionList">
               <div class="text-muted small">
@@ -386,15 +1412,21 @@
           <!-- Right: Test Cases Table -->
           <div class="test-scope-right">
             <div class="d-flex justify-content-between align-items-center mb-2">
-              <h6 class="mb-0" id="selectedSectionTitle">Test Cases</h6>
+              <h6 class="mb-0" id="selectedSectionTitle">All Test Cases</h6>
+              <div class="d-flex align-items-center all-view-filters" id="allViewFilters">
+                <div class="form-check form-switch mb-0">
+                  <input class="form-check-input" type="checkbox" role="switch" id="toggleIdColumn" checked>
+                  <label class="form-check-label" for="toggleIdColumn">ID</label>
+                </div>
+              </div>
             </div>
 
             <div class="table-responsive">
-              <table class="table table-sm table-hover align-middle mb-0">
+              <table class="table table-sm table-hover align-middle mb-0 scope-table">
                 <thead class="table-light">
                   <tr>
-                    <th style="width: 80px;">ID</th>
-                    <th>Test Title</th>
+                    <th style="width: 130px;" data-col="id">ID</th>
+                    <th data-col="title">Test Title</th>
                     <th style="width: 150px;" class="text-end">Actions</th>
                   </tr>
                 </thead>
@@ -411,6 +1443,8 @@
         </div>
       </div>
       <!-- End Test Scope Panel -->
+        </div>
+      </main>
     </div>
   </div>
 
@@ -438,6 +1472,11 @@
 
             <dt class="col-sm-3">Section</dt>
             <dd class="col-sm-9" id="viewTcSection"></dd>
+
+            <dt class="col-sm-3">Preconditions</dt>
+            <dd class="col-sm-9">
+              <pre id="viewTcPreconditions" class="mb-0" style="white-space: pre-wrap;"></pre>
+            </dd>
 
             <dt class="col-sm-3">Steps</dt>
             <dd class="col-sm-9">
@@ -498,6 +1537,15 @@
                 id="editTcSection"
                 required
               />
+            </div>
+            <div class="mb-3">
+              <label for="editTcPreconditions" class="form-label">Preconditions</label>
+              <textarea
+                class="form-control"
+                id="editTcPreconditions"
+                rows="3"
+                placeholder="One precondition per line"
+              ></textarea>
             </div>
             <div class="mb-3">
               <label for="editTcSteps" class="form-label">Steps</label>
@@ -584,24 +1632,133 @@
   <script>
     // --- Helper: simple fetch wrapper ---
     async function apiRequest(url, options = {}) {
-      const response = await fetch(url, {
-        headers: {
-          "Content-Type": "application/json",
-          ...(options.headers || {})
-        },
-        ...options,
-      });
-      if (!response.ok) {
-        const text = await response.text();
-        throw new Error(text || response.statusText);
+      const isAbsolute = /^https?:\/\//i.test(url);
+      const normalizedPath = String(url || "").startsWith("/") ? String(url) : `/${String(url || "")}`;
+      const backendPort = "3001";
+
+      const candidates = [];
+      if (isAbsolute) {
+        candidates.push(url);
+      } else {
+        if (window.location.protocol === "file:") {
+          candidates.push(`http://localhost:${backendPort}${normalizedPath}`);
+        } else {
+          candidates.push(normalizedPath);
+
+          const isLocalHost = /^(localhost|127\.0\.0\.1)$/i.test(window.location.hostname);
+          if (isLocalHost && window.location.port !== backendPort) {
+            candidates.push(`http://localhost:${backendPort}${normalizedPath}`);
+          }
+        }
       }
-      return response.json();
+
+      let lastError = null;
+
+      for (const requestUrl of candidates) {
+        try {
+          const response = await fetch(requestUrl, {
+            headers: {
+              "Content-Type": "application/json",
+              ...(options.headers || {}),
+            },
+            ...options,
+          });
+
+          const rawText = await response.text();
+          const contentType = response.headers.get("content-type") || "";
+          const isJson = contentType.includes("application/json");
+          const parsedBody = isJson && rawText ? JSON.parse(rawText) : (rawText || null);
+
+          if (!response.ok) {
+            const backendMessage =
+              (parsedBody && typeof parsedBody === "object" && (parsedBody.error || parsedBody.message))
+              || (typeof parsedBody === "string" ? parsedBody : "")
+              || response.statusText;
+            throw new Error(`${response.status} ${backendMessage}`.trim());
+          }
+
+          return parsedBody;
+        } catch (err) {
+          lastError = err;
+        }
+      }
+
+      throw new Error(lastError?.message || "Failed to fetch API");
     }
+
+    const appLayout = document.querySelector(".app-layout");
+    const sidebarToggleBtn = document.getElementById("sidebarToggleBtn");
+    const sectionPanelToggleBtn = document.getElementById("sectionPanelToggleBtn");
+    const testScopeLeftPanel = document.querySelector(".test-scope-left");
+
+    function setSidebarCollapsed(isCollapsed) {
+      appLayout.classList.toggle("sidebar-collapsed", isCollapsed);
+      sidebarToggleBtn.setAttribute("aria-label", isCollapsed ? "Expand sidebar" : "Collapse sidebar");
+      sidebarToggleBtn.setAttribute("title", isCollapsed ? "Expand sidebar" : "Collapse sidebar");
+      sidebarToggleBtn.innerHTML = isCollapsed
+        ? '<i class="bi bi-layout-sidebar"></i>'
+        : '<i class="bi bi-layout-sidebar-inset"></i>';
+      localStorage.setItem("qa_sidebar_collapsed", isCollapsed ? "1" : "0");
+    }
+
+    function setSectionPanelCollapsed(isCollapsed) {
+      if (!testScopeLeftPanel) return;
+      testScopeLeftPanel.classList.toggle("is-collapsed", isCollapsed);
+      sectionPanelToggleBtn.setAttribute("aria-label", isCollapsed ? "Expand sections" : "Collapse sections");
+      sectionPanelToggleBtn.setAttribute("title", isCollapsed ? "Expand sections" : "Collapse sections");
+      sectionPanelToggleBtn.innerHTML = isCollapsed
+        ? '<i class="bi bi-chevron-right"></i>'
+        : '<i class="bi bi-chevron-left"></i>';
+      localStorage.setItem("qa_sections_collapsed", isCollapsed ? "1" : "0");
+    }
+
+    sidebarToggleBtn.addEventListener("click", () => {
+      setSidebarCollapsed(!appLayout.classList.contains("sidebar-collapsed"));
+    });
+
+    sectionPanelToggleBtn.addEventListener("click", () => {
+      setSectionPanelCollapsed(!testScopeLeftPanel.classList.contains("is-collapsed"));
+    });
+
+    setSidebarCollapsed(localStorage.getItem("qa_sidebar_collapsed") === "1");
+    setSectionPanelCollapsed(localStorage.getItem("qa_sections_collapsed") === "1");
 
     // --- FORM: Submit to /ask ---
     const qaForm = document.getElementById("qaForm");
     const formStatus = document.getElementById("formStatus");
     const submitFormBtn = document.getElementById("submitFormBtn");
+
+    async function getFilePreview(file) {
+      if (!file) return { name: "", content: "" };
+
+      const maxSizeBytes = 2 * 1024 * 1024; // 2MB
+      if (file.size > maxSizeBytes) {
+        return {
+          name: file.name,
+          content: `[${file.name}] skipped: file is larger than 2MB.`,
+        };
+      }
+
+      const lowerName = (file.name || "").toLowerCase();
+      const readableByText = /\.(txt|md|json|csv|xml|yaml|yml)$/i.test(lowerName);
+
+      if (!readableByText) {
+        return {
+          name: file.name,
+          content: `[${file.name}] uploaded (binary/unsupported text extraction in browser).`,
+        };
+      }
+
+      try {
+        const content = await file.text();
+        return { name: file.name, content };
+      } catch {
+        return {
+          name: file.name,
+          content: `[${file.name}] uploaded but could not be read in browser.`,
+        };
+      }
+    }
 
     qaForm.addEventListener("submit", async (e) => {
       e.preventDefault();
@@ -609,15 +1766,33 @@
       submitFormBtn.disabled = true;
       submitFormBtn.textContent = "Submitting...";
 
+      const prdFile = document.getElementById("prdUrlInput").files?.[0] || null;
+      const rfcFile = document.getElementById("rfcUrlInput").files?.[0] || null;
+      const figmaFile = document.getElementById("figmaUrlInput").files?.[0] || null;
+
+      const [prdPreview, rfcPreview, figmaPreview] = await Promise.all([
+        getFilePreview(prdFile),
+        getFilePreview(rfcFile),
+        getFilePreview(figmaFile),
+      ]);
+
+      const contextBlocks = [
+        prdPreview.content ? `PRD FILE (${prdPreview.name}):\n${prdPreview.content}` : "",
+        rfcPreview.content ? `RFC FILE (${rfcPreview.name}):\n${rfcPreview.content}` : "",
+        figmaPreview.content ? `FIGMA FILE (${figmaPreview.name}):\n${figmaPreview.content}` : "",
+      ].filter(Boolean);
+
+      const manualRawContent = document.getElementById("rawContentInput").value.trim();
+
       const payload = {
         promptId: document.getElementById("promptIdInput").value.trim(),
         projectName: document.getElementById("projectNameInput").value.trim(),
         docType: document.getElementById("docTypeSelect").value,
-        prdUrl: document.getElementById("prdUrlInput").value.trim(),
-        rfcUrl: document.getElementById("rfcUrlInput").value.trim(),
-        figmaUrl: document.getElementById("figmaUrlInput").value.trim(),
+        prdUrl: prdPreview.name || "",
+        rfcUrl: rfcPreview.name || "",
+        figmaUrl: figmaPreview.name || "",
         context: document.getElementById("contextInput").value.trim(),
-        rawContent: document.getElementById("rawContentInput").value.trim(),
+        rawContent: [manualRawContent, ...contextBlocks].filter(Boolean).join("\n\n"),
       };
 
       if (!payload.promptId) {
@@ -647,98 +1822,282 @@
       }
     });
 
-    // --- TEST ANALYSIS: /testanalys/{promptID} ---
-    const loadAnalysisBtn = document.getElementById("loadAnalysisBtn");
+    // --- TEST ANALYSIS: /testcase/getAnalyzeResult/{promptID} ---
     const downloadAnalysisBtn = document.getElementById("downloadAnalysisBtn");
     const analysisPromptIdInput = document.getElementById("analysisPromptIdInput");
     const analysisStatus = document.getElementById("analysisStatus");
-    const analysisContent = document.getElementById("analysisContent");
+    const analysisToc = document.getElementById("analysisToc");
+    const analysisDoc = document.getElementById("analysisDoc");
 
     let currentAnalysisPromptId = null;
+    let currentAnalysisText = "";
 
-    loadAnalysisBtn.addEventListener("click", async () => {
-      const promptId = analysisPromptIdInput.value.trim();
+    async function doLoadAnalysis(promptId) {
       if (!promptId) {
-        analysisStatus.textContent = "Prompt ID is required.";
+        analysisStatus.textContent = "Select a prompt to load analysis.";
         return;
       }
 
       analysisStatus.textContent = "Loading analysis...";
       downloadAnalysisBtn.disabled = true;
       currentAnalysisPromptId = promptId;
+      currentAnalysisText = "";
 
       try {
-        // Expected response example:
-        // { analysis: "string with test analysis..." }
-        const data = await apiRequest(`/testanalys/${encodeURIComponent(promptId)}`);
+        const response = await apiRequest(`/testcase/getAnalyzeResult/${encodeURIComponent(promptId)}`);
+        const payload = response && typeof response === "object" && response.data ? response.data : response;
+        currentAnalysisText = typeof payload?.analysis === "string" ? payload.analysis : "";
 
-        analysisContent.innerHTML = "";
-        const pre = document.createElement("pre");
-        pre.style.whiteSpace = "pre-wrap";
-        pre.textContent = data.analysis || "No analysis content returned.";
-        analysisContent.appendChild(pre);
+        renderAnalysisDocument(currentAnalysisText);
 
         analysisStatus.textContent = "Analysis loaded.";
-        downloadAnalysisBtn.disabled = false;
+        downloadAnalysisBtn.disabled = !currentAnalysisText.trim();
       } catch (err) {
-        analysisContent.innerHTML = '<span class="text-danger">Failed to load analysis.</span>';
+        analysisToc.innerHTML = '<div class="analysis-toc-title">Contents</div><div class="analysis-toc-empty text-danger">Failed to load sections.</div>';
+        analysisDoc.innerHTML = '<div class="analysis-doc-empty text-danger">Failed to load analysis.</div>';
         analysisStatus.textContent = err.message;
         downloadAnalysisBtn.disabled = true;
       }
-    });
+    }
+
+    function parseAnalysisSections(rawText) {
+      const lines = String(rawText || "").replace(/\r\n?/g, "\n").split("\n");
+      const parsedSections = [];
+      let currentSection = null;
+      const introLines = [];
+
+      lines.forEach((line) => {
+        const trimmed = line.trim();
+        const hasLeadingWhitespace = /^\s+/.test(line);
+        const headingMatch = trimmed.match(/^(\d+(?:\.\d+)*)\.?\s+(.+)$/);
+
+        if (headingMatch && !hasLeadingWhitespace) {
+          currentSection = {
+            numbering: headingMatch[1],
+            title: headingMatch[2].trim(),
+            level: headingMatch[1].split(".").length,
+            lines: [],
+          };
+          parsedSections.push(currentSection);
+          return;
+        }
+
+        if (!currentSection) {
+          introLines.push(line);
+          return;
+        }
+
+        currentSection.lines.push(line);
+      });
+
+      const hasIntro = introLines.some((line) => line.trim());
+      if (hasIntro) {
+        parsedSections.unshift({
+          numbering: "",
+          title: "Introduction",
+          level: 1,
+          lines: introLines,
+        });
+      }
+
+      return parsedSections.map((section, index) => ({
+        ...section,
+        id: `analysis-section-${index + 1}`,
+      }));
+    }
+
+    function renderAnalysisBodyLines(container, lines) {
+      const usefulLines = Array.isArray(lines) ? lines : [];
+      const hasContent = usefulLines.some((line) => line.trim());
+
+      if (!hasContent) {
+        const emptyP = document.createElement("p");
+        emptyP.className = "text-muted mb-0";
+        emptyP.textContent = "No additional details.";
+        container.appendChild(emptyP);
+        return;
+      }
+
+      usefulLines.forEach((line) => {
+        const trimmed = line.trim();
+        if (!trimmed) {
+          return;
+        }
+
+        const listMatch = line.match(/^(\s*)([-*]|\d+\.)\s+(.+)$/);
+        const p = document.createElement("p");
+
+        if (listMatch) {
+          const indentSpaces = listMatch[1].replace(/\t/g, "  ").length;
+          const indentLevel = Math.min(5, Math.floor(indentSpaces / 2));
+          const bullet = /\d+\./.test(listMatch[2]) ? listMatch[2] : "•";
+          p.classList.add("analysis-list-line");
+          p.style.paddingLeft = `${indentLevel * 1.15}rem`;
+          p.textContent = `${bullet} ${listMatch[3].trim()}`;
+        } else {
+          p.textContent = trimmed;
+        }
+
+        container.appendChild(p);
+      });
+    }
+
+    function setActiveAnalysisTocItem(sectionId) {
+      analysisToc.querySelectorAll(".analysis-toc-item").forEach((item) => {
+        item.classList.toggle("active", item.dataset.sectionId === sectionId);
+      });
+    }
+
+    function renderAnalysisDocument(rawText) {
+      const sections = parseAnalysisSections(rawText);
+
+      analysisToc.innerHTML = '<div class="analysis-toc-title">Contents</div>';
+      analysisDoc.innerHTML = "";
+
+      if (!sections.length) {
+        const tocEmpty = document.createElement("div");
+        tocEmpty.className = "analysis-toc-empty";
+        tocEmpty.textContent = "No sections found in analysis.";
+        analysisToc.appendChild(tocEmpty);
+
+        const docEmpty = document.createElement("div");
+        docEmpty.className = "analysis-doc-empty";
+        docEmpty.textContent = "No analysis content returned.";
+        analysisDoc.appendChild(docEmpty);
+        return;
+      }
+
+      sections.forEach((section, index) => {
+        const tocBtn = document.createElement("button");
+        tocBtn.type = "button";
+        tocBtn.className = `analysis-toc-item level-${Math.min(4, section.level)}`;
+        tocBtn.dataset.sectionId = section.id;
+        tocBtn.textContent = `${section.numbering ? `${section.numbering} ` : ""}${section.title}`;
+        tocBtn.addEventListener("click", () => {
+          const target = document.getElementById(section.id);
+          if (target) {
+            target.scrollIntoView({ behavior: "smooth", block: "start" });
+            setActiveAnalysisTocItem(section.id);
+          }
+        });
+        analysisToc.appendChild(tocBtn);
+
+        const sectionEl = document.createElement("section");
+        sectionEl.className = "analysis-doc-section";
+        sectionEl.id = section.id;
+
+        const headingTag = section.level <= 1 ? "h2" : section.level === 2 ? "h3" : "h4";
+        const headingEl = document.createElement(headingTag);
+        headingEl.textContent = `${section.numbering ? `${section.numbering}. ` : ""}${section.title}`;
+        sectionEl.appendChild(headingEl);
+
+        renderAnalysisBodyLines(sectionEl, section.lines);
+        analysisDoc.appendChild(sectionEl);
+
+        if (index === 0) {
+          setActiveAnalysisTocItem(section.id);
+        }
+      });
+    }
 
     downloadAnalysisBtn.addEventListener("click", async () => {
-      if (!currentAnalysisPromptId) return;
+      if (!currentAnalysisPromptId || !currentAnalysisText.trim()) return;
 
       downloadAnalysisBtn.disabled = true;
-      downloadAnalysisBtn.textContent = "Updating...";
+      downloadAnalysisBtn.textContent = "Downloading...";
 
       try {
-        // If you want to mark the analysis as downloaded / update any status,
-        // you can implement your own endpoint, e.g. POST /testanalys/{promptID}/download
-        // For now, we'll just simulate a call:
-        await apiRequest(`/testanalys/${encodeURIComponent(currentAnalysisPromptId)}/download`, {
-          method: "POST",
-          body: JSON.stringify({ downloadedAt: new Date().toISOString() }),
-        });
+        const blob = new Blob([currentAnalysisText], { type: "text/plain;charset=utf-8" });
+        const url = URL.createObjectURL(blob);
+        const anchor = document.createElement("a");
+        anchor.href = url;
+        anchor.download = `${currentAnalysisPromptId}-analysis.txt`;
+        document.body.appendChild(anchor);
+        anchor.click();
+        anchor.remove();
+        URL.revokeObjectURL(url);
 
-        analysisStatus.textContent = "Analysis marked as downloaded.";
+        analysisStatus.textContent = "Analysis downloaded.";
       } catch (err) {
-        analysisStatus.textContent = "Download update failed: " + err.message;
+        analysisStatus.textContent = "Download failed: " + err.message;
       } finally {
         downloadAnalysisBtn.disabled = false;
-        downloadAnalysisBtn.textContent = "Download / Mark as Downloaded";
+        downloadAnalysisBtn.textContent = "Download";
       }
     });
 
-    // --- TEST SCOPE: /getTestcases/{promptID} ---
+    // --- TEST SCOPE: /testcase/{promptID} ---
     const scopePromptIdInput = document.getElementById("scopePromptIdInput");
-    const loadScopeBtn = document.getElementById("loadScopeBtn");
     const scopeStatus = document.getElementById("scopeStatus");
     const sectionListEl = document.getElementById("sectionList");
     const testCaseTableBody = document.getElementById("testCaseTableBody");
+    const scopeTable = document.querySelector(".scope-table");
     const selectedSectionTitle = document.getElementById("selectedSectionTitle");
+    const allViewFilters = document.getElementById("allViewFilters");
+    const toggleIdColumn = document.getElementById("toggleIdColumn");
+    const focusSectionToggle = document.getElementById("focusSectionToggle");
 
     let allTestCases = []; // raw data from backend
     let sections = [];     // derived sections
-    let selectedSection = null;
+    let selectedSection = "all";
     let currentScopePromptId = null;
+    let focusSelectedSectionOnly = true;
 
-    loadScopeBtn.addEventListener("click", () => {
-      const promptId = scopePromptIdInput.value.trim();
-      if (!promptId) {
-        scopeStatus.textContent = "Prompt ID is required.";
-        return;
-      }
-      loadTestScope(promptId);
+    toggleIdColumn.addEventListener("change", () => {
+      applyAllViewColumnVisibility();
     });
+
+    focusSectionToggle.addEventListener("change", () => {
+      setFocusSelectedSectionOnly(focusSectionToggle.checked);
+    });
+
+    function setFocusSelectedSectionOnly(isEnabled) {
+      focusSelectedSectionOnly = isEnabled;
+      focusSectionToggle.checked = isEnabled;
+      localStorage.setItem("qa_focus_selected_section_only", isEnabled ? "1" : "0");
+
+      if (!sections.length) return;
+
+      if (selectedSection === "all") {
+        selectedSectionTitle.textContent = "All Test Cases";
+      } else {
+        selectedSectionTitle.textContent = focusSelectedSectionOnly
+          ? `Test Cases · ${selectedSection}`
+          : `All Test Cases · ${selectedSection}`;
+      }
+
+      renderAllTestCases();
+    }
+
+    function getVisibleColumnsCount() {
+      let visibleColumns = 3;
+      if (!toggleIdColumn.checked) visibleColumns -= 1;
+      return visibleColumns;
+    }
+
+    function applyAllViewColumnVisibility() {
+      allViewFilters.style.display = "flex";
+
+      const showId = toggleIdColumn.checked;
+
+      document.querySelectorAll('.scope-table th[data-col="id"], .scope-table td[data-col="id"]').forEach(el => {
+        el.style.display = showId ? "" : "none";
+      });
+
+      scopeTable.classList.toggle("id-hidden", !showId);
+
+      const colSpan = getVisibleColumnsCount();
+      document.querySelectorAll("tr.scope-section-row td").forEach(cell => {
+        cell.colSpan = colSpan;
+      });
+    }
 
     async function loadTestScope(promptId) {
       scopeStatus.textContent = "Loading test cases...";
       currentScopePromptId = promptId;
       allTestCases = [];
       sections = [];
-      selectedSection = null;
+      selectedSection = "all";
       sectionListEl.innerHTML = "";
       testCaseTableBody.innerHTML = `
         <tr><td colspan="3" class="text-center text-muted small">
@@ -759,6 +2118,9 @@
           (group["test cases"] || []).map(tc => ({
             ...tc,
             section: group.section || "Uncategorized",
+            preconditions: Array.isArray(tc.preconditions)
+              ? tc.preconditions.join("\n")
+              : (tc.preconditions || ""),
             steps: Array.isArray(tc.steps) ? tc.steps.join("\n") : (tc.steps || ""),
             expected: tc.expectedResult || tc.expected || "",
           }))
@@ -771,6 +2133,7 @@
             <tr><td colspan="3" class="text-center text-muted small">
               No test cases available.
             </td></tr>`;
+          selectedSectionTitle.textContent = "All Test Cases";
           return;
         }
 
@@ -790,10 +2153,9 @@
         }));
 
         renderSections();
-        // Auto-select first section
-        if (sections.length) {
-          selectSection(sections[0].name);
-        }
+        renderAllTestCases();
+        selectedSectionTitle.textContent = "All Test Cases";
+        applyAllViewColumnVisibility();
 
         scopeStatus.textContent = `Loaded ${allTestCases.length} test case(s) across ${sections.length} section(s).`;
       } catch (err) {
@@ -806,8 +2168,31 @@
       }
     }
 
+    function buildSectionsFromCases() {
+      const sectionMap = new Map();
+      allTestCases.forEach(tc => {
+        const sec = (tc.section || "Uncategorized").trim();
+        if (!sectionMap.has(sec)) {
+          sectionMap.set(sec, []);
+        }
+        sectionMap.get(sec).push(tc);
+      });
+
+      sections = Array.from(sectionMap.entries()).map(([name, tcs]) => ({
+        name,
+        testcases: tcs,
+      }));
+    }
+
     function renderSections() {
       sectionListEl.innerHTML = "";
+
+      const allItem = document.createElement("div");
+      allItem.className = `section-item ${selectedSection === "all" ? "active" : ""}`;
+      allItem.textContent = `All Sections (${allTestCases.length})`;
+      allItem.addEventListener("click", () => selectSection("all"));
+      sectionListEl.appendChild(allItem);
+
       sections.forEach(sec => {
         const div = document.createElement("div");
         div.className = "section-item";
@@ -823,62 +2208,132 @@
       });
     }
 
-    function selectSection(sectionName) {
-      selectedSection = sectionName;
-      renderSections();
+    function createActionButtons(tc) {
+      const tdActions = document.createElement("td");
+      tdActions.className = "text-end";
+      tdActions.innerHTML = `
+        <button class="btn btn-sm btn-outline-secondary icon-action-btn" title="See detail" aria-label="See detail">
+          <i class="bi bi-eye"></i>
+        </button>
+        <button class="btn btn-sm btn-outline-primary icon-action-btn" title="Edit" aria-label="Edit">
+          <i class="bi bi-pencil-square"></i>
+        </button>
+        <button class="btn btn-sm btn-outline-danger icon-action-btn" title="Delete" aria-label="Delete">
+          <i class="bi bi-trash"></i>
+        </button>
+      `;
 
-      const section = sections.find(s => s.name === sectionName);
-      selectedSectionTitle.textContent = `Test Cases — ${sectionName}`;
+      const [btnView, btnEdit, btnDelete] = tdActions.querySelectorAll("button");
+      btnView.addEventListener("click", () => openViewModal(tc));
+      btnEdit.addEventListener("click", () => openEditModal(tc));
+      btnDelete.addEventListener("click", () => openDeleteModal(tc));
 
-      const tcs = section ? section.testcases : [];
-      if (!tcs.length) {
+      return tdActions;
+    }
+
+    function renderAllTestCases() {
+      if (!allTestCases.length) {
         testCaseTableBody.innerHTML = `
           <tr><td colspan="3" class="text-center text-muted small">
-            No test cases in this section.
+            No test cases available.
+          </td></tr>`;
+        return;
+      }
+
+      const sectionsToRender = (focusSelectedSectionOnly && selectedSection !== "all")
+        ? sections.filter(section => section.name === selectedSection)
+        : sections;
+
+      if (!sectionsToRender.length) {
+        testCaseTableBody.innerHTML = `
+          <tr><td colspan="3" class="text-center text-muted small">
+            No test cases available.
           </td></tr>`;
         return;
       }
 
       testCaseTableBody.innerHTML = "";
-      tcs.forEach(tc => {
-        const tr = document.createElement("tr");
+      sectionsToRender.forEach(section => {
+        const sectionRow = document.createElement("tr");
+        sectionRow.className = "scope-section-row";
+        sectionRow.dataset.sectionHeader = section.name;
 
-        const tdId = document.createElement("td");
-        tdId.textContent = tc.id || "";
-        tr.appendChild(tdId);
+        const sectionCell = document.createElement("td");
+        sectionCell.colSpan = getVisibleColumnsCount();
+        sectionCell.textContent = `${section.name} (${section.testcases.length})`;
+        sectionRow.appendChild(sectionCell);
+        testCaseTableBody.appendChild(sectionRow);
 
-        const tdTitle = document.createElement("td");
-        tdTitle.textContent = tc.title || "";
-        tr.appendChild(tdTitle);
+        section.testcases.forEach(tc => {
+          const tr = document.createElement("tr");
+          tr.className = "testcase-row";
+          tr.dataset.section = section.name;
 
-        const tdActions = document.createElement("td");
-        tdActions.className = "text-end";
-        tdActions.innerHTML = `
-          <button class="btn btn-sm btn-outline-secondary me-1">See Detail</button>
-          <button class="btn btn-sm btn-outline-primary me-1">Edit</button>
-          <button class="btn btn-sm btn-outline-danger">Delete</button>
-        `;
+          const tdId = document.createElement("td");
+          tdId.dataset.col = "id";
+          tdId.textContent = tc.id || "";
+          tr.appendChild(tdId);
 
-        const [btnView, btnEdit, btnDelete] = tdActions.querySelectorAll("button");
+          const tdTitle = document.createElement("td");
+          tdTitle.dataset.col = "title";
+          tdTitle.textContent = tc.title || "";
+          tr.appendChild(tdTitle);
 
-        btnView.addEventListener("click", () => openViewModal(tc));
-        btnEdit.addEventListener("click", () => openEditModal(tc));
-        btnDelete.addEventListener("click", () => openDeleteModal(tc));
-
-        tr.appendChild(tdActions);
-        testCaseTableBody.appendChild(tr);
+          tr.appendChild(createActionButtons(tc));
+          testCaseTableBody.appendChild(tr);
+        });
       });
+
+      applyAllViewColumnVisibility();
     }
+
+    function selectSection(sectionName) {
+      selectedSection = sectionName;
+      renderSections();
+
+      if (focusSelectedSectionOnly) {
+        if (sectionName === "all") {
+          selectedSectionTitle.textContent = "All Test Cases";
+        } else {
+          selectedSectionTitle.textContent = `Test Cases · ${sectionName}`;
+        }
+        renderAllTestCases();
+        return;
+      }
+
+      if (sectionName === "all") {
+        selectedSectionTitle.textContent = "All Test Cases";
+        applyAllViewColumnVisibility();
+        const firstHeader = testCaseTableBody.querySelector("tr.scope-section-row");
+        if (firstHeader) {
+          firstHeader.scrollIntoView({ behavior: "smooth", block: "start" });
+        }
+        return;
+      }
+
+      selectedSectionTitle.textContent = `All Test Cases · ${sectionName}`;
+      applyAllViewColumnVisibility();
+      const target = testCaseTableBody.querySelector(`tr[data-section-header="${CSS.escape(sectionName)}"]`)
+        || testCaseTableBody.querySelector(`tr[data-section="${CSS.escape(sectionName)}"]`);
+
+      if (target) {
+        target.scrollIntoView({ behavior: "smooth", block: "start" });
+        target.classList.add("row-focus");
+        setTimeout(() => target.classList.remove("row-focus"), 1300);
+      }
+    }
+
+    setFocusSelectedSectionOnly(localStorage.getItem("qa_focus_selected_section_only") !== "0");
 
     // --- Modals logic ---
 
     // View
     const viewTestCaseModal = new bootstrap.Modal(document.getElementById("viewTestCaseModal"));
     function openViewModal(tc) {
-    console.log(tc)
       document.getElementById("viewTcId").textContent = tc.id || "";
       document.getElementById("viewTcTitle").textContent = tc.title || "";
       document.getElementById("viewTcSection").textContent = tc.section || "";
+      document.getElementById("viewTcPreconditions").textContent = tc.preconditions || "";
       document.getElementById("viewTcSteps").textContent = tc.steps || "";
       document.getElementById("viewTcExpected").textContent = tc.expected || "";
       viewTestCaseModal.show();
@@ -893,6 +2348,7 @@
       document.getElementById("editTcPromptId").value = currentScopePromptId || "";
       document.getElementById("editTcTitle").value = tc.title || "";
       document.getElementById("editTcSection").value = tc.section || "";
+      document.getElementById("editTcPreconditions").value = tc.preconditions || "";
       document.getElementById("editTcSteps").value = tc.steps || "";
       document.getElementById("editTcExpected").value = tc.expected || "";
       editTestCaseModal.show();
@@ -908,6 +2364,7 @@
         promptId: promptId,
         title: document.getElementById("editTcTitle").value.trim(),
         section: document.getElementById("editTcSection").value.trim(),
+        preconditions: document.getElementById("editTcPreconditions").value.trim(),
         steps: document.getElementById("editTcSteps").value.trim(),
         expected: document.getElementById("editTcExpected").value.trim(),
       };
@@ -921,27 +2378,17 @@
         // Update local data to reflect changes
         allTestCases = allTestCases.map(tc => tc.id === tcId ? { ...tc, ...updated } : tc);
 
-        // Rebuild sections and keep current selection
+        // Rebuild sections and keep current section focus
         const prevSection = selectedSection;
-        const sectionMap = new Map();
-        allTestCases.forEach(tc => {
-          const sec = (tc.section || "Uncategorized").trim();
-          if (!sectionMap.has(sec)) {
-            sectionMap.set(sec, []);
-          }
-          sectionMap.get(sec).push(tc);
-        });
-        sections = Array.from(sectionMap.entries()).map(([name, tcs]) => ({
-          name,
-          testcases: tcs,
-        }));
+        buildSectionsFromCases();
+        renderSections();
+        renderAllTestCases();
 
-        // Keep same section if still exists, otherwise default to first
         const sectionNames = sections.map(s => s.name);
-        if (prevSection && sectionNames.includes(prevSection)) {
+        if (prevSection && prevSection !== "all" && sectionNames.includes(prevSection)) {
           selectSection(prevSection);
-        } else if (sections.length) {
-          selectSection(sections[0].name);
+        } else {
+          selectSection("all");
         }
 
         editTestCaseModal.hide();
@@ -979,31 +2426,25 @@
 
         // Rebuild sections and keep selection if possible
         const prevSection = selectedSection;
-        const sectionMap = new Map();
-        allTestCases.forEach(tc => {
-          const sec = (tc.section || "Uncategorized").trim();
-          if (!sectionMap.has(sec)) {
-            sectionMap.set(sec, []);
-          }
-          sectionMap.get(sec).push(tc);
-        });
-        sections = Array.from(sectionMap.entries()).map(([name, tcs]) => ({
-          name,
-          testcases: tcs,
-        }));
+        buildSectionsFromCases();
+        renderSections();
 
-        const sectionNames = sections.map(s => s.name);
-        if (prevSection && sectionNames.includes(prevSection)) {
-          selectSection(prevSection);
-        } else if (sections.length) {
-          selectSection(sections[0].name);
+        if (allTestCases.length) {
+          renderAllTestCases();
+
+          const sectionNames = sections.map(s => s.name);
+          if (prevSection && prevSection !== "all" && sectionNames.includes(prevSection)) {
+            selectSection(prevSection);
+          } else {
+            selectSection("all");
+          }
         } else {
           sectionListEl.innerHTML = '<div class="text-muted small">No sections available.</div>';
           testCaseTableBody.innerHTML = `
             <tr><td colspan="3" class="text-center text-muted small">
               No test cases available.
             </td></tr>`;
-          selectedSectionTitle.textContent = "Test Cases";
+          selectedSectionTitle.textContent = "All Test Cases";
         }
 
         deleteTestCaseModal.hide();
@@ -1014,6 +2455,236 @@
         confirmDeleteBtn.textContent = "Delete";
       }
     });
+
+    // --- PROMPT DROPDOWN ---
+    let allPrompts = []; // [{promptId, projectName}]
+
+    function buildPromptDropdown(optionsEl, searchEl, triggerTextEl, triggerEl, dropdownEl, hiddenInput, onChange) {
+      function renderOptions(filter) {
+        const q = (filter || "").toLowerCase();
+        const filtered = allPrompts.filter(p =>
+          p.promptId.toLowerCase().includes(q) ||
+          (p.projectName || "").toLowerCase().includes(q)
+        );
+        optionsEl.innerHTML = "";
+        if (!filtered.length) {
+          optionsEl.innerHTML = `<div class="prompt-select-no-results">No prompts found.</div>`;
+          return;
+        }
+        filtered.forEach(p => {
+          const div = document.createElement("div");
+          div.className = "prompt-select-option" + (hiddenInput.value === p.promptId ? " selected" : "");
+          div.innerHTML = `<span class="prompt-select-option-id">${p.promptId}</span>${p.projectName ? `<span class="prompt-select-option-name">${p.projectName}</span>` : ""}`;
+          div.addEventListener("mousedown", (e) => {
+            e.preventDefault();
+            selectPrompt(p);
+          });
+          optionsEl.appendChild(div);
+        });
+      }
+
+      function selectPrompt(p) {
+        hiddenInput.value = p.promptId;
+        triggerTextEl.textContent = p.projectName ? `${p.promptId} — ${p.projectName}` : p.promptId;
+        triggerTextEl.classList.remove("placeholder");
+        closeDropdown();
+        if (onChange) onChange(p.promptId);
+      }
+
+      function openDropdown() {
+        dropdownEl.classList.add("open");
+        triggerEl.classList.add("open");
+        searchEl.value = "";
+        renderOptions("");
+        searchEl.focus();
+      }
+
+      function closeDropdown() {
+        dropdownEl.classList.remove("open");
+        triggerEl.classList.remove("open");
+      }
+
+      triggerEl.addEventListener("click", () => {
+        dropdownEl.classList.contains("open") ? closeDropdown() : openDropdown();
+      });
+
+      triggerEl.addEventListener("keydown", (e) => {
+        if (e.key === "Enter" || e.key === " ") { e.preventDefault(); openDropdown(); }
+      });
+
+      searchEl.addEventListener("input", () => renderOptions(searchEl.value));
+
+      searchEl.addEventListener("keydown", (e) => {
+        if (e.key === "Escape") closeDropdown();
+      });
+
+      document.addEventListener("click", (e) => {
+        if (!triggerEl.contains(e.target) && !dropdownEl.contains(e.target)) closeDropdown();
+      });
+
+      return { renderOptions, selectPromptById: (id) => {
+        const p = allPrompts.find(x => x.promptId === id);
+        if (p) selectPrompt(p);
+      }};
+    }
+
+    // Build dropdowns (will populate once prompts are loaded)
+    const analysisDropdown = buildPromptDropdown(
+      document.getElementById("analysisPromptOptions"),
+      document.getElementById("analysisPromptSearch"),
+      document.getElementById("analysisPromptTriggerText"),
+      document.getElementById("analysisPromptTrigger"),
+      document.getElementById("analysisPromptDropdown"),
+      document.getElementById("analysisPromptIdInput"),
+      (id) => { doLoadAnalysis(id); }
+    );
+
+    const scopeDropdown = buildPromptDropdown(
+      document.getElementById("scopePromptOptions"),
+      document.getElementById("scopePromptSearch"),
+      document.getElementById("scopePromptTriggerText"),
+      document.getElementById("scopePromptTrigger"),
+      document.getElementById("scopePromptDropdown"),
+      document.getElementById("scopePromptIdInput"),
+      (id) => { loadTestScope(id); }
+    );
+
+    async function loadAllPrompts() {
+      try {
+        const resp = await apiRequest("/dashboard/prompts");
+        const list = resp?.data ?? resp;
+        allPrompts = Array.isArray(list) ? list : [];
+      } catch (e) {
+        allPrompts = [];
+      }
+    }
+
+    // Load prompts on startup and refresh dropdowns when tabs are shown
+    loadAllPrompts();
+    document.getElementById("test-analysis-tab").addEventListener("shown.bs.tab", loadAllPrompts);
+    document.getElementById("test-scope-tab").addEventListener("shown.bs.tab", loadAllPrompts);
+
+    // --- DASHBOARD ---
+    const dashRefreshBtn    = document.getElementById("dashRefreshBtn");
+    const dashStatus        = document.getElementById("dashStatus");
+    const dashTableBody     = document.getElementById("dashTableBody");
+    const dashStatTotal     = document.getElementById("dashStatTotal");
+    const dashStatCompleted = document.getElementById("dashStatCompleted");
+    const dashStatInProgress= document.getElementById("dashStatInProgress");
+    const dashStatAvgTime   = document.getElementById("dashStatAvgTime");
+    const dashStatTotalTc   = document.getElementById("dashStatTotalTc");
+
+    function formatDashDate(str) {
+      if (!str) return "—";
+      try {
+        return new Date(str).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" });
+      } catch { return str; }
+    }
+
+    function formatDuration(ms) {
+      if (ms == null || isNaN(ms)) return "—";
+      const s = Math.round(ms / 1000);
+      if (s < 60) return `${s}s`;
+      const m = Math.floor(s / 60), rem = s % 60;
+      return `${m}m ${rem}s`;
+    }
+
+    function getStatusBadge(status) {
+      const map = {
+        COMPLETED:   "bg-success",
+        PROCESSING:  "bg-warning text-dark",
+        IN_PROGRESS: "bg-warning text-dark",
+        FAILED:      "bg-danger",
+      };
+      const key = String(status || "").toLowerCase().replace(/ /g, "_");
+      const cls = map[key] || "bg-secondary";
+      return `<span class="badge ${cls}">${status || "unknown"}</span>`;
+    }
+
+    async function loadDashboard() {
+      dashStatus.textContent = "Loading...";
+      dashTableBody.innerHTML = `<tr><td colspan="7" class="dash-empty"><div class="spinner-border spinner-border-sm text-primary me-2" role="status"></div>Fetching data...</td></tr>`;
+
+      try {
+        const resp = await apiRequest("/dashboard");
+        const data = resp?.data ?? resp;
+
+        const prompts   = Array.isArray(data?.prompts) ? data.prompts :
+                          Array.isArray(data)           ? data         : [];
+
+        const total     = data?.totalPrompts    ?? prompts.length;
+        const completed = data?.completed       ?? prompts.filter(p => /completed|done/i.test(p.status || "")).length;
+        const inProg    = data?.inProgress      ?? prompts.filter(p => /processing|in_progress/i.test(p.status || "")).length;
+        const avgMs     = data?.avgTurnaroundMs ?? null;
+        const totalTc   = data?.totalTestCases  ?? prompts.reduce((acc, p) => acc + (p.testCaseCount ?? 0), 0);
+
+        dashStatTotal.textContent       = total;
+        dashStatCompleted.textContent   = completed;
+        dashStatInProgress.textContent  = inProg;
+        dashStatAvgTime.textContent     = avgMs != null ? formatDuration(avgMs) : "—";
+        dashStatTotalTc.textContent     = totalTc || "—";
+
+        if (!prompts.length) {
+          dashTableBody.innerHTML = `<tr><td colspan="7" class="dash-empty">No prompts found.</td></tr>`;
+          dashStatus.textContent = "Dashboard loaded.";
+          return;
+        }
+
+        dashTableBody.innerHTML = "";
+        prompts.forEach(p => {
+          const promptId = p.promptId || p.id || "—";
+          const project  = p.projectName || p.project || "—";
+          const status   = p.status || "—";
+          const tc       = p.testCaseCount ?? "—";
+          const duration = p.turnaroundMs != null ? formatDuration(p.turnaroundMs) : "—";
+          const created  = formatDashDate(p.createdAt || p.created_at);
+
+          const tr = document.createElement("tr");
+          tr.innerHTML = `
+            <td><span class="dash-prompt-link" data-promptid="${promptId}">${promptId}</span></td>
+            <td>${project}</td>
+            <td>${getStatusBadge(status)}</td>
+            <td>${tc}</td>
+            <td>${duration}</td>
+            <td>${created}</td>
+            <td>
+              <button class="btn btn-sm btn-outline-primary py-0 px-1 dash-view-analysis" data-id="${promptId}" title="View Analysis" style="font-size:0.75rem;"><i class="bi bi-bar-chart-line"></i></button>
+              <button class="btn btn-sm btn-outline-secondary py-0 px-1 ms-1 dash-view-testcases" data-id="${promptId}" title="View Test Cases" style="font-size:0.75rem;"><i class="bi bi-list-check"></i></button>
+            </td>`;
+          dashTableBody.appendChild(tr);
+        });
+
+        dashTableBody.querySelectorAll(".dash-prompt-link, .dash-view-analysis").forEach(el => {
+          el.addEventListener("click", () => {
+            const id = el.dataset.promptid || el.dataset.id;
+            document.getElementById("analysisPromptIdInput").value = id;
+            analysisDropdown.selectPromptById(id);
+            document.getElementById("test-analysis-tab").click();
+            doLoadAnalysis(id);
+          });
+        });
+
+        dashTableBody.querySelectorAll(".dash-view-testcases").forEach(el => {
+          el.addEventListener("click", () => {
+            const id = el.dataset.id;
+            document.getElementById("scopePromptIdInput").value = id;
+            scopeDropdown.selectPromptById(id);
+            document.getElementById("test-scope-tab").click();
+            loadTestScope(id);
+          });
+        });
+
+        dashStatus.textContent = `Dashboard loaded · ${prompts.length} prompt(s).`;
+      } catch (err) {
+        dashTableBody.innerHTML = `<tr><td colspan="7" class="dash-empty text-danger">Failed to load dashboard: ${err.message}</td></tr>`;
+        dashStatus.textContent = err.message;
+      }
+    }
+
+    dashRefreshBtn.addEventListener("click", loadDashboard);
+    document.getElementById("dashboard-tab").addEventListener("shown.bs.tab", loadDashboard);
+    loadDashboard();
+
   </script>
 </body>
 </html>
