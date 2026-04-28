@@ -1,5 +1,6 @@
 const {
     DEFAULT_TEST_CASE_INPUT,
+    buildTestAnalysisPrompt,
     buildTestCaseGenerationPrompt,
     formatDocumentSection,
     normalizePromptInput,
@@ -8,6 +9,7 @@ const {
 
 module.exports = {
     DEFAULT_TEST_CASE_INPUT,
+    buildTestAnalysisPrompt,
     buildTestCaseGenerationPrompt,
     formatDocumentSection,
     normalizePromptInput,

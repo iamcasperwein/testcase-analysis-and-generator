@@ -36,6 +36,7 @@ const getDashboard = async (req, res) => {
                         ? Math.max(0, new Date(p.endAt) - new Date(p.startAt))
                         : null,
                     createdAt: p.startAt || null,
+                    failureNote: p.failureNote || p.errorMessage || null,
                 })),
             },
         });

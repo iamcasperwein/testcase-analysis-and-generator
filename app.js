@@ -6,7 +6,7 @@ const cors = require('cors')
 const path = require('path');
 
 
-const gemini = require("./routes/gemini")
+const qagentRouter = require("./routes/qagentRouter")
 const testCaseRouter = require("./routes/testcaseRouter")
 const dashboardRouter = require("./routes/dashboardRouter")
 
@@ -24,9 +24,7 @@ app.get('/', (req, res) => {
 	res.sendFile(path.join(__dirname, 'public', 'index.html'))
 })
 
-
-
-app.use("/gemini", gemini)
+app.use("/generate", qagentRouter)
 app.use("/testcase", testCaseRouter)
 app.use("/dashboard", dashboardRouter)
 

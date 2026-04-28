@@ -3,12 +3,15 @@
   "version": "0.0.0",
   "private": true,
   "scripts": {
-    "start": "nodemon app.js"
+    "start": "nodemon --ext js,mjs,cjs app.js"
   },
   "dependencies": {
     "@google/generative-ai": "^0.24.1",
     "cors": "^2.8.6",
     "dotenv": "^17.4.2",
-    "express": "~4.16.1"
+    "express": "~4.16.1",
+    "multer": "^2.1.1",
+    "pdf-parse": "^2.4.5",
+    "ulid": "^2.4.0"
   }
 }
