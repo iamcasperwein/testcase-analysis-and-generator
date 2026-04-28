@@ -1,0 +1,128 @@
+# Testing Analysis Document: Login Register Page (Mobile)
+
+## 1. Scope
+
+The scope of this testing effort covers the mobile application's Login and Registration user flows as outlined in the PRD, supported by technical details from the RFC and UI/UX specifications from Figma.
+
+**Key Features / Functional Requirements (P0 & P1):**
+
+*   **User Registration (Email/Password):**
+    *   Creation of new accounts using email and password (FR-01).
+    *   Input validation for email format and password complexity (FR-04).
+    *   Real-time email availability validation during registration (Figma).
+    *   Password masking/unmasking toggle (Figma).
+*   **User Login (Email/Password):**
+    *   Login for existing users via email and password (implied by FR-01, RFC APIs).
+    *   Input validation for email and password fields (FR-04).
+    *   Password masking/unmasking toggle (Figma).
+*   **Social SSO Login (Google):**
+    *   Login via Google Single Sign-On (SSO) for existing and new users (FR-02).
+*   **Forgot Password Flow:**
+    *   Initiating and completing the "Forgot Password" process via email (FR-03).
+*   **UI/UX and Accessibility:**
+    *   Adherence to Figma designs for Login and Registration screens (layout, typography, input fields, buttons).
+    *   Verification of mobile-specific interactions like screen transitions (slide-left).
+    *   Accessibility checks, including contrast ratios (4.5:1) and touch target sizes (44px inputs).
+*   **Backend Integration:**
+    *   Successful communication with the Auth microservice.
+    *   Verification of JWT-based authentication, Bcrypt password hashing, and HttpOnly refresh token management.
+    *   Data integrity verification with PostgreSQL database (e.g., `mfa_enabled`, `last_login_ip`).
+*   **Performance:**
+    *   Verification of average login time under 3 seconds.
+
+## 2. Impact Analysis
+
+This feature set represents a significant modernization of the user authentication system, impacting:
+
+*   **User Experience:** Directly enhances the onboarding and login experience for all mobile users, aiming for a modern, secure, and intuitive flow. Success metrics include a 95% registration completion rate and reduced "Locked Account" support tickets.
+*   **Security Posture:** Integrates robust security practices like Bcrypt password hashing, JWTs, and HttpOnly refresh tokens, significantly improving the overall security of user authentication. The system is designed to be "two-factor enabled" at its core.
+*   **System Architecture:** Introduces a new Auth microservice, requiring careful integration with the mobile frontend and potentially other downstream services relying on user authentication.
+*   **Performance:** Aims for quick login times (<3 seconds), necessitating performance testing to ensure the new architecture and mobile implementation meet this target.
+*   **Support & Maintenance:** Aims to reduce support tickets related to locked accounts, indicating a need for a robust and user-friendly "Forgot Password" flow.
+
+## 3. Out of Scope
+
+The following items are considered out of scope for this specific release based on the provided documentation:
+
+*   **Two-Factor Authentication (2FA) User Setup/Management:** While the system is designed to be "two-factor enabled" and the backend supports MFA integration (Twilio SMS) with a corresponding database field (`mfa_enabled`), the user-facing UI and flow for *enabling*, *disabling*, or *managing* 2FA is not defined in the PRD functional requirements or Figma mockups for this phase.
+*   **Other Social SSO Providers:** Only Google SSO is specified (FR-02). Other providers (e.g., Facebook, Apple) are out of scope.
+*   **Account Lockout Mechanisms Implementation:** The PRD targets a "reduction in 'Locked Account' support tickets." However, the explicit functional requirement or design for how account lockout is triggered (e.g., after N failed attempts) and managed is not detailed for this feature. Testing will focus on expected outcomes if such a mechanism exists implicitly, but not on its direct implementation verification.
+*   **User Profile Management:** Post-login functionalities such as updating profile information (other than initial registration) are not covered.
+*   **Internationalization (i18n) / Localization (l10n):** No mention in the provided documents; therefore, testing will focus solely on the primary language implementation.
+*   **Detailed Error Logging & Monitoring:** While testing will ensure proper error handling is displayed to users, the specific implementation details of backend error logging and monitoring systems are out of scope.
+
+## 4. Edge Cases
+
+*   **Registration:**
+    *   Attempting to register with an email already in use.
+    *   Entering invalid email formats (e.g., "user@", "user@domain", missing TLD).
+    *   Using passwords that do not meet complexity requirements (e.g., too short, missing required characters).
+    *   Submitting empty "Full Name", "Email", or "Password" fields.
+    *   Entering exceptionally long strings in input fields.
+    *   Network interruption during registration API call.
+*   **Login:**
+    *   Attempting to log in with incorrect email/password credentials.
+    *   Attempting to log in with a valid password for a non-existent email.
+    *   Attempting to log in via Google SSO with an email not linked to an existing account.
+    *   Attempting to log in via Google SSO with an email already linked to an existing account (should merge/login).
+    *   Logging in immediately after a password reset.
+    *   Network interruption during login API call.
+    *   Login with an account that might be locked or disabled (if such backend logic exists).
+*   **Forgot Password:**
+    *   Requesting a password reset for a non-existent email address.
+    *   Requesting multiple password reset emails consecutively.
+    *   Using an expired or invalid "Forgot Password" link.
+    *   Attempting to change password using the reset link with a password that doesn't meet complexity.
+    *   Network interruption during the password reset request or update.
+*   **General Mobile UX/UI:**
+    *   Rapid switching between Register and Login screens to test transition.
+    *   Backgrounding and foregrounding the app during authentication flows.
+    *   Interruption by system events (e.g., phone call, notification).
+    *   Testing on devices with limited storage or memory.
+    *   Font scaling and accessibility options (e.g., dark mode if supported).
+    *   Session expiry scenarios (e.g., Access Token expires in 15 min, Refresh Token handling).
+
+## 5. Risks & Mitigations
+
+*   **Risk: Security Vulnerabilities.** Potential for XSS, CSRF, SQL injection, weak password hashing, or token compromise.
+    *   **Mitigation:** Conduct thorough security testing (penetration testing, static/dynamic code analysis). Verify Bcrypt work factor (12) and HttpOnly cookie implementation for refresh tokens. Adhere to OWASP Top 10 guidelines.
+*   **Risk: Performance Degradation.** Login or registration processes exceed target times (e.g., login > 3 seconds).
+    *   **Mitigation:** Implement dedicated performance and load testing for all authentication endpoints and user flows. Monitor and optimize API response times and database queries.
+*   **Risk: Inconsistent UI/UX.** Deviations from Figma designs or poor user experience on various mobile devices/OS versions.
+    *   **Mitigation:** Perform extensive UI/UX testing across a range of mobile devices (physical and emulated) and OS versions. Conduct visual regression testing. Ensure adherence to layout, typography, and interaction notes (e.g., 44px input height, 4.5:1 contrast).
+*   **Risk: Backend Integration Issues.** Problems with the Auth microservice communication, database interactions, or third-party integrations (Google SSO, email service).
+    *   **Mitigation:** Prioritize robust integration testing. Develop API contract tests for the Auth microservice. Implement end-to-end tests covering Google SSO and the "Forgot Password" email delivery flow.
+*   **Risk: Poor Error Handling.** Unfriendly or unclear error messages, or application crashes due to unexpected server responses.
+    *   **Mitigation:** Conduct comprehensive negative testing for all user interactions and API calls. Ensure informative and actionable error messages are displayed to the user.
+*   **Risk: Data Corruption/Integrity Issues.** Incorrect storage of user data or authentication tokens in the PostgreSQL database.
+    *   **Mitigation:** Include database integrity checks in testing. Verify schema changes (`mfa_enabled`, `last_login_ip`) and data persistence across user actions.
+
+## 6. Test Strategy Notes
+
+*   **Functional Testing (P0 & P1 Focus):**
+    *   Develop comprehensive test cases for successful user registration, login (Email/Password, Google SSO), and the "Forgot Password" flow.
+    *   Design negative test cases for input validation (email format, password complexity, real-time email availability).
+    *   Verify all links and navigation paths (e.g., "Forgot Password?", "Sign Up", "Login").
+    *   Test password mask/unmask functionality.
+*   **UI/UX & Visual Testing:**
+    *   Perform detailed comparison against Figma mockups for layout, colors, typography (Inter Bold 24px, Inter Regular 14px), and element sizing (e.g., 16px gutter, 44px input height).
+    *   Test mobile-specific transitions, particularly the "slide-left" from Register to Login.
+    *   Verify responsiveness and adaptiveness across various mobile screen sizes and orientations.
+*   **Performance Testing:**
+    *   Implement automated tests to measure end-to-end login and registration times to ensure they meet the <3 second target.
+    *   Monitor API response times for critical authentication endpoints.
+*   **Security Testing:**
+    *   Conduct security code reviews and penetration testing.
+    *   Verify secure storage and transmission of passwords (Bcrypt work factor 12) and tokens (JWT, HttpOnly cookies).
+    *   Test for common vulnerabilities like broken authentication, improper authorization.
+*   **Integration Testing:**
+    *   Verify seamless interaction between the mobile frontend, Auth microservice, PostgreSQL database, Google SSO, and the email service for "Forgot Password" flows.
+    *   Validate API contracts and data exchange formats.
+*   **Accessibility Testing:**
+    *   Verify contrast ratios for buttons (4.5:1).
+    *   Test with screen readers (VoiceOver/TalkBack) to ensure all interactive elements are correctly announced.
+    *   Check for proper focus management and keyboard navigation.
+*   **Negative Testing & Error Handling:**
+    *   Thoroughly test all invalid scenarios, including invalid credentials, network failures, and backend error responses (4xx, 5xx), to ensure robust error handling and user-friendly messages.
+*   **Cross-Platform/Device Testing:**
+    *   Execute tests on a representative set of target mobile devices (emulators and physical devices) covering different OS versions (iOS, Android) and form factors.

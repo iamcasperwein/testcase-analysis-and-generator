@@ -1,6 +1,7 @@
 const FileReader = require("../utils/FileReader");
 const {
     DEFAULT_TEST_CASE_INPUT,
+    buildTestAnalysisPrompt,
     buildTestCaseGenerationPrompt,
     normalizePromptInput,
 } = require("../prompts");
@@ -12,8 +13,11 @@ const getTestCases = async (promptId) => {
 
 const getAnalyzeData = async (promptId) => {
     try {
-        return FileReader.readDataFile(`analyze/${promptId}.txt`);
+        return FileReader.readDataFile(`analyze/${promptId}.md`);
     } catch (error) {
+        if (error.code === "ENOENT") {
+            return FileReader.readDataFile(`analyze/${promptId}.txt`);
+        }
         throw error;
     }
 }
@@ -29,7 +33,7 @@ const resolvePromptInput = async (input = {}) => {
         normalizedInput.documents = {
             ...normalizedInput.documents,
             prd: {
-                name: normalizedInput.documents?.prd?.name || `${String(input.promptId).trim()}.txt`,
+                name: normalizedInput.documents?.prd?.name || `${String(input.promptId).trim()}.md`,
                 content: analyzeData,
             },
         };
@@ -41,7 +45,21 @@ const resolvePromptInput = async (input = {}) => {
 
 const getTestCaseGenerationPrompt = async (input = {}) => {
     const promptInput = await resolvePromptInput(input);
-    return buildTestCaseGenerationPrompt(promptInput);
+    return buildTestCaseGenerationPrompt({
+        ...promptInput,
+        analysisContext: String(input.analysisContext || "").trim(),
+        uploadedFiles: input.uploadedFiles,
+        uploadMeta: input.uploadMeta,
+    });
+};
+
+const getTestAnalysisPrompt = async (input = {}) => {
+    const promptInput = await resolvePromptInput(input);
+    return buildTestAnalysisPrompt({
+        ...promptInput,
+        uploadedFiles: input.uploadedFiles,
+        uploadMeta: input.uploadMeta,
+    });
 };
 
 const normalizeMultilineField = (value) => {
@@ -181,6 +199,7 @@ module.exports = {
     getTestCases,
     getAnalyzeData,
     editTestCase,
+    getTestAnalysisPrompt,
     getTestCaseGenerationPrompt,
     resolvePromptInput,
 }

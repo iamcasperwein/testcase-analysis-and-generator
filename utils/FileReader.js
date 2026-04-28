@@ -15,6 +15,7 @@ function readDataFile(fileName) {
 function writeDataFile(fileName, data) {
     const filePath = path.join(__dirname, '../data', fileName);
     try {
+        fs.mkdirSync(path.dirname(filePath), { recursive: true });
         const content = typeof data === 'string' ? data : JSON.stringify(data, null, 4);
         fs.writeFileSync(filePath, content, 'utf8');
         return filePath;

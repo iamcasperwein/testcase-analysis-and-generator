@@ -5,20 +5,6 @@
             "section": "UI/UX & Responsiveness",
             "test cases": [
                 {
-                    "id": "TC-UI-002",
-                    "title": "Seamless Transition between Sign In and Sign Up States",
-                    "type": "positive",
-                    "priority": "high",
-                    "preconditions": [
-                        "App is on the initial login/registration screen."
-                    ],
-                    "steps": [
-                        "If on Sign In, tap the 'Sign Up' link/button.",
-                        "If on Sign Up, tap the 'Sign In' link/button."
-                    ],
-                    "expectedResult": "Smooth and clear animations transition between the Sign In and Sign Up forms. The user remains oriented and the shift is aesthetically pleasing, without abrupt changes or visual glitches."
-                },
-                {
                     "id": "TC-UI-003",
                     "title": "Progressive Disclosure of Fields (if applicable)",
                     "type": "positive",
@@ -454,6 +440,25 @@
                         "Tap the 'Reset Password' button."
                     ],
                     "expectedResult": "The new password is successfully set. The user is either automatically logged in, redirected to the login screen with a success message, or shown a clear success confirmation. The link should open within the app (deep linking) if implemented, or in a web browser, leading to a mobile-optimized password reset form."
+                }
+            ]
+        },
+        {
+            "section": "UI/UX & sasss",
+            "test cases": [
+                {
+                    "id": "TC-UI-002",
+                    "title": "Seamless Transition between Sign In and Sign Up States",
+                    "type": "positive",
+                    "priority": "high",
+                    "preconditions": [
+                        "App is on the initial login/registration screen."
+                    ],
+                    "steps": [
+                        "If on Sign In, tap the 'Sign Up' link/button.",
+                        "If on Sign Up, tap the 'Sign In' link/button."
+                    ],
+                    "expectedResult": "Smooth and clear animations transition between the Sign In and Sign Up forms. The user remains oriented and the shift is aesthetically pleasing, without abrupt changes or visual glitches."
                 }
             ]
         }

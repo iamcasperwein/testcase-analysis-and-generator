@@ -172,6 +172,13 @@ const formatDocumentSection = (docType, document) => {
     ].join("\n");
 };
 
+const getAttachedDocumentLabels = (documents, input = {}) => {
+    const byText = ["prd", "rfc", "figma"].filter((docType) => documents?.[docType]?.content);
+    const byUpload = ["prd", "rfc", "figma"].filter((docType) => Boolean(input.uploadedFiles?.[docType]));
+    const merged = Array.from(new Set([...byText, ...byUpload]));
+    return merged.map((docType) => DOCUMENT_LABELS[docType]);
+};
+
 const normalizePromptInput = (input = {}) => {
     const parsedRawContent = parseRawContentDocuments(input.rawContent);
     const incomingDocuments = input.documents && typeof input.documents === "object" ? input.documents : {};
@@ -197,7 +204,15 @@ const normalizePromptInput = (input = {}) => {
         incomingDocuments
     );
 
-    if (!documents.prd.content) {
+    const hasUploadedPrdBinary = Boolean(input.uploadMeta?.prdUploaded || input.uploadedFiles?.prd);
+    const hasExplicitPrdInput = Boolean(
+        normalizeText(input.prdText)
+        || normalizeText(input.documents?.prd?.content)
+        || normalizeText(parsedRawContent.documents?.prd?.content)
+        || normalizeText(input.rawContent)
+    );
+
+    if (!documents.prd.content && !hasUploadedPrdBinary && !hasExplicitPrdInput) {
         documents.prd.content = normalizeText(input.prdText || DEFAULT_TEST_CASE_INPUT.prdText);
     }
 
@@ -216,8 +231,10 @@ const normalizePromptInput = (input = {}) => {
 
 const buildTestCaseGenerationPrompt = (input = {}) => {
     const { feature, platform, additionalContext, documents } = normalizePromptInput(input);
+    const analysisContext = String(input.analysisContext || "").trim();
+    const attachedLabels = getAttachedDocumentLabels(documents, input);
 
-    return [
+    const lines = [
         "You are a Senior QE Engineer.",
         "Generate test cases for a mobile or web application in valid JSON only.",
         "Use the PRD as the primary source of truth. Use RFC and Figma content when provided to refine workflows, business rules, UI states, and edge cases.",
@@ -227,7 +244,62 @@ const buildTestCaseGenerationPrompt = (input = {}) => {
         `- Feature: ${feature}`,
         `- Platform: ${platform}`,
         `- Additional Context: ${additionalContext || "N/A"}`,
-        `- Attached Documents: ${["prd", "rfc", "figma"].filter((docType) => documents[docType]?.content).map((docType) => DOCUMENT_LABELS[docType]).join(", ") || "PRD only / fallback context"}`,
+        `- Attached Documents: ${attachedLabels.join(", ") || "PRD only / fallback context"}`,
+        "- Some attached files may be binary (PDF/image). Use attached file context in addition to extracted text sections.",
+        "",
+        "Source Documents:",
+        formatDocumentSection("prd", documents.prd),
+        "",
+        formatDocumentSection("rfc", documents.rfc),
+        "",
+        formatDocumentSection("figma", documents.figma),
+    ];
+
+    if (analysisContext) {
+        lines.push(
+            "",
+            "### Testing Analysis",
+            "The following analysis was pre-generated from the same source documents.",
+            "Use it as context to ensure test cases align with the identified scope, edge cases, and risks.",
+            "```text",
+            analysisContext,
+            "```"
+        );
+    }
+
+    lines.push(
+        "",
+        "Output JSON schema:",
+        TEST_CASE_OUTPUT_SCHEMA,
+        "",
+        "Rules:",
+        "- Return valid JSON only.",
+        '- Each section must contain a "test cases" array.',
+        "- Derive test case sections from the Testing Analysis scope and edge cases when available.",
+        "- If RFC or Figma is missing, do not invent those details.",
+        "- If documents conflict, prioritize PRD for scope, then use RFC for implementation detail, then Figma for UI behavior.",
+        "- Use concise but complete steps and expected results.",
+        "- Prefer stable section names that group related scenarios."
+    );
+
+    return lines.join("\n");
+};
+
+const buildTestAnalysisPrompt = (input = {}) => {
+    const { feature, platform, additionalContext, documents } = normalizePromptInput(input);
+    const attachedLabels = getAttachedDocumentLabels(documents, input);
+
+    return [
+        "You are a Senior QE Engineer.",
+        "Create a testing analysis document in plain text/markdown (not JSON).",
+        "Use PRD as primary source. Use RFC and Figma only when provided.",
+        "",
+        "Product Context:",
+        `- Feature: ${feature}`,
+        `- Platform: ${platform}`,
+        `- Additional Context: ${additionalContext || "N/A"}`,
+        `- Attached Documents: ${attachedLabels.join(", ") || "PRD only / fallback context"}`,
+        "- Some attached files may be binary (PDF/image). Use attached file context in addition to extracted text sections.",
         "",
         "Source Documents:",
         formatDocumentSection("prd", documents.prd),
@@ -236,21 +308,25 @@ const buildTestCaseGenerationPrompt = (input = {}) => {
         "",
         formatDocumentSection("figma", documents.figma),
         "",
-        "Output JSON schema:",
-        TEST_CASE_OUTPUT_SCHEMA,
+        "Required sections:",
+        "1. Summary/Overview",
+        "2. Scope",
+        "3. Impact Analysis",
+        "4. Out of Scope",
+        "5. Edge Cases",
+        "6. Risks & Mitigations",
+        "7. Test Strategy Notes",
         "",
         "Rules:",
-        "- Return valid JSON only.",
-        '- Each section must contain a "test cases" array.',
-        "- If RFC or Figma is missing, do not invent those details.",
-        "- If documents conflict, prioritize PRD for scope, then use RFC for implementation detail, then Figma for UI behavior.",
-        "- Use concise but complete steps and expected results.",
-        "- Prefer stable section names that group related scenarios.",
+        "- Do not return JSON.",
+        "- Keep it concise and actionable.",
+        "- If RFC/Figma is missing, explicitly mention assumptions and avoid invented details.",
     ].join("\n");
 };
 
 module.exports = {
     DEFAULT_TEST_CASE_INPUT,
+    buildTestAnalysisPrompt,
     buildTestCaseGenerationPrompt,
     formatDocumentSection,
     normalizePromptInput,

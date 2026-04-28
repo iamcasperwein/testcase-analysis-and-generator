@@ -1,0 +1,491 @@
+{
+    "feature": "Login Register Page",
+    "testCases": [
+        {
+            "section": "User Registration (Email/Password)",
+            "test cases": [
+                {
+                    "id": "TC-REG-001",
+                    "title": "Successful user registration with valid credentials",
+                    "type": "positive",
+                    "priority": "high",
+                    "preconditions": [
+                        "User is on the Registration Screen"
+                    ],
+                    "steps": [
+                        "Enter a unique valid email address in the 'Email' field (e.g., 'newuser@example.com')",
+                        "Enter a valid full name in the 'Full Name' field (e.g., 'John Doe')",
+                        "Enter a complex password (at least 8 characters) in the 'Password' field (e.g., 'SecureP@ss1')",
+                        "Tap the 'Create Account' button"
+                    ],
+                    "expectedResult": "User account is created successfully, a success message is displayed, and user is redirected to the dashboard/home screen."
+                },
+                {
+                    "id": "TC-REG-002",
+                    "title": "Attempt to register with an already registered email address (Real-time Validation)",
+                    "type": "negative",
+                    "priority": "high",
+                    "preconditions": [
+                        "User is on the Registration Screen",
+                        "An account exists with 'existing@example.com'"
+                    ],
+                    "steps": [
+                        "Enter 'existing@example.com' in the 'Email' field",
+                        "Pause for real-time validation"
+                    ],
+                    "expectedResult": "A real-time validation error message 'Email already in use' or similar is displayed below the email field."
+                },
+                {
+                    "id": "TC-REG-003",
+                    "title": "Attempt to register with an invalid email format",
+                    "type": "negative",
+                    "priority": "high",
+                    "preconditions": [
+                        "User is on the Registration Screen"
+                    ],
+                    "steps": [
+                        "Enter an invalid email (e.g., 'invalid-email', 'user@domain') in the 'Email' field",
+                        "Enter valid 'Full Name' and 'Password'",
+                        "Tap the 'Create Account' button"
+                    ],
+                    "expectedResult": "An error message 'Invalid email format' or similar is displayed below the email field, and account creation is prevented."
+                },
+                {
+                    "id": "TC-REG-004",
+                    "title": "Attempt to register with a password not meeting complexity requirements (e.g., < 8 characters)",
+                    "type": "negative",
+                    "priority": "high",
+                    "preconditions": [
+                        "User is on the Registration Screen"
+                    ],
+                    "steps": [
+                        "Enter a unique valid email address",
+                        "Enter a valid full name",
+                        "Enter a password less than 8 characters (e.g., 'shortp')",
+                        "Tap the 'Create Account' button"
+                    ],
+                    "expectedResult": "An error message 'Must be at least 8 characters' is displayed below the password field, and account creation is prevented."
+                },
+                {
+                    "id": "TC-REG-005",
+                    "title": "Attempt to register with empty Full Name field",
+                    "type": "negative",
+                    "priority": "medium",
+                    "preconditions": [
+                        "User is on the Registration Screen"
+                    ],
+                    "steps": [
+                        "Leave 'Full Name' field empty",
+                        "Enter a unique valid email address",
+                        "Enter a complex password",
+                        "Tap the 'Create Account' button"
+                    ],
+                    "expectedResult": "An error message 'Full Name is required' or similar is displayed, and account creation is prevented."
+                },
+                {
+                    "id": "TC-REG-006",
+                    "title": "Password mask/unmask functionality on Registration Screen",
+                    "type": "positive",
+                    "priority": "medium",
+                    "preconditions": [
+                        "User is on the Registration Screen"
+                    ],
+                    "steps": [
+                        "Enter a password in the 'Password' field",
+                        "Verify the password is masked (e.g., dots or asterisks)",
+                        "Tap the 'Mask/Unmask' toggle icon in the password field",
+                        "Tap the 'Mask/Unmask' toggle icon again"
+                    ],
+                    "expectedResult": "The password should be visible when the unmask icon is toggled, and masked again when the mask icon is toggled. The toggle icon state should change accordingly."
+                },
+                {
+                    "id": "TC-REG-007",
+                    "title": "Network interruption during registration API call",
+                    "type": "edge",
+                    "priority": "medium",
+                    "preconditions": [
+                        "User is on the Registration Screen",
+                        "Network connection can be controlled"
+                    ],
+                    "steps": [
+                        "Enter valid registration details",
+                        "Disable network connection",
+                        "Tap the 'Create Account' button",
+                        "Re-enable network connection"
+                    ],
+                    "expectedResult": "An appropriate error message indicating network issues is displayed (e.g., 'No internet connection', 'Failed to connect'), and user can retry registration after network is restored."
+                }
+            ]
+        },
+        {
+            "section": "User Login (Email/Password)",
+            "test cases": [
+                {
+                    "id": "TC-LOG-001",
+                    "title": "Successful user login with valid credentials",
+                    "type": "positive",
+                    "priority": "high",
+                    "preconditions": [
+                        "User is on the Login Screen",
+                        "An account exists with 'user@example.com' and 'SecureP@ss1'"
+                    ],
+                    "steps": [
+                        "Enter 'user@example.com' in the 'Email Address' field",
+                        "Enter 'SecureP@ss1' in the 'Password' field",
+                        "Tap the 'Sign In' button"
+                    ],
+                    "expectedResult": "User is successfully logged in and redirected to the dashboard/home screen. Average login time is under 3 seconds."
+                },
+                {
+                    "id": "TC-LOG-002",
+                    "title": "Attempt to log in with incorrect password",
+                    "type": "negative",
+                    "priority": "high",
+                    "preconditions": [
+                        "User is on the Login Screen",
+                        "An account exists with 'user@example.com'"
+                    ],
+                    "steps": [
+                        "Enter 'user@example.com' in the 'Email Address' field",
+                        "Enter an incorrect password (e.g., 'WrongP@ss1') in the 'Password' field",
+                        "Tap the 'Sign In' button"
+                    ],
+                    "expectedResult": "An error message 'Invalid credentials' or similar is displayed, and user remains on the login screen."
+                },
+                {
+                    "id": "TC-LOG-003",
+                    "title": "Attempt to log in with non-existent email address",
+                    "type": "negative",
+                    "priority": "high",
+                    "preconditions": [
+                        "User is on the Login Screen"
+                    ],
+                    "steps": [
+                        "Enter a non-existent email (e.g., 'nonexistent@example.com') in the 'Email Address' field",
+                        "Enter any password in the 'Password' field",
+                        "Tap the 'Sign In' button"
+                    ],
+                    "expectedResult": "An error message 'Invalid credentials' or similar is displayed, and user remains on the login screen."
+                },
+                {
+                    "id": "TC-LOG-004",
+                    "title": "Attempt to log in with empty Email Address field",
+                    "type": "negative",
+                    "priority": "medium",
+                    "preconditions": [
+                        "User is on the Login Screen"
+                    ],
+                    "steps": [
+                        "Leave 'Email Address' field empty",
+                        "Enter a valid password",
+                        "Tap the 'Sign In' button"
+                    ],
+                    "expectedResult": "An error message 'Email address is required' or similar is displayed below the email field, and login is prevented."
+                },
+                {
+                    "id": "TC-LOG-005",
+                    "title": "Password mask/unmask functionality on Login Screen",
+                    "type": "positive",
+                    "priority": "medium",
+                    "preconditions": [
+                        "User is on the Login Screen"
+                    ],
+                    "steps": [
+                        "Enter a password in the 'Password' field",
+                        "Verify the password is masked (e.g., dots or asterisks)",
+                        "Tap the 'Mask/Unmask' toggle icon in the password field",
+                        "Tap the 'Mask/Unmask' toggle icon again"
+                    ],
+                    "expectedResult": "The password should be visible when the unmask icon is toggled, and masked again when the mask icon is toggled. The toggle icon state should change accordingly."
+                },
+                {
+                    "id": "TC-LOG-006",
+                    "title": "Network interruption during login API call",
+                    "type": "edge",
+                    "priority": "medium",
+                    "preconditions": [
+                        "User is on the Login Screen",
+                        "Network connection can be controlled"
+                    ],
+                    "steps": [
+                        "Enter valid login credentials",
+                        "Disable network connection",
+                        "Tap the 'Sign In' button",
+                        "Re-enable network connection"
+                    ],
+                    "expectedResult": "An appropriate error message indicating network issues is displayed (e.g., 'No internet connection', 'Failed to connect'), and user can retry login after network is restored."
+                }
+            ]
+        },
+        {
+            "section": "Social SSO Login (Google)",
+            "test cases": [
+                {
+                    "id": "TC-SSO-001",
+                    "title": "Successful login via Google SSO for an existing user",
+                    "type": "positive",
+                    "priority": "medium",
+                    "preconditions": [
+                        "User is on the Login Screen",
+                        "User has an existing account linked to a Google account",
+                        "Google Play Services / iOS equivalent is available"
+                    ],
+                    "steps": [
+                        "Tap the 'Continue with Google' button",
+                        "Select the Google account linked to the existing user",
+                        "App grants necessary permissions"
+                    ],
+                    "expectedResult": "User is successfully logged in via Google SSO and redirected to the dashboard/home screen."
+                },
+                {
+                    "id": "TC-SSO-002",
+                    "title": "Successful registration and login via Google SSO for a new user",
+                    "type": "positive",
+                    "priority": "medium",
+                    "preconditions": [
+                        "User is on the Login Screen",
+                        "User has a Google account not yet linked to any existing application account",
+                        "Google Play Services / iOS equivalent is available"
+                    ],
+                    "steps": [
+                        "Tap the 'Continue with Google' button",
+                        "Select the new Google account",
+                        "App grants necessary permissions"
+                    ],
+                    "expectedResult": "A new user account is successfully created and linked to the Google account. User is logged in and redirected to the dashboard/home screen."
+                },
+                {
+                    "id": "TC-SSO-003",
+                    "title": "Attempt to login with Google SSO when email already exists via Email/Password",
+                    "type": "edge",
+                    "priority": "low",
+                    "preconditions": [
+                        "User is on the Login Screen",
+                        "An account exists with 'user@example.com' registered via Email/Password",
+                        "User attempts to log in with Google SSO using the same 'user@example.com' Google account"
+                    ],
+                    "steps": [
+                        "Tap the 'Continue with Google' button",
+                        "Select the Google account ('user@example.com')",
+                        "App grants necessary permissions"
+                    ],
+                    "expectedResult": "The user should be successfully logged in, and the existing Email/Password account should be linked to the Google SSO. No duplicate account is created."
+                },
+                {
+                    "id": "TC-SSO-004",
+                    "title": "Cancel Google SSO flow",
+                    "type": "negative",
+                    "priority": "medium",
+                    "preconditions": [
+                        "User is on the Login Screen"
+                    ],
+                    "steps": [
+                        "Tap the 'Continue with Google' button",
+                        "In the Google account selection/permission prompt, tap 'Cancel' or navigate back"
+                    ],
+                    "expectedResult": "The Google SSO flow is aborted, and the user remains on the Login Screen without any error messages, or an informative message about cancellation is displayed."
+                }
+            ]
+        },
+        {
+            "section": "Forgot Password Flow",
+            "test cases": [
+                {
+                    "id": "TC-FP-001",
+                    "title": "Successful 'Forgot Password' flow and password reset",
+                    "type": "positive",
+                    "priority": "high",
+                    "preconditions": [
+                        "User is on the Login Screen",
+                        "An account exists with 'forgotuser@example.com'",
+                        "Email service is functional"
+                    ],
+                    "steps": [
+                        "Tap 'Forgot Password?' link",
+                        "Enter 'forgotuser@example.com' in the email field",
+                        "Tap 'Send Reset Link' (or equivalent) button",
+                        "Access the email client and open the password reset email",
+                        "Tap the reset link in the email",
+                        "On the password reset page, enter a new complex password",
+                        "Confirm the new password",
+                        "Tap 'Reset Password' button",
+                        "Return to the app's Login Screen",
+                        "Log in with 'forgotuser@example.com' and the new password"
+                    ],
+                    "expectedResult": "A confirmation message 'Password reset email sent' is displayed. The user receives a valid reset email. The password reset is successful, and the user can log in with the new password."
+                },
+                {
+                    "id": "TC-FP-002",
+                    "title": "Request password reset for a non-existent email address",
+                    "type": "negative",
+                    "priority": "high",
+                    "preconditions": [
+                        "User is on the Forgot Password input screen"
+                    ],
+                    "steps": [
+                        "Tap 'Forgot Password?' link",
+                        "Enter 'nonexistent@example.com' in the email field",
+                        "Tap 'Send Reset Link' button"
+                    ],
+                    "expectedResult": "A generic confirmation message 'If an account exists with this email, a reset link will be sent' is displayed to prevent enumeration attacks, without explicitly confirming if the email exists."
+                },
+                {
+                    "id": "TC-FP-003",
+                    "title": "Attempt to use an expired password reset link",
+                    "type": "negative",
+                    "priority": "medium",
+                    "preconditions": [
+                        "User requested a password reset link which has now expired"
+                    ],
+                    "steps": [
+                        "Open the expired password reset link"
+                    ],
+                    "expectedResult": "An error message 'This password reset link has expired' or similar is displayed, prompting the user to request a new link."
+                },
+                {
+                    "id": "TC-FP-004",
+                    "title": "Attempt to reset password with a new password not meeting complexity",
+                    "type": "negative",
+                    "priority": "high",
+                    "preconditions": [
+                        "User has clicked a valid password reset link and is on the 'Set New Password' screen"
+                    ],
+                    "steps": [
+                        "Enter a new password less than 8 characters (e.g., 'newp')",
+                        "Confirm the same password",
+                        "Tap 'Reset Password' button"
+                    ],
+                    "expectedResult": "An error message 'Must be at least 8 characters' is displayed, and the password reset is prevented."
+                }
+            ]
+        },
+        {
+            "section": "UI/UX and Accessibility",
+            "test cases": [
+                {
+                    "id": "TC-UI-001",
+                    "title": "Verify UI layout adherence to Figma design (margins, typography)",
+                    "type": "positive",
+                    "priority": "high",
+                    "preconditions": [
+                        "User is on Login Screen",
+                        "User is on Registration Screen"
+                    ],
+                    "steps": [
+                        "Observe the screen layout, component spacing, and text styles on both Login and Registration screens."
+                    ],
+                    "expectedResult": "The UI elements adhere to Figma specifications: 16px gutter margins, 'Inter Bold 24px' for titles, 'Inter Regular 14px' for body text."
+                },
+                {
+                    "id": "TC-UI-002",
+                    "title": "Verify input field height for touch targets",
+                    "type": "positive",
+                    "priority": "high",
+                    "preconditions": [
+                        "User is on Login Screen",
+                        "User is on Registration Screen"
+                    ],
+                    "steps": [
+                        "Inspect the height of all input fields (Email, Password, Full Name)."
+                    ],
+                    "expectedResult": "All input fields have a height of 44px, providing adequate touch targets as per Figma design."
+                },
+                {
+                    "id": "TC-UI-003",
+                    "title": "Verify contrast ratio for buttons",
+                    "type": "positive",
+                    "priority": "high",
+                    "preconditions": [
+                        "User is on Login Screen",
+                        "User is on Registration Screen"
+                    ],
+                    "steps": [
+                        "Visually inspect or use accessibility tools to check the contrast ratio of all buttons (e.g., 'Sign In', 'Create Account', 'Continue with Google') against their background."
+                    ],
+                    "expectedResult": "All buttons meet the minimum contrast ratio of 4.5:1 for accessibility."
+                },
+                {
+                    "id": "TC-UI-004",
+                    "title": "Verify 'slide-left' transition from Register to Login screen",
+                    "type": "positive",
+                    "priority": "medium",
+                    "preconditions": [
+                        "User is on the Registration Screen"
+                    ],
+                    "steps": [
+                        "Tap the 'Already a member? Login' link"
+                    ],
+                    "expectedResult": "The screen transitions from the Registration Screen to the Login Screen with a smooth 'slide-left' animation."
+                },
+                {
+                    "id": "TC-UI-005",
+                    "title": "Verify clickable links and navigation",
+                    "type": "positive",
+                    "priority": "medium",
+                    "preconditions": [
+                        "User is on Login Screen",
+                        "User is on Registration Screen"
+                    ],
+                    "steps": [
+                        "On Login Screen, tap 'Forgot Password?'",
+                        "On Forgot Password screen, navigate back",
+                        "On Login Screen, tap 'Don't have an account? Sign Up'",
+                        "On Registration Screen, tap 'Already a member? Login'"
+                    ],
+                    "expectedResult": "All links navigate to the correct respective screens as intended by the flow."
+                }
+            ]
+        },
+        {
+            "section": "General / Session Management",
+            "test cases": [
+                {
+                    "id": "TC-GEN-001",
+                    "title": "App background/foreground during active authentication flow",
+                    "type": "edge",
+                    "priority": "medium",
+                    "preconditions": [
+                        "User is midway through an authentication flow (e.g., typing credentials, on Forgot Password screen)"
+                    ],
+                    "steps": [
+                        "Navigate to the Login/Registration screen and start filling out details",
+                        "Send the app to the background",
+                        "Bring the app back to the foreground"
+                    ],
+                    "expectedResult": "The application should resume its state correctly, and any entered data should be preserved. The authentication flow can be continued without interruption or loss of data."
+                },
+                {
+                    "id": "TC-GEN-002",
+                    "title": "User remains logged in after app restart (refresh token persistence)",
+                    "type": "positive",
+                    "priority": "high",
+                    "preconditions": [
+                        "User is successfully logged in to the application"
+                    ],
+                    "steps": [
+                        "Successfully log in to the application",
+                        "Close the application completely (kill from recent apps)",
+                        "Relaunch the application"
+                    ],
+                    "expectedResult": "The user should remain logged in and be directed to the dashboard/home screen, indicating that the refresh token was successfully used to obtain new access tokens. (Expected behavior based on RFC HttpOnly refresh token)"
+                },
+                {
+                    "id": "TC-GEN-003",
+                    "title": "Access Token expiry handling (15 min)",
+                    "type": "edge",
+                    "priority": "high",
+                    "preconditions": [
+                        "User is logged in",
+                        "Access token has a 15-minute expiry (RFC)"
+                    ],
+                    "steps": [
+                        "Log in successfully",
+                        "Wait for more than 15 minutes (without any foreground activity/API calls that might refresh tokens)",
+                        "Attempt to perform an action requiring authentication (e.g., navigate to a protected screen or make an API call)"
+                    ],
+                    "expectedResult": "The application should silently use the refresh token to obtain a new access token, allowing the user to continue their session without re-authenticating. If refresh token fails (e.g., also expired or invalid), the user should be prompted to log in again."
+                }
+            ]
+        }
+    ]
+}
