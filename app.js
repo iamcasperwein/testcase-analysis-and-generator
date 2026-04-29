@@ -9,6 +9,8 @@ const path = require('path');
 const qagentRouter = require("./routes/qagentRouter")
 const testCaseRouter = require("./routes/testcaseRouter")
 const dashboardRouter = require("./routes/dashboardRouter")
+const testraiRouter = require("./routes/testrailRouter")
+const settingsRouter = require("./routes/settingsRouter")
 
 const app = express()
 const port = process.env.PORT || 3000
@@ -27,6 +29,8 @@ app.get('/', (req, res) => {
 app.use("/generate", qagentRouter)
 app.use("/testcase", testCaseRouter)
 app.use("/dashboard", dashboardRouter)
+app.use("/testrail", testraiRouter)
+app.use("/settings", settingsRouter)
 
 
 
