@@ -96,15 +96,15 @@ const normalizeGeneratedTestCases = (generated, featureFallback = "") => {
             : [];
 
     const normalizedSections = testCaseSections.map((section) => {
-        const sectionCases = Array.isArray(section?.["test cases"])
-            ? section["test cases"]
+        const sectionCases = Array.isArray(section?.testCases)
+            ? section.testCases
             : Array.isArray(section?.testcases)
                 ? section.testcases
                 : [];
 
         return {
             section: String(section?.section || "Uncategorized").trim() || "Uncategorized",
-            "test cases": sectionCases,
+            "testCases": sectionCases,
         };
     });
 
@@ -235,7 +235,7 @@ const sanitizeSubmissionPayload = (payload = {}) => {
 const countTestCases = (data = {}) => {
     const sections = Array.isArray(data.testCases) ? data.testCases : [];
     return sections.reduce((sum, section) => {
-        const list = Array.isArray(section?.["test cases"]) ? section["test cases"] : [];
+        const list = Array.isArray(section?.testCases) ? section.testCases : [];
         return sum + list.length;
     }, 0);
 };

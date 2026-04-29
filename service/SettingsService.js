@@ -120,8 +120,14 @@ const getSettings = async () => {
 
 const getAvailableKeys = async () => {
 	const envMap = readEnvMap()
-	const merged = new Set([...DEFAULT_SETTING_KEYS, ...Object.keys(envMap)])
-	return Array.from(merged).sort((a, b) => a.localeCompare(b))
+	const existingKeys = new Set(Object.keys(envMap).map((key) => String(key || "").trim()))
+
+	return DEFAULT_SETTING_KEYS
+		.map((key) => String(key || "").trim())
+		.filter(Boolean)
+		.filter((key, index, array) => array.indexOf(key) === index)
+		.filter((key) => !existingKeys.has(key))
+		.sort((a, b) => a.localeCompare(b))
 }
 
 const createSettings = async (payload = {}) => {
@@ -132,9 +138,20 @@ const createSettings = async (payload = {}) => {
 
 	const envMap = readEnvMap()
 	const touched = []
+	const pendingKeys = new Set()
 
 	entries.forEach((entry) => {
 		const key = validateKey(entry?.key)
+
+		if (Object.prototype.hasOwnProperty.call(envMap, key)) {
+			throw createValidationError(`Setting ${key} already exists`, 409)
+		}
+
+		if (pendingKeys.has(key)) {
+			throw createValidationError(`Duplicate setting key in request: ${key}`)
+		}
+
+		pendingKeys.add(key)
 		const value = String(entry?.value ?? "")
 		envMap[key] = value
 		touched.push({ key, value })

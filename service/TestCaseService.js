@@ -130,8 +130,8 @@ const editTestCase = async (promptId, testcaseId, payload = {}) => {
     let sourceTestCaseIndex = -1;
 
     for (let sectionIndex = 0; sectionIndex < sectionGroups.length; sectionIndex += 1) {
-        const testCases = Array.isArray(sectionGroups[sectionIndex]["test cases"])
-            ? sectionGroups[sectionIndex]["test cases"]
+        const testCases = Array.isArray(sectionGroups[sectionIndex].testCases)
+            ? sectionGroups[sectionIndex].testCases
             : [];
         const matchedIndex = testCases.findIndex((testCase) => String(testCase.id || "").trim() === testcaseId);
 
@@ -149,7 +149,7 @@ const editTestCase = async (promptId, testcaseId, payload = {}) => {
     }
 
     const sourceSection = sectionGroups[sourceSectionIndex];
-    const currentTestCase = sourceSection["test cases"][sourceTestCaseIndex];
+    const currentTestCase = sourceSection.testCases[sourceTestCaseIndex];
     const currentSectionName = normalizeSectionName(sourceSection.section);
     const nextSectionName = normalizeSectionName(payload.section || currentSectionName);
     const updatedFields = sanitizeUpdatedTestCase(payload, testcaseId);
@@ -159,7 +159,7 @@ const editTestCase = async (promptId, testcaseId, payload = {}) => {
         id: testcaseId,
     };
 
-    sourceSection["test cases"].splice(sourceTestCaseIndex, 1);
+    sourceSection.testCases.splice(sourceTestCaseIndex, 1);
 
     let targetSection = sectionGroups.find(
         (section) => normalizeSectionName(section.section).toLowerCase() === nextSectionName.toLowerCase()
@@ -168,17 +168,17 @@ const editTestCase = async (promptId, testcaseId, payload = {}) => {
     if (!targetSection) {
         targetSection = {
             section: nextSectionName,
-            "test cases": [],
+            testCases: [],
         };
         sectionGroups.push(targetSection);
     }
 
     targetSection.section = targetSection.section || nextSectionName;
-    targetSection["test cases"] = Array.isArray(targetSection["test cases"]) ? targetSection["test cases"] : [];
-    targetSection["test cases"].push(updatedTestCase);
+    targetSection.testCases = Array.isArray(targetSection.testCases) ? targetSection.testCases : [];
+    targetSection.testCases.push(updatedTestCase);
 
     parsedData.testCases = sectionGroups.filter((section) => {
-        const testCases = Array.isArray(section["test cases"]) ? section["test cases"] : [];
+        const testCases = Array.isArray(section.testCases) ? section.testCases : [];
         return testCases.length > 0;
     });
 
@@ -195,10 +195,57 @@ const editTestCase = async (promptId, testcaseId, payload = {}) => {
     };
 };
 
+const deleteTestCase = async (promptId, testcaseId) => {
+    const fileName = `testcases/${promptId}.json`;
+    const rawData = FileReader.readDataFile(fileName);
+    const parsedData = JSON.parse(rawData);
+    const sectionGroups = Array.isArray(parsedData.testCases) ? parsedData.testCases : [];
+
+    let sourceSectionIndex = -1;
+    let sourceTestCaseIndex = -1;
+
+    for (let sectionIndex = 0; sectionIndex < sectionGroups.length; sectionIndex += 1) {
+        const testCases = Array.isArray(sectionGroups[sectionIndex].testCases)
+            ? sectionGroups[sectionIndex].testCases
+            : [];
+        const matchedIndex = testCases.findIndex((testCase) => String(testCase.id || "").trim() === testcaseId);
+
+        if (matchedIndex !== -1) {
+            sourceSectionIndex = sectionIndex;
+            sourceTestCaseIndex = matchedIndex;
+            break;
+        }
+    }
+
+    if (sourceSectionIndex === -1 || sourceTestCaseIndex === -1) {
+        const error = new Error("Test case not found");
+        error.statusCode = 404;
+        throw error;
+    }
+
+    const deletedTestCase = sectionGroups[sourceSectionIndex].testCases[sourceTestCaseIndex];
+    sectionGroups[sourceSectionIndex].testCases.splice(sourceTestCaseIndex, 1);
+
+    parsedData.testCases = sectionGroups.filter((section) => {
+        const testCases = Array.isArray(section.testCases) ? section.testCases : [];
+        return testCases.length > 0;
+    });
+
+    FileReader.writeDataFile(fileName, parsedData);
+
+    return {
+        promptId,
+        testcaseId,
+        deletedTestCase,
+        data: parsedData,
+    };
+};
+
 module.exports = {
     getTestCases,
     getAnalyzeData,
     editTestCase,
+    deleteTestCase,
     getTestAnalysisPrompt,
     getTestCaseGenerationPrompt,
     resolvePromptInput,

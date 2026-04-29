@@ -5,22 +5,6 @@
             "section": "User Registration (Email/Password)",
             "test cases": [
                 {
-                    "id": "TC-REG-001",
-                    "title": "Successful user registration with valid credentials",
-                    "type": "positive",
-                    "priority": "high",
-                    "preconditions": [
-                        "User is on the Registration Screen"
-                    ],
-                    "steps": [
-                        "Enter a unique valid email address in the 'Email' field (e.g., 'newuser@example.com')",
-                        "Enter a valid full name in the 'Full Name' field (e.g., 'John Doe')",
-                        "Enter a complex password (at least 8 characters) in the 'Password' field (e.g., 'SecureP@ss1')",
-                        "Tap the 'Create Account' button"
-                    ],
-                    "expectedResult": "User account is created successfully, a success message is displayed, and user is redirected to the dashboard/home screen."
-                },
-                {
                     "id": "TC-REG-002",
                     "title": "Attempt to register with an already registered email address (Real-time Validation)",
                     "type": "negative",
@@ -484,6 +468,27 @@
                         "Attempt to perform an action requiring authentication (e.g., navigate to a protected screen or make an API call)"
                     ],
                     "expectedResult": "The application should silently use the refresh token to obtain a new access token, allowing the user to continue their session without re-authenticating. If refresh token fails (e.g., also expired or invalid), the user should be prompted to log in again."
+                }
+            ]
+        },
+        {
+            "section": "new sections add",
+            "test cases": [
+                {
+                    "id": "TC-REG-001",
+                    "title": "Successful user registration with valid credentials",
+                    "type": "positive",
+                    "priority": "high",
+                    "preconditions": [
+                        "User is on the Registration Screen"
+                    ],
+                    "steps": [
+                        "Enter a unique valid email address in the 'Email' field (e.g., 'newuser@example.com')",
+                        "Enter a valid full name in the 'Full Name' field (e.g., 'John Doe')",
+                        "Enter a complex password (at least 8 characters) in the 'Password' field (e.g., 'SecureP@ss1')",
+                        "Tap the 'Create Account' button"
+                    ],
+                    "expectedResult": "User account is created successfully, a success message is displayed, and user is redirected to the dashboard/home screen."
                 }
             ]
         }
