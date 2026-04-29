@@ -13,7 +13,7 @@ const testraiRouter = require("./routes/testrailRouter")
 const settingsRouter = require("./routes/settingsRouter")
 
 const app = express()
-const port = process.env.PORT || 3000
+const port = process.env.PORT || 9009
 
 app.use(cors())
 app.use(express.urlencoded({ extended: false }))
@@ -34,4 +34,7 @@ app.use("/settings", settingsRouter)
 
 
 
-app.listen(port, () => console.log(`generated-ai:${port}`))
+app.listen(port, () => {
+	console.log(`generated-ai:${port}`)
+	console.log(`Click this url to access the tool --> http://localhost:${port}`)
+})
