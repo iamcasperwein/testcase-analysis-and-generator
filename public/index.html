@@ -20,6 +20,12 @@
   />
 
   <style>
+    html,
+    body {
+      height: 100%;
+      min-height: 100%;
+    }
+
     body {
       font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
       background:
@@ -27,10 +33,12 @@
         radial-gradient(circle at 90% 25%, rgba(111, 66, 193, 0.10), transparent 30%),
         radial-gradient(circle at 20% 90%, rgba(32, 201, 151, 0.08), transparent 28%),
         #f5f8ff;
+      min-height: 100vh;
+      overflow-y: auto;
     }
 
     .app-header {
-      background-color: #0d6efd;
+      background-color: #357de8;
       color: #fff;
       padding: 0.35rem 0.9rem;
       min-height: 52px;
@@ -174,8 +182,9 @@
 
     /* To make main content scrollable if height exceeds viewport */
     .content-wrapper {
-      max-height: calc(100vh - 74px);
-      overflow-y: auto;
+      height: calc(100vh - 74px);
+      max-height: none;
+      overflow: visible;
     }
 
     .nav-panel {
@@ -251,11 +260,89 @@
     .test-scope-right {
       flex: 1;
       max-height: calc(100vh - 165px);
-      overflow-y: auto;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
     }
+
+    .tc-toolbar { flex-shrink: 0; margin-bottom: 0.5rem; }
+
+    .tc-search-wrap { position: relative; flex: 1; max-width: 270px; }
+    .tc-search-wrap .tc-search-icon {
+      position: absolute; left: 0.6rem; top: 50%; transform: translateY(-50%);
+      color: #8a9fc2; font-size: 0.82rem; pointer-events: none; z-index: 1;
+    }
+    .tc-search-wrap input { padding-left: 2rem; }
+
+    .tc-select-btn {
+      border-radius: 0.45rem;
+      border: 1px solid #ced4da;
+      background: #ffffff;
+      color: #495057;
+      font-weight: 500;
+      padding: 0.35rem 0.7rem;
+      min-height: 34px;
+      box-shadow: none;
+      transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+    }
+
+    .tc-select-btn i {
+      color: #6c757d;
+      transition: color 0.18s ease;
+    }
+
+    .tc-select-btn:hover {
+      border-color: #adb5bd;
+      color: #343a40;
+      background: #f8f9fa;
+    }
+
+    .tc-select-btn.active {
+      background: #e7f1ff;
+      border-color: #9ec5fe;
+      color: #0d6efd;
+      box-shadow: none;
+    }
+
+    .tc-select-btn.active i {
+      color: #0d6efd;
+    }
+
+    .tc-select-btn.active:hover {
+      background: #dbeafe;
+    }
+
+    .tc-bulk-bar {
+      flex-shrink: 0; display: none; align-items: center; gap: 0.5rem;
+      background: linear-gradient(90deg,#eff6ff 0%,#f5f8ff 100%);
+      border: 1px solid #bfdbfe; border-radius: 0.6rem;
+      padding: 0.44rem 0.8rem; margin-bottom: 0.5rem;
+      font-size: 0.82rem; color: #1d4ed8; font-weight: 600;
+      animation: fadeSlideIn 0.2s ease;
+    }
+    @keyframes fadeSlideIn { from{opacity:0;transform:translateY(-6px)} to{opacity:1;transform:translateY(0)} }
+
+    .tc-table-wrap { flex: 1; overflow-y: auto; border-radius: 0.55rem; border: 1px solid #e3edf8; }
+
+    .scope-table .tc-check-col { width: 36px; min-width: 36px; padding: 0.24rem 0.5rem; }
+    .testcase-row.tc-selected > td { background: #eff6ff !important; }
+    .testcase-row.tc-selected > td:first-child { border-left: 3px solid #3b82f6; }
 
     .scope-toolbar {
       margin-bottom: 0.45rem !important;
+    }
+
+    /* Align prompt selector width with Sections panel width */
+    #test-scope-pane .scope-toolbar > .d-flex {
+      width: 22%;
+      min-width: 185px;
+      max-width: 22%;
+    }
+
+    #scopePromptSelectWrap {
+      min-width: 100%;
+      max-width: 100%;
+      width: 100%;
     }
 
     .scope-toolbar .form-label,
@@ -268,6 +355,17 @@
     .form-card {
       border-radius: 0.9rem;
       overflow: hidden;
+    }
+
+    /* Settings pane: allow dropdowns to overflow the card */
+    #settings-pane .form-card {
+      overflow: visible;
+    }
+    #settings-pane .form-card .card-body {
+      overflow: visible;
+    }
+    #settings-pane .prompt-select-wrap {
+      position: relative;
     }
 
     .form-card .card-header {
@@ -622,6 +720,227 @@
       border-top: 1px solid #dbe8ff;
     }
 
+    /* ── Bloom Modal ──────────────────────────────────────────── */
+    .tc-bloom-modal {
+      border: none;
+      border-radius: 1rem;
+      overflow: hidden;
+      box-shadow: 0 20px 60px rgba(13, 110, 253, 0.13), 0 4px 18px rgba(0,0,0,0.08);
+    }
+
+    .tc-bloom-header {
+      background: linear-gradient(120deg, #f0f6ff 0%, #e8f2ff 60%, #f5f0ff 100%);
+      border-bottom: 1px solid #d7e8ff;
+      padding: 1.1rem 1.4rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .tc-bloom-header-edit {
+      background: linear-gradient(120deg, #f0f6ff 0%, #edf4ff 60%, #f0f9ff 100%);
+    }
+
+    .tc-bloom-icon-wrap {
+      width: 40px;
+      height: 40px;
+      border-radius: 10px;
+      background: linear-gradient(135deg, #dbeafe, #c7d7fe);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.15rem;
+      color: #2563eb;
+      flex-shrink: 0;
+    }
+
+    .tc-bloom-icon-edit {
+      background: linear-gradient(135deg, #dbeafe, #bfdbfe);
+      color: #1d4ed8;
+    }
+
+    .tc-bloom-modal-title {
+      font-size: 1rem;
+      font-weight: 700;
+      color: #1e3a6e;
+      line-height: 1.2;
+    }
+
+    .tc-bloom-modal-sub {
+      font-size: 0.76rem;
+      color: #6b8bbf;
+      margin-top: 1px;
+    }
+
+    .tc-bloom-body {
+      padding: 1.35rem 1.4rem;
+      background: #fff;
+    }
+
+    .tc-bloom-footer {
+      background: #f8faff;
+      border-top: 1px solid #e4eeff;
+      padding: 0.75rem 1.4rem;
+      gap: 0.5rem;
+    }
+
+    /* View modal specific */
+    .tc-view-meta-row {
+      display: flex;
+      gap: 1rem;
+      margin-bottom: 1.1rem;
+    }
+
+    .tc-view-meta-block {
+      flex: 1;
+      background: #f4f8ff;
+      border: 1px solid #dce8ff;
+      border-radius: 0.6rem;
+      padding: 0.55rem 0.8rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.15rem;
+    }
+
+    .tc-view-meta-label {
+      font-size: 0.72rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      color: #7a9cc8;
+    }
+
+    .tc-view-meta-value {
+      font-size: 0.9rem;
+      font-weight: 600;
+      color: #1e3a6e;
+      word-break: break-all;
+    }
+
+    .tc-view-field {
+      margin-bottom: 1rem;
+    }
+
+    .tc-view-field-label {
+      font-size: 0.74rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      color: #7a9cc8;
+      margin-bottom: 0.3rem;
+    }
+
+    .tc-view-field-value {
+      color: #1c3460;
+    }
+
+    .tc-view-pre {
+      background: #f5f8ff;
+      border: 1px solid #dce8ff;
+      border-radius: 0.55rem;
+      padding: 0.65rem 0.9rem;
+      font-size: 0.85rem;
+      color: #2d4870;
+      white-space: pre-wrap;
+      margin: 0;
+      min-height: 2.4rem;
+      font-family: inherit;
+      line-height: 1.55;
+    }
+
+    .tc-view-pre-expected {
+      background: #f0fff4;
+      border-color: #b7f0cc;
+      color: #155724;
+    }
+
+    /* Edit modal field styles */
+    .tc-field-label {
+      font-size: 0.8rem;
+      font-weight: 700;
+      color: #3f587e;
+      margin-bottom: 0.3rem;
+      display: block;
+    }
+
+    .tc-field-input {
+      border-radius: 0.55rem;
+      border-color: #d0dff5;
+      font-size: 0.88rem;
+      min-height: 38px;
+      transition: border-color 0.15s, box-shadow 0.15s;
+    }
+
+    .tc-field-input:focus {
+      border-color: #6ea8fe;
+      box-shadow: 0 0 0 0.15rem rgba(13, 110, 253, 0.13);
+    }
+
+    .tc-field-expected {
+      border-color: #b2e5c6;
+      background: #f8fff9;
+    }
+
+    .tc-field-expected:focus {
+      border-color: #3dba6e;
+      box-shadow: 0 0 0 0.15rem rgba(25, 135, 84, 0.13);
+    }
+
+    .tc-field-divider {
+      display: flex;
+      align-items: center;
+      gap: 0.7rem;
+      margin: 1.1rem 0 1rem;
+      font-size: 0.73rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: #8fa9cc;
+    }
+
+    .tc-field-divider::before,
+    .tc-field-divider::after {
+      content: "";
+      flex: 1;
+      height: 1px;
+      background: #dce8ff;
+    }
+
+    .tc-save-btn {
+      padding-left: 1.1rem;
+      padding-right: 1.1rem;
+    }
+
+    .tc-view-bullets-list,
+    .tc-view-steps-list {
+      margin: 0;
+      padding-left: 1.35rem;
+      font-size: 0.87rem;
+      color: #2d4870;
+      line-height: 1.65;
+    }
+
+    .tc-view-bullets-list li {
+      list-style-type: disc;
+      padding: 0.1rem 0;
+    }
+
+    .tc-view-steps-list li {
+      list-style-type: decimal;
+      padding: 0.1rem 0;
+    }
+
+    .tc-view-steps-list li::marker {
+      font-weight: 700;
+      color: #3b7ef8;
+    }
+
+    .tc-view-empty {
+      color: #aab8cc;
+      font-style: italic;
+      font-size: 0.85rem;
+    }
+
     .icon-action-btn {
       width: 26px;
       height: 26px;
@@ -633,18 +952,36 @@
     }
 
     .all-view-filters {
-      font-size: 0.78rem;
-      color: #4b5f84;
+      font-size: 0.8rem;
+      color: #6c757d;
       gap: 0.4rem;
+      background: transparent;
+      border: 0;
+      border-radius: 0;
+      padding: 0;
+      box-shadow: none;
+    }
+
+    .all-view-filters .form-check {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.45rem;
+      min-height: 0;
     }
 
     .all-view-filters .form-check-input {
-      transform: scale(0.85);
-      margin-top: 0.15rem;
+      margin: 0;
+      width: 2rem;
+      height: 1rem;
+      cursor: pointer;
     }
 
     .all-view-filters .form-check-label {
-      margin-left: -0.15rem;
+      margin: 0;
+      font-size: 0.82rem;
+      font-weight: 500;
+      color: #495057;
+      line-height: 1;
     }
 
     .section-filter-toggle {
@@ -743,6 +1080,12 @@
       .analysis-doc {
         max-height: 55vh;
       }
+
+      #test-scope-pane .scope-toolbar > .d-flex {
+        width: 100%;
+        min-width: 0;
+        max-width: 100%;
+      }
     }
 
     textarea.form-control {
@@ -792,7 +1135,7 @@
       color: #3f5375;
     }
 
-    .prompt-select-trigger-text.placeholder {
+    .prompt-select-trigger-text.is-placeholder {
       color: #a3afc2;
     }
 
@@ -827,7 +1170,7 @@
     }
 
     .prompt-select-options {
-      max-height: 220px;
+      max-height: min(320px, calc(100vh - 220px));
       overflow-y: auto;
     }
 
@@ -1043,6 +1386,16 @@
 
     .dash-refresh-btn { font-size: 0.82rem; }
 
+    @keyframes spin-once {
+      from { transform: rotate(0deg); }
+      to   { transform: rotate(360deg); }
+    }
+
+    .btn-spin i {
+      display: inline-block;
+      animation: spin-once 0.6s linear 0s 1;
+    }
+
     .failed-prompt-note {
       white-space: pre-wrap;
       word-break: break-word;
@@ -1056,9 +1409,278 @@
       max-height: 45vh;
       overflow: auto;
     }
+
+    /* ---- TOP BANNER ---- */
+    #appBanner {
+      position: fixed;
+      top: 16px;
+      left: 50%;
+      transform: translateX(-50%) translateY(-12px);
+      z-index: 2000;
+      min-width: 280px;
+      max-width: min(560px, 90vw);
+      padding: 0.7rem 1.1rem;
+      border-radius: 0.7rem;
+      font-size: 0.875rem;
+      font-weight: 500;
+      display: flex;
+      align-items: center;
+      gap: 0.55rem;
+      box-shadow: 0 8px 28px rgba(0,0,0,0.14);
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.25s ease, transform 0.25s ease;
+    }
+
+    #appBanner.banner-show {
+      opacity: 1;
+      pointer-events: auto;
+      transform: translateX(-50%) translateY(0);
+    }
+
+    #appBanner.banner-success {
+      background: #d1fae5;
+      border: 1px solid #6ee7b7;
+      color: #065f46;
+    }
+
+    #appBanner.banner-danger {
+      background: #fee2e2;
+      border: 1px solid #fca5a5;
+      color: #7f1d1d;
+    }
+
+    #appBannerClose {
+      margin-left: auto;
+      background: none;
+      border: none;
+      cursor: pointer;
+      opacity: 0.6;
+      font-size: 1rem;
+      line-height: 1;
+      padding: 0 0 0 0.25rem;
+      color: inherit;
+    }
+
+    #appBannerClose:hover { opacity: 1; }
+
+    /* ---- SETTINGS CUSTOM MODALS ---- */
+    .settings-dialog-overlay {
+      position: fixed;
+      inset: 0;
+      z-index: 1600;
+      background: rgba(10, 25, 55, 0.45);
+      backdrop-filter: blur(3px);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.2s ease;
+    }
+
+    .settings-dialog-overlay.open {
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    .settings-dialog {
+      background: #fff;
+      border-radius: 1rem;
+      box-shadow: 0 24px 64px rgba(13, 110, 253, 0.18), 0 4px 16px rgba(0,0,0,0.12);
+      padding: 1.75rem 1.85rem 1.5rem;
+      min-width: 360px;
+      max-width: min(480px, 92vw);
+      transform: translateY(16px) scale(0.97);
+      transition: transform 0.22s cubic-bezier(0.34,1.56,0.64,1), opacity 0.2s ease;
+      opacity: 0;
+      border-top: 4px solid #3b82f6;
+    }
+
+    .settings-dialog-overlay.open .settings-dialog {
+      transform: translateY(0) scale(1);
+      opacity: 1;
+    }
+
+    .settings-dialog.dialog-danger {
+      border-top-color: #ef4444;
+    }
+
+    .settings-dialog-icon {
+      width: 46px;
+      height: 46px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.35rem;
+      margin-bottom: 1rem;
+    }
+
+    .settings-dialog-icon.icon-edit {
+      background: #eff6ff;
+      color: #2563eb;
+    }
+
+    .settings-dialog-icon.icon-delete {
+      background: #fef2f2;
+      color: #dc2626;
+    }
+
+    .settings-dialog-title {
+      font-size: 1rem;
+      font-weight: 700;
+      color: #1a3260;
+      margin-bottom: 0.3rem;
+    }
+
+    .settings-dialog-sub {
+      font-size: 0.82rem;
+      color: #637ba8;
+      margin-bottom: 1.15rem;
+    }
+
+    .settings-dialog-key-badge {
+      display: inline-block;
+      font-family: monospace;
+      font-size: 0.78rem;
+      background: #eff6ff;
+      border: 1px solid #bfdbfe;
+      color: #1d4ed8;
+      border-radius: 0.4rem;
+      padding: 0.15rem 0.5rem;
+      font-weight: 700;
+      margin-bottom: 1rem;
+    }
+
+    .settings-dialog .form-control {
+      border-radius: 0.6rem;
+      border-color: #c8d9f6;
+      font-size: 0.88rem;
+      font-family: monospace;
+    }
+
+    .settings-dialog .form-control:focus {
+      border-color: #3b82f6;
+      box-shadow: 0 0 0 0.18rem rgba(59,130,246,0.18);
+    }
+
+    .settings-dialog-actions {
+      display: flex;
+      gap: 0.65rem;
+      justify-content: flex-end;
+      margin-top: 1.25rem;
+    }
+
+    .settings-dialog-actions .btn {
+      border-radius: 0.6rem;
+      font-size: 0.875rem;
+      font-weight: 600;
+      padding: 0.45rem 1.15rem;
+      transition: all 0.18s ease;
+    }
+
+    .settings-dialog .prompt-select-wrap {
+      min-width: 100%;
+      max-width: 100%;
+    }
+
+    .settings-dialog .prompt-select-trigger {
+      min-height: 42px;
+      border-radius: 0.7rem;
+      border-color: #c8d9f6;
+      padding: 0.55rem 0.75rem;
+      box-shadow: none;
+    }
+
+    .settings-dialog .prompt-select-trigger.open,
+    .settings-dialog .prompt-select-trigger:hover {
+      border-color: #3b82f6;
+      box-shadow: 0 0 0 0.18rem rgba(59,130,246,0.12);
+    }
+
+    .settings-dialog .prompt-select-dropdown {
+      max-width: none;
+      width: 100%;
+      border-radius: 0.75rem;
+      border-color: #c8d9f6;
+      box-shadow: 0 18px 38px rgba(37, 99, 235, 0.16);
+    }
+
+    .settings-dialog .prompt-select-search {
+      padding: 0.65rem 0.8rem;
+      font-size: 0.88rem;
+    }
+
+    .settings-dialog .prompt-select-options {
+      max-height: 240px;
+    }
+
+    .section-create-option {
+      background: linear-gradient(90deg, #eef4ff 0%, #f8fbff 100%);
+      color: #1d4ed8;
+      font-weight: 600;
+    }
+
+    .section-create-option .prompt-select-option-name {
+      color: #5b77a7;
+    }
+
+    .section-selected-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+      background: #eff6ff;
+      color: #1d4ed8;
+      border: 1px solid #bfdbfe;
+      border-radius: 999px;
+      padding: 0.14rem 0.55rem;
+      font-size: 0.76rem;
+      font-weight: 700;
+      flex-shrink: 0;
+    }
+
+    .setting-key-picker .prompt-select-wrap {
+      min-width: 100%;
+      max-width: 100%;
+    }
+
+    .setting-key-picker .prompt-select-trigger {
+      min-height: 36px;
+      padding: 0.42rem 0.65rem;
+      font-size: 0.84rem;
+      border-radius: 0.6rem;
+    }
+
+    .setting-key-picker .prompt-select-dropdown {
+      max-width: none;
+      width: 100%;
+    }
+
+    .setting-key-picker .prompt-select-search {
+      font-size: 0.83rem;
+      padding: 0.5rem 0.65rem;
+    }
+
+    .setting-key-picker .prompt-select-options {
+      max-height: 240px;
+    }
+
+    .setting-key-picker .prompt-select-option-id {
+      font-size: 0.84rem;
+      font-weight: 700;
+    }
   </style>
 </head>
 <body>
+
+  <!-- Global Banner -->
+  <div id="appBanner" role="alert" aria-live="polite">
+    <i id="appBannerIcon" class="bi bi-check-circle-fill"></i>
+    <span id="appBannerMsg"></span>
+    <button id="appBannerClose" aria-label="Dismiss">&times;</button>
+  </div>
+
   <!-- Header -->
   <header class="app-header">
     <div>
@@ -1130,6 +1752,19 @@
           >
             <i class="bi bi-list-check"></i>
             <span>Test Cases</span>
+          </button>
+          <button
+            class="nav-link"
+            id="settings-tab"
+            data-bs-toggle="tab"
+            data-bs-target="#settings-pane"
+            type="button"
+            role="tab"
+            aria-controls="settings-pane"
+            aria-selected="false"
+          >
+            <i class="bi bi-gear"></i>
+            <span>Settings</span>
           </button>
         </div>
       </aside>
@@ -1395,7 +2030,7 @@
             <div class="d-flex align-items-center gap-2">
               <div class="prompt-select-wrap" id="analysisPromptSelectWrap">
                 <div class="prompt-select-trigger" id="analysisPromptTrigger" tabindex="0">
-                  <span class="prompt-select-trigger-text placeholder" id="analysisPromptTriggerText">Select a prompt...</span>
+                  <span class="prompt-select-trigger-text is-placeholder" id="analysisPromptTriggerText">Select a prompt...</span>
                   <i class="bi bi-chevron-down" style="font-size:0.75rem;flex-shrink:0;"></i>
                 </div>
                 <div class="prompt-select-dropdown" id="analysisPromptDropdown">
@@ -1441,7 +2076,7 @@
           <div class="d-flex align-items-center gap-2">
             <div class="prompt-select-wrap" id="scopePromptSelectWrap">
               <div class="prompt-select-trigger" id="scopePromptTrigger" tabindex="0">
-                <span class="prompt-select-trigger-text placeholder" id="scopePromptTriggerText">Select a prompt...</span>
+                <span class="prompt-select-trigger-text is-placeholder" id="scopePromptTriggerText">Select a prompt...</span>
                 <i class="bi bi-chevron-down" style="font-size:0.75rem;flex-shrink:0;"></i>
               </div>
               <div class="prompt-select-dropdown" id="scopePromptDropdown">
@@ -1476,20 +2111,49 @@
 
           <!-- Right: Test Cases Table -->
           <div class="test-scope-right">
-            <div class="d-flex justify-content-between align-items-center mb-2">
-              <h6 class="mb-0" id="selectedSectionTitle">All Test Cases</h6>
-              <div class="d-flex align-items-center all-view-filters" id="allViewFilters">
+
+            <!-- Toolbar -->
+            <div class="tc-toolbar d-flex align-items-center gap-2 flex-wrap">
+              <h6 class="mb-0 flex-shrink-0" id="selectedSectionTitle">All Test Cases</h6>
+              <div class="tc-search-wrap ms-2">
+                <i class="bi bi-search tc-search-icon"></i>
+                <input type="text" id="tcSearchInput" class="form-control form-control-sm" placeholder="Search test cases..." autocomplete="off" />
+              </div>
+              <button class="btn btn-sm btn-outline-secondary tc-select-btn" id="tcSelectModeBtn" title="Toggle selection mode">
+                <i class="bi bi-ui-checks me-1"></i>Select
+              </button>
+              <div class="d-flex align-items-center all-view-filters ms-auto" id="allViewFilters">
                 <div class="form-check form-switch mb-0">
                   <input class="form-check-input" type="checkbox" role="switch" id="toggleIdColumn" checked>
-                  <label class="form-check-label" for="toggleIdColumn">ID</label>
+                  <label class="form-check-label" for="toggleIdColumn">Show TC ID</label>
                 </div>
               </div>
             </div>
 
-            <div class="table-responsive">
+            <!-- Bulk action bar -->
+            <div class="tc-bulk-bar" id="tcBulkBar">
+              <i class="bi bi-check2-square"></i>
+              <span id="tcBulkCount">0 selected</span>
+              <div class="vr mx-1" style="opacity:0.35;"></div>
+              <button class="btn btn-sm btn-outline-primary py-0 px-2" id="tcBulkEditSectionBtn">
+                <i class="bi bi-folder-symlink me-1"></i>Move Section
+              </button>
+              <button class="btn btn-sm btn-outline-danger py-0 px-2" id="tcBulkDeleteBtn">
+                <i class="bi bi-trash me-1"></i>Delete
+              </button>
+              <button class="btn btn-sm btn-link text-secondary ms-auto p-0" id="tcClearSelectionBtn" title="Exit selection mode">
+                <i class="bi bi-x-lg"></i>
+              </button>
+            </div>
+
+            <!-- Sticky-header table -->
+            <div class="tc-table-wrap">
               <table class="table table-sm table-hover align-middle mb-0 scope-table">
                 <thead class="table-light">
                   <tr>
+                    <th class="tc-check-col" style="display:none;">
+                      <input type="checkbox" class="form-check-input" id="tcSelectAll" title="Select all visible">
+                    </th>
                     <th style="width: 130px;" data-col="id">ID</th>
                     <th data-col="title">Test Title</th>
                     <th style="width: 150px;" class="text-end">Actions</th>
@@ -1508,185 +2172,201 @@
         </div>
       </div>
       <!-- End Test Scope Panel -->
+
+      <!-- Settings Panel -->
+      <div
+        class="tab-pane fade"
+        id="settings-pane"
+        role="tabpanel"
+        aria-labelledby="settings-tab"
+      >
+        <div class="card form-card">
+          <div class="card-header d-flex justify-content-between align-items-center">
+            <h5 class="mb-0"><i class="bi bi-gear me-1"></i>Environment Settings</h5>
+            <button class="btn btn-sm btn-outline-secondary" id="refreshSettingsBtn">
+              <i class="bi bi-arrow-clockwise me-1"></i>Refresh
+            </button>
+          </div>
+          <div class="card-body">
+            <div id="settingsStatus" class="small text-muted mb-3"></div>
+
+            <div class="border rounded p-3 mb-3" style="border-color:#d8e5f8 !important; background:#f8fbff;">
+              <div class="d-flex justify-content-between align-items-center mb-2">
+                <h6 class="mb-0">Add Multiple Settings</h6>
+                <button class="btn btn-sm btn-outline-primary" id="addSettingRowBtn" type="button">
+                  <i class="bi bi-plus-lg me-1"></i>Add Row
+                </button>
+              </div>
+              <div id="settingsRows" class="d-flex flex-column gap-2"></div>
+              <div class="mt-2">
+                <button class="btn btn-primary btn-sm" id="saveSettingsBtn" type="button">
+                  <i class="bi bi-save me-1"></i>Save Settings
+                </button>
+              </div>
+            </div>
+
+            <h6 class="mb-2">Current Configuration</h6>
+            <div class="table-responsive">
+              <table class="table table-sm align-middle">
+                <thead class="table-light">
+                  <tr>
+                    <th style="width: 260px;">Key</th>
+                    <th>Value</th>
+                    <th style="width: 140px;" class="text-end">Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="settingsTableBody">
+                  <tr>
+                    <td colspan="3" class="text-center text-muted small">No settings loaded.</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
         </div>
       </main>
     </div>
   </div>
 
   <!-- View Test Case Modal -->
-  <div
-    class="modal fade"
-    id="viewTestCaseModal"
-    tabindex="-1"
-    aria-labelledby="viewTestCaseModalLabel"
-    aria-hidden="true"
-  >
-    <div class="modal-dialog modal-lg modal-dialog-scrollable">
-      <div class="modal-content">
-        <div class="modal-header">
-          <h5 class="modal-title" id="viewTestCaseModalLabel">Test Case Details</h5>
+  <div class="modal fade" id="viewTestCaseModal" tabindex="-1" aria-labelledby="viewTestCaseModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable tc-view-dialog">
+      <div class="modal-content tc-bloom-modal">
+        <div class="modal-header tc-bloom-header">
+          <div class="d-flex align-items-center gap-2">
+            <div class="tc-bloom-icon-wrap">
+              <i class="bi bi-journal-text"></i>
+            </div>
+            <div>
+              <div class="tc-bloom-modal-title" id="viewTestCaseModalLabel">Test Case Details</div>
+              <div class="tc-bloom-modal-sub">Read-only view</div>
+            </div>
+          </div>
           <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
         </div>
-        <div class="modal-body">
-          <dl class="row mb-0">
-            <dt class="col-sm-3">ID</dt>
-            <dd class="col-sm-9" id="viewTcId"></dd>
-
-            <dt class="col-sm-3">Title</dt>
-            <dd class="col-sm-9" id="viewTcTitle"></dd>
-
-            <dt class="col-sm-3">Section</dt>
-            <dd class="col-sm-9" id="viewTcSection"></dd>
-
-            <dt class="col-sm-3">Preconditions</dt>
-            <dd class="col-sm-9">
-              <pre id="viewTcPreconditions" class="mb-0" style="white-space: pre-wrap;"></pre>
-            </dd>
-
-            <dt class="col-sm-3">Steps</dt>
-            <dd class="col-sm-9">
-              <pre id="viewTcSteps" class="mb-0" style="white-space: pre-wrap;"></pre>
-            </dd>
-
-            <dt class="col-sm-3 mt-2">Expected Result</dt>
-            <dd class="col-sm-9 mt-2">
-              <pre id="viewTcExpected" class="mb-0" style="white-space: pre-wrap;"></pre>
-            </dd>
-          </dl>
+        <div class="modal-body tc-bloom-body">
+          <!-- ID + Section row -->
+          <div class="tc-view-meta-row">
+            <div class="tc-view-meta-block">
+              <span class="tc-view-meta-label"><i class="bi bi-hash me-1"></i>ID</span>
+              <span class="tc-view-meta-value" id="viewTcId">—</span>
+            </div>
+            <div class="tc-view-meta-block">
+              <span class="tc-view-meta-label"><i class="bi bi-folder me-1"></i>Section</span>
+              <span class="tc-view-meta-value" id="viewTcSection">—</span>
+            </div>
+          </div>
+          <!-- Title -->
+          <div class="tc-view-field">
+            <div class="tc-view-field-label">Test Title</div>
+            <div class="tc-view-field-value fw-semibold fs-6" id="viewTcTitle">—</div>
+          </div>
+          <!-- Preconditions -->
+          <div class="tc-view-field">
+            <div class="tc-view-field-label"><i class="bi bi-list-check me-1"></i>Preconditions</div>
+            <div class="tc-view-pre" id="viewTcPreconditions"></div>
+          </div>
+          <!-- Steps -->
+          <div class="tc-view-field">
+            <div class="tc-view-field-label"><i class="bi bi-arrow-right-square me-1"></i>Steps</div>
+            <div class="tc-view-pre" id="viewTcSteps"></div>
+          </div>
+          <!-- Expected Result -->
+          <div class="tc-view-field">
+            <div class="tc-view-field-label"><i class="bi bi-check2-circle me-1"></i>Expected Result</div>
+            <pre class="tc-view-pre tc-view-pre-expected" id="viewTcExpected"></pre>
+          </div>
         </div>
-        <div class="modal-footer">
-          <button
-            type="button"
-            class="btn btn-secondary"
-            data-bs-dismiss="modal"
-          >
-            Close
-          </button>
+        <div class="modal-footer tc-bloom-footer">
+          <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Close</button>
         </div>
       </div>
     </div>
   </div>
 
   <!-- Edit Test Case Modal -->
-  <div
-    class="modal fade"
-    id="editTestCaseModal"
-    tabindex="-1"
-    aria-labelledby="editTestCaseModalLabel"
-    aria-hidden="true"
-  >
-    <div class="modal-dialog modal-lg modal-dialog-scrollable">
-      <div class="modal-content">
+  <div class="modal fade" id="editTestCaseModal" tabindex="-1" aria-labelledby="editTestCaseModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable tc-edit-dialog">
+      <div class="modal-content tc-bloom-modal">
         <form id="editTestCaseForm">
-          <div class="modal-header">
-            <h5 class="modal-title" id="editTestCaseModalLabel">Edit Test Case</h5>
+          <div class="modal-header tc-bloom-header tc-bloom-header-edit">
+            <div class="d-flex align-items-center gap-2">
+              <div class="tc-bloom-icon-wrap tc-bloom-icon-edit">
+                <i class="bi bi-pencil-square"></i>
+              </div>
+              <div>
+                <div class="tc-bloom-modal-title" id="editTestCaseModalLabel">Edit Test Case</div>
+                <div class="tc-bloom-modal-sub">Update test details and section</div>
+              </div>
+            </div>
             <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
           </div>
-          <div class="modal-body">
+          <div class="modal-body tc-bloom-body">
             <input type="hidden" id="editTcId" />
             <input type="hidden" id="editTcPromptId" />
-            <div class="mb-3">
-              <label for="editTcTitle" class="form-label">Test Title</label>
-              <input
-                type="text"
-                class="form-control"
-                id="editTcTitle"
-                required
-              />
+
+            <!-- Title + Section side-by-side -->
+            <div class="row g-3 mb-3">
+              <div class="col-12">
+                <label for="editTcTitle" class="tc-field-label">Test Title <span class="text-danger">*</span></label>
+                <input type="text" class="form-control tc-field-input" id="editTcTitle" placeholder="Enter test case title..." required />
+              </div>
             </div>
             <div class="mb-3">
-              <label for="editTcSection" class="form-label">Section</label>
-              <input
-                type="text"
-                class="form-control"
-                id="editTcSection"
-                required
-              />
+              <label class="tc-field-label">Section <span class="text-danger">*</span></label>
+              <div class="prompt-select-wrap" id="editTcSectionPickerWrap">
+                <div class="prompt-select-trigger" id="editTcSectionTrigger" tabindex="0">
+                  <span class="prompt-select-trigger-text is-placeholder" id="editTcSectionTriggerText">Search or create section...</span>
+                  <i class="bi bi-chevron-down" style="font-size:0.75rem;flex-shrink:0;"></i>
+                </div>
+                <div class="prompt-select-dropdown" id="editTcSectionDropdown">
+                  <input type="text" class="prompt-select-search" id="editTcSectionSearch" placeholder="Search section or type a new one..." autocomplete="off" />
+                  <div class="prompt-select-options" id="editTcSectionOptions"></div>
+                </div>
+              </div>
+              <input type="hidden" id="editTcSectionValue" />
+              <div class="form-text mt-1"><i class="bi bi-info-circle me-1"></i>Search existing sections, or type a new name to create one.</div>
+            </div>
+
+            <!-- Divider -->
+            <div class="tc-field-divider"><span>Test Content</span></div>
+
+            <div class="mb-3">
+              <label for="editTcPreconditions" class="tc-field-label">Preconditions</label>
+              <textarea class="form-control tc-field-input" id="editTcPreconditions" rows="3" placeholder="One precondition per line..."></textarea>
             </div>
             <div class="mb-3">
-              <label for="editTcPreconditions" class="form-label">Preconditions</label>
-              <textarea
-                class="form-control"
-                id="editTcPreconditions"
-                rows="3"
-                placeholder="One precondition per line"
-              ></textarea>
+              <label for="editTcSteps" class="tc-field-label">Steps <span class="text-danger">*</span></label>
+              <textarea class="form-control tc-field-input" id="editTcSteps" rows="5" placeholder="Describe each step clearly..." required></textarea>
             </div>
-            <div class="mb-3">
-              <label for="editTcSteps" class="form-label">Steps</label>
-              <textarea
-                class="form-control"
-                id="editTcSteps"
-                rows="5"
-                required
-              ></textarea>
-            </div>
-            <div class="mb-3">
-              <label for="editTcExpected" class="form-label">Expected Result</label>
-              <textarea
-                class="form-control"
-                id="editTcExpected"
-                rows="4"
-                required
-              ></textarea>
+            <div class="mb-3 mb-0">
+              <label for="editTcExpected" class="tc-field-label">Expected Result <span class="text-danger">*</span></label>
+              <textarea class="form-control tc-field-input tc-field-expected" id="editTcExpected" rows="4" placeholder="What should happen after the steps..." required></textarea>
             </div>
           </div>
-          <div class="modal-footer">
-            <button
-              type="button"
-              class="btn btn-secondary"
-              data-bs-dismiss="modal"
-            >
-              Cancel
-            </button>
-            <button type="submit" class="btn btn-primary">
-              Save Changes
-            </button>
+          <div class="modal-footer tc-bloom-footer">
+            <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+            <button type="submit" class="btn btn-primary tc-save-btn"><i class="bi bi-floppy me-1"></i>Save Changes</button>
           </div>
         </form>
       </div>
     </div>
   </div>
 
-  <!-- Delete Confirmation Modal -->
-  <div
-    class="modal fade"
-    id="deleteTestCaseModal"
-    tabindex="-1"
-    aria-labelledby="deleteTestCaseModalLabel"
-    aria-hidden="true"
-  >
-    <div class="modal-dialog">
-      <div class="modal-content">
-        <div class="modal-header">
-          <h5 class="modal-title" id="deleteTestCaseModalLabel">
-            Delete Test Case
-          </h5>
-          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-        </div>
-        <div class="modal-body">
-          <p id="deleteMessage">
-            Are you sure you want to delete this test case?
-          </p>
-          <input type="hidden" id="deleteTcId" />
-          <input type="hidden" id="deleteTcPromptId" />
-        </div>
-        <div class="modal-footer">
-          <button
-            type="button"
-            class="btn btn-secondary"
-            data-bs-dismiss="modal"
-          >
-            Cancel
-          </button>
-          <button
-            type="button"
-            class="btn btn-danger"
-            id="confirmDeleteBtn"
-          >
-            Delete
-          </button>
-        </div>
+  <!-- Delete Test Case Overlay -->
+  <div id="deleteTcOverlay" class="settings-dialog-overlay" role="dialog" aria-modal="true" aria-labelledby="deleteTcOverlayTitle">
+    <div class="settings-dialog dialog-danger">
+      <div class="settings-dialog-icon icon-delete"><i class="bi bi-trash3"></i></div>
+      <div class="settings-dialog-title" id="deleteTcOverlayTitle">Delete Test Case</div>
+      <div class="settings-dialog-sub">This will permanently remove the test case.</div>
+      <div class="settings-dialog-key-badge" id="deleteTcOverlayBadge"></div>
+      <input type="hidden" id="deleteTcId" />
+      <input type="hidden" id="deleteTcPromptId" />
+      <div class="settings-dialog-actions">
+        <button type="button" class="btn btn-outline-secondary" id="deleteTcCancelBtn">Cancel</button>
+        <button type="button" class="btn btn-danger" id="confirmDeleteBtn"><i class="bi bi-trash3 me-1"></i>Delete</button>
       </div>
     </div>
   </div>
@@ -1716,7 +2396,76 @@
     </div>
   </div>
 
-  <!-- Bootstrap JS + dependencies (Bundle includes Popper) -->
+  <!-- Settings Edit Dialog -->
+  <div id="settingEditOverlay" class="settings-dialog-overlay" role="dialog" aria-modal="true" aria-labelledby="settingEditTitle">
+    <div class="settings-dialog">
+      <div class="settings-dialog-icon icon-edit"><i class="bi bi-pencil-square"></i></div>
+      <div class="settings-dialog-title" id="settingEditTitle">Edit Setting</div>
+      <div class="settings-dialog-sub">Update the value for</div>
+      <div class="settings-dialog-key-badge" id="settingEditKeyBadge"></div>
+      <input type="text" id="settingEditInput" class="form-control" placeholder="Enter new value" autocomplete="off" />
+      <div class="settings-dialog-actions">
+        <button type="button" class="btn btn-outline-secondary" id="settingEditCancelBtn">Cancel</button>
+        <button type="button" class="btn btn-primary" id="settingEditConfirmBtn"><i class="bi bi-check-lg me-1"></i>Save</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Settings Delete Dialog -->
+  <div id="settingDeleteOverlay" class="settings-dialog-overlay" role="dialog" aria-modal="true" aria-labelledby="settingDeleteTitle">
+    <div class="settings-dialog dialog-danger">
+      <div class="settings-dialog-icon icon-delete"><i class="bi bi-trash3"></i></div>
+      <div class="settings-dialog-title" id="settingDeleteTitle">Delete Setting</div>
+      <div class="settings-dialog-sub">This will permanently remove the key from <code>.env</code></div>
+      <div class="settings-dialog-key-badge" id="settingDeleteKeyBadge"></div>
+      <div class="settings-dialog-actions">
+        <button type="button" class="btn btn-outline-secondary" id="settingDeleteCancelBtn">Cancel</button>
+        <button type="button" class="btn btn-danger" id="settingDeleteConfirmBtn"><i class="bi bi-trash3 me-1"></i>Delete</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Bulk Move Section Dialog -->
+  <div id="bulkEditSectionOverlay" class="settings-dialog-overlay" role="dialog" aria-modal="true" aria-labelledby="bulkEditSectionTitle">
+    <div class="settings-dialog">
+      <div class="settings-dialog-icon icon-edit"><i class="bi bi-folder-symlink"></i></div>
+      <div class="settings-dialog-title" id="bulkEditSectionTitle">Move to Section</div>
+      <div class="settings-dialog-sub" id="bulkEditSectionSub">Move selected test cases to a section</div>
+      <div class="mb-1">
+        <label class="form-label small fw-semibold text-secondary mb-1">Section</label>
+        <div class="prompt-select-wrap" id="bulkEditSectionPickerWrap">
+          <div class="prompt-select-trigger" id="bulkEditSectionTrigger" tabindex="0">
+            <span class="prompt-select-trigger-text is-placeholder" id="bulkEditSectionTriggerText">Search or create section...</span>
+            <i class="bi bi-chevron-down" style="font-size:0.75rem;flex-shrink:0;"></i>
+          </div>
+          <div class="prompt-select-dropdown" id="bulkEditSectionDropdown">
+            <input type="text" class="prompt-select-search" id="bulkEditSectionSearch" placeholder="Search section or type a new one..." autocomplete="off" />
+            <div class="prompt-select-options" id="bulkEditSectionOptions"></div>
+          </div>
+        </div>
+        <input type="hidden" id="bulkEditSectionValue" />
+      </div>
+      <div class="settings-dialog-actions">
+        <button type="button" class="btn btn-outline-secondary" id="bulkEditSectionCancelBtn">Cancel</button>
+        <button type="button" class="btn btn-primary" id="bulkEditSectionConfirmBtn"><i class="bi bi-folder-symlink me-1"></i>Move</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Bulk Delete Confirm Dialog -->
+  <div id="bulkDeleteOverlay" class="settings-dialog-overlay" role="dialog" aria-modal="true" aria-labelledby="bulkDeleteTitle">
+    <div class="settings-dialog dialog-danger">
+      <div class="settings-dialog-icon icon-delete"><i class="bi bi-trash3"></i></div>
+      <div class="settings-dialog-title" id="bulkDeleteTitle">Delete Test Cases</div>
+      <div class="settings-dialog-sub" id="bulkDeleteSub">This will permanently delete the selected test cases.</div>
+      <div class="settings-dialog-actions">
+        <button type="button" class="btn btn-outline-secondary" id="bulkDeleteCancelBtn">Cancel</button>
+        <button type="button" class="btn btn-danger" id="bulkDeleteConfirmBtn"><i class="bi bi-trash3 me-1"></i>Delete All</button>
+      </div>
+    </div>
+  </div>
+
+    <!-- Bootstrap JS + dependencies (Bundle includes Popper) -->
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 
   <script>
@@ -1775,6 +2524,97 @@
       }
 
       throw new Error(lastError?.message || "Failed to fetch API");
+    }
+
+    // --- GLOBAL BANNER ---
+    const appBanner      = document.getElementById("appBanner");
+    const appBannerMsg   = document.getElementById("appBannerMsg");
+    const appBannerIcon  = document.getElementById("appBannerIcon");
+    const appBannerClose = document.getElementById("appBannerClose");
+    let _bannerTimer = null;
+
+    function showBanner(message, type = "success") {
+      clearTimeout(_bannerTimer);
+      appBanner.classList.remove("banner-show", "banner-success", "banner-danger");
+      appBannerMsg.textContent = String(message || "");
+      appBannerIcon.className = type === "success"
+        ? "bi bi-check-circle-fill"
+        : "bi bi-exclamation-triangle-fill";
+      void appBanner.offsetWidth; // force reflow for transition
+      appBanner.classList.add("banner-show", type === "success" ? "banner-success" : "banner-danger");
+      _bannerTimer = setTimeout(() => appBanner.classList.remove("banner-show"), 4000);
+    }
+
+    appBannerClose.addEventListener("click", () => {
+      clearTimeout(_bannerTimer);
+      appBanner.classList.remove("banner-show");
+    });
+
+    // --- SETTINGS CUSTOM DIALOGS ---
+    const settingEditOverlay     = document.getElementById("settingEditOverlay");
+    const settingEditKeyBadge    = document.getElementById("settingEditKeyBadge");
+    const settingEditInput       = document.getElementById("settingEditInput");
+    const settingEditCancelBtn   = document.getElementById("settingEditCancelBtn");
+    const settingEditConfirmBtn  = document.getElementById("settingEditConfirmBtn");
+
+    const settingDeleteOverlay    = document.getElementById("settingDeleteOverlay");
+    const settingDeleteKeyBadge   = document.getElementById("settingDeleteKeyBadge");
+    const settingDeleteCancelBtn  = document.getElementById("settingDeleteCancelBtn");
+    const settingDeleteConfirmBtn = document.getElementById("settingDeleteConfirmBtn");
+
+    function openSettingEditDialog(key, currentValue) {
+      return new Promise((resolve) => {
+        settingEditKeyBadge.textContent = key;
+        settingEditInput.value = currentValue;
+        settingEditOverlay.classList.add("open");
+        setTimeout(() => settingEditInput.focus(), 50);
+
+        const cleanup = () => {
+          settingEditOverlay.classList.remove("open");
+          settingEditConfirmBtn.removeEventListener("click", onConfirm);
+          settingEditCancelBtn.removeEventListener("click", onCancel);
+          settingEditOverlay.removeEventListener("click", onBackdrop);
+          settingEditInput.removeEventListener("keydown", onKeydown);
+        };
+
+        const onConfirm = () => { cleanup(); resolve(settingEditInput.value); };
+        const onCancel  = () => { cleanup(); resolve(null); };
+        const onBackdrop = (e) => { if (e.target === settingEditOverlay) onCancel(); };
+        const onKeydown  = (e) => {
+          if (e.key === "Enter") onConfirm();
+          if (e.key === "Escape") onCancel();
+        };
+
+        settingEditConfirmBtn.addEventListener("click", onConfirm);
+        settingEditCancelBtn.addEventListener("click", onCancel);
+        settingEditOverlay.addEventListener("click", onBackdrop);
+        settingEditInput.addEventListener("keydown", onKeydown);
+      });
+    }
+
+    function openSettingDeleteDialog(key) {
+      return new Promise((resolve) => {
+        settingDeleteKeyBadge.textContent = key;
+        settingDeleteOverlay.classList.add("open");
+
+        const cleanup = () => {
+          settingDeleteOverlay.classList.remove("open");
+          settingDeleteConfirmBtn.removeEventListener("click", onConfirm);
+          settingDeleteCancelBtn.removeEventListener("click", onCancel);
+          settingDeleteOverlay.removeEventListener("click", onBackdrop);
+          document.removeEventListener("keydown", onKeydown);
+        };
+
+        const onConfirm  = () => { cleanup(); resolve(true); };
+        const onCancel   = () => { cleanup(); resolve(false); };
+        const onBackdrop = (e) => { if (e.target === settingDeleteOverlay) onCancel(); };
+        const onKeydown  = (e) => { if (e.key === "Escape") onCancel(); };
+
+        settingDeleteConfirmBtn.addEventListener("click", onConfirm);
+        settingDeleteCancelBtn.addEventListener("click", onCancel);
+        settingDeleteOverlay.addEventListener("click", onBackdrop);
+        document.addEventListener("keydown", onKeydown);
+      });
     }
 
     const appLayout = document.querySelector(".app-layout");
@@ -1862,11 +2702,13 @@
 
         const generatedPromptId = response?.data?.promptId || "";
 
-        formStatus.textContent = generatedPromptId
+        const bannerMsg = generatedPromptId
           ? `Submitted successfully. Prompt ID: ${generatedPromptId}`
           : "Submitted successfully.";
+        formStatus.textContent = bannerMsg;
         formStatus.classList.remove("text-danger");
         formStatus.classList.add("text-success");
+        showBanner(bannerMsg, "success");
 
         if (generatedPromptId) {
           await loadAllPrompts();
@@ -1876,6 +2718,7 @@
         formStatus.textContent = "Submission failed: " + err.message;
         formStatus.classList.remove("text-success");
         formStatus.classList.add("text-danger");
+        showBanner("Submission failed: " + err.message, "danger");
       } finally {
         submitFormBtn.disabled = false;
         submitFormBtn.textContent = "Submit for Analysis";
@@ -2177,6 +3020,7 @@
     const sectionListEl = document.getElementById("sectionList");
     const testCaseTableBody = document.getElementById("testCaseTableBody");
     const scopeTable = document.querySelector(".scope-table");
+    const tcTableWrap = document.querySelector(".tc-table-wrap");
     const selectedSectionTitle = document.getElementById("selectedSectionTitle");
     const allViewFilters = document.getElementById("allViewFilters");
     const toggleIdColumn = document.getElementById("toggleIdColumn");
@@ -2187,6 +3031,9 @@
     let selectedSection = "all";
     let currentScopePromptId = null;
     let focusSelectedSectionOnly = true;
+    let isSelectMode = false;
+    let selectedTcIds = new Set();
+    let tcSearchQuery = "";
 
     toggleIdColumn.addEventListener("change", () => {
       applyAllViewColumnVisibility();
@@ -2215,8 +3062,9 @@
     }
 
     function getVisibleColumnsCount() {
-      let visibleColumns = 3;
-      if (!toggleIdColumn.checked) visibleColumns -= 1;
+      let visibleColumns = 2; // title + actions
+      if (toggleIdColumn.checked) visibleColumns += 1;
+      if (isSelectMode) visibleColumns += 1; // checkbox col
       return visibleColumns;
     }
 
@@ -2224,12 +3072,14 @@
       allViewFilters.style.display = "flex";
 
       const showId = toggleIdColumn.checked;
-
       document.querySelectorAll('.scope-table th[data-col="id"], .scope-table td[data-col="id"]').forEach(el => {
         el.style.display = showId ? "" : "none";
       });
-
       scopeTable.classList.toggle("id-hidden", !showId);
+
+      document.querySelectorAll(".scope-table .tc-check-col").forEach(el => {
+        el.style.display = isSelectMode ? "" : "none";
+      });
 
       const colSpan = getVisibleColumnsCount();
       document.querySelectorAll("tr.scope-section-row td").forEach(cell => {
@@ -2243,9 +3093,18 @@
       allTestCases = [];
       sections = [];
       selectedSection = "all";
+      isSelectMode = false;
+      selectedTcIds.clear();
+      tcSearchQuery = "";
+      const _si = document.getElementById("tcSearchInput");
+      if (_si) _si.value = "";
+      const _sb = document.getElementById("tcSelectModeBtn");
+      if (_sb) _sb.classList.remove("active");
+      const _bb = document.getElementById("tcBulkBar");
+      if (_bb) _bb.style.display = "none";
       sectionListEl.innerHTML = "";
       testCaseTableBody.innerHTML = `
-        <tr><td colspan="3" class="text-center text-muted small">
+        <tr><td colspan="${getVisibleColumnsCount()}" class="text-center text-muted small">
           Loading...
         </td></tr>`;
 
@@ -2260,7 +3119,7 @@
         const data = await apiRequest(`/testcase/${encodeURIComponent(promptId)}`);
         const rawSections = Array.isArray(data.data.testCases) ? data.data.testCases : [];
         allTestCases = rawSections.flatMap(group =>
-          (group["test cases"] || []).map(tc => ({
+          (group.testCases || []).map(tc => ({
             ...tc,
             section: group.section || "Uncategorized",
             preconditions: Array.isArray(tc.preconditions)
@@ -2275,7 +3134,7 @@
           scopeStatus.textContent = "No test cases found for this Prompt ID.";
           sectionListEl.innerHTML = '<div class="text-muted small">No sections available.</div>';
           testCaseTableBody.innerHTML = `
-            <tr><td colspan="3" class="text-center text-muted small">
+            <tr><td colspan="${getVisibleColumnsCount()}" class="text-center text-muted small">
               No test cases available.
             </td></tr>`;
           selectedSectionTitle.textContent = "All Test Cases";
@@ -2307,7 +3166,7 @@
         scopeStatus.textContent = "Failed to load test scope: " + err.message;
         sectionListEl.innerHTML = '<div class="text-danger small">Error loading sections.</div>';
         testCaseTableBody.innerHTML = `
-          <tr><td colspan="3" class="text-center text-danger small">
+          <tr><td colspan="${getVisibleColumnsCount()}" class="text-center text-danger small">
             Error loading test cases.
           </td></tr>`;
       }
@@ -2376,12 +3235,34 @@
       return tdActions;
     }
 
+    function scrollRowBelowStickyHeader(row, behavior = "smooth") {
+      if (!row) return;
+
+      const container = tcTableWrap || row.closest(".tc-table-wrap");
+      if (!container) {
+        row.scrollIntoView({ behavior, block: "start" });
+        return;
+      }
+
+      const stickyHeader = scopeTable?.querySelector("thead");
+      const stickyOffset = stickyHeader ? stickyHeader.getBoundingClientRect().height : 0;
+
+      const containerRect = container.getBoundingClientRect();
+      const rowRect = row.getBoundingClientRect();
+      const targetTop = container.scrollTop + (rowRect.top - containerRect.top) - stickyOffset - 2;
+
+      container.scrollTo({
+        top: Math.max(0, targetTop),
+        behavior,
+      });
+    }
+
     function renderAllTestCases() {
+      const emptySpan = getVisibleColumnsCount();
+
       if (!allTestCases.length) {
-        testCaseTableBody.innerHTML = `
-          <tr><td colspan="3" class="text-center text-muted small">
-            No test cases available.
-          </td></tr>`;
+        testCaseTableBody.innerHTML = `<tr><td colspan="${emptySpan}" class="text-center text-muted small py-3">No test cases available.</td></tr>`;
+        updateSelectAllState();
         return;
       }
 
@@ -2389,20 +3270,31 @@
         ? sections.filter(section => section.name === selectedSection)
         : sections;
 
-      if (!sectionsToRender.length) {
-        testCaseTableBody.innerHTML = `
-          <tr><td colspan="3" class="text-center text-muted small">
-            No test cases available.
-          </td></tr>`;
+      const query = tcSearchQuery.toLowerCase().trim();
+      const filteredSections = sectionsToRender.map(section => ({
+        ...section,
+        testcases: query
+          ? section.testcases.filter(tc =>
+              (tc.id || "").toLowerCase().includes(query) ||
+              (tc.title || "").toLowerCase().includes(query)
+            )
+          : section.testcases,
+      })).filter(s => s.testcases.length > 0);
+
+      if (!filteredSections.length) {
+        const msg = query
+          ? `No results for "<strong>${escapeHtml(query)}</strong>"`
+          : "No test cases available.";
+        testCaseTableBody.innerHTML = `<tr><td colspan="${emptySpan}" class="text-center text-muted small py-3">${msg}</td></tr>`;
+        updateSelectAllState();
         return;
       }
 
       testCaseTableBody.innerHTML = "";
-      sectionsToRender.forEach(section => {
+      filteredSections.forEach(section => {
         const sectionRow = document.createElement("tr");
         sectionRow.className = "scope-section-row";
         sectionRow.dataset.sectionHeader = section.name;
-
         const sectionCell = document.createElement("td");
         sectionCell.colSpan = getVisibleColumnsCount();
         sectionCell.textContent = `${section.name} (${section.testcases.length})`;
@@ -2412,7 +3304,27 @@
         section.testcases.forEach(tc => {
           const tr = document.createElement("tr");
           tr.className = "testcase-row";
+          if (selectedTcIds.has(tc.id)) tr.classList.add("tc-selected");
           tr.dataset.section = section.name;
+          tr.dataset.tcId = tc.id || "";
+
+          // Checkbox cell
+          const tdCheck = document.createElement("td");
+          tdCheck.className = "tc-check-col";
+          tdCheck.style.display = isSelectMode ? "" : "none";
+          const cb = document.createElement("input");
+          cb.type = "checkbox";
+          cb.className = "form-check-input tc-row-check";
+          cb.checked = selectedTcIds.has(tc.id);
+          cb.addEventListener("change", () => {
+            if (cb.checked) selectedTcIds.add(tc.id);
+            else selectedTcIds.delete(tc.id);
+            tr.classList.toggle("tc-selected", cb.checked);
+            updateBulkBar();
+            updateSelectAllState();
+          });
+          tdCheck.appendChild(cb);
+          tr.appendChild(tdCheck);
 
           const tdId = document.createElement("td");
           tdId.dataset.col = "id";
@@ -2430,6 +3342,7 @@
       });
 
       applyAllViewColumnVisibility();
+      updateSelectAllState();
     }
 
     function selectSection(sectionName) {
@@ -2451,7 +3364,7 @@
         applyAllViewColumnVisibility();
         const firstHeader = testCaseTableBody.querySelector("tr.scope-section-row");
         if (firstHeader) {
-          firstHeader.scrollIntoView({ behavior: "smooth", block: "start" });
+          scrollRowBelowStickyHeader(firstHeader);
         }
         return;
       }
@@ -2462,7 +3375,7 @@
         || testCaseTableBody.querySelector(`tr[data-section="${CSS.escape(sectionName)}"]`);
 
       if (target) {
-        target.scrollIntoView({ behavior: "smooth", block: "start" });
+        scrollRowBelowStickyHeader(target);
         target.classList.add("row-focus");
         setTimeout(() => target.classList.remove("row-focus"), 1300);
       }
@@ -2470,16 +3383,65 @@
 
     setFocusSelectedSectionOnly(localStorage.getItem("qa_focus_selected_section_only") !== "0");
 
+    // --- Test case search filter ---
+    document.getElementById("tcSearchInput").addEventListener("input", (e) => {
+      tcSearchQuery = e.target.value;
+      renderAllTestCases();
+    });
+
+    // --- Select mode toggle ---
+    document.getElementById("tcSelectModeBtn").addEventListener("click", () => {
+      isSelectMode = !isSelectMode;
+      if (!isSelectMode) selectedTcIds.clear();
+      document.getElementById("tcSelectModeBtn").classList.toggle("active", isSelectMode);
+      updateBulkBar();
+      renderAllTestCases();
+    });
+
+    // --- Select all checkbox ---
+    document.getElementById("tcSelectAll").addEventListener("change", (e) => {
+      const rows = Array.from(testCaseTableBody.querySelectorAll(".testcase-row"));
+      rows.forEach(row => {
+        const id = row.dataset.tcId;
+        if (!id) return;
+        if (e.target.checked) selectedTcIds.add(id);
+        else selectedTcIds.delete(id);
+        row.classList.toggle("tc-selected", e.target.checked);
+        const cb = row.querySelector(".tc-row-check");
+        if (cb) cb.checked = e.target.checked;
+      });
+      updateBulkBar();
+    });
+
+    document.getElementById("tcBulkEditSectionBtn").addEventListener("click", handleBulkEditSection);
+    document.getElementById("tcBulkDeleteBtn").addEventListener("click", handleBulkDelete);
+    document.getElementById("tcClearSelectionBtn").addEventListener("click", () => {
+      selectedTcIds.clear();
+      isSelectMode = false;
+      document.getElementById("tcSelectModeBtn").classList.remove("active");
+      updateBulkBar();
+      renderAllTestCases();
+    });
+
     // --- Modals logic ---
 
     // View
     const viewTestCaseModal = new bootstrap.Modal(document.getElementById("viewTestCaseModal"));
+    function renderListItems(raw, ordered = false) {
+      const lines = String(raw || "").split("\n").map(l => l.replace(/^\d+[\.\)]\s*/, "").trim()).filter(Boolean);
+      if (!lines.length) return `<span class="tc-view-empty">—</span>`;
+      const tag = ordered ? "ol" : "ul";
+      const cls = ordered ? "tc-view-steps-list" : "tc-view-bullets-list";
+      const items = lines.map(l => `<li>${escapeHtml(l)}</li>`).join("");
+      return `<${tag} class="${cls}">${items}</${tag}>`;
+    }
+
     function openViewModal(tc) {
       document.getElementById("viewTcId").textContent = tc.id || "";
       document.getElementById("viewTcTitle").textContent = tc.title || "";
       document.getElementById("viewTcSection").textContent = tc.section || "";
-      document.getElementById("viewTcPreconditions").textContent = tc.preconditions || "";
-      document.getElementById("viewTcSteps").textContent = tc.steps || "";
+      document.getElementById("viewTcPreconditions").innerHTML = renderListItems(tc.preconditions, false);
+      document.getElementById("viewTcSteps").innerHTML = renderListItems(tc.steps, true);
       document.getElementById("viewTcExpected").textContent = tc.expected || "";
       viewTestCaseModal.show();
     }
@@ -2488,11 +3450,185 @@
     const editTestCaseModal = new bootstrap.Modal(document.getElementById("editTestCaseModal"));
     const editTestCaseForm = document.getElementById("editTestCaseForm");
 
+    function formatSectionTriggerText(value = "", isNew = false) {
+      const text = String(value || "").trim();
+      if (!text) {
+        return '<span class="prompt-select-trigger-text is-placeholder">Search or create section...</span>';
+      }
+
+      if (isNew) {
+        return `<span class="section-selected-badge"><i class="bi bi-plus-lg"></i>New</span><span class="prompt-select-trigger-text">${escapeHtml(text)}</span>`;
+      }
+
+      return `<span class="prompt-select-trigger-text">${escapeHtml(text)}</span>`;
+    }
+
+    function createSectionPicker({ wrapId, triggerId, triggerTextId, dropdownId, searchId, optionsId, valueId }) {
+      const wrapEl = document.getElementById(wrapId);
+      const triggerEl = document.getElementById(triggerId);
+      const dropdownEl = document.getElementById(dropdownId);
+      const searchEl = document.getElementById(searchId);
+      const optionsEl = document.getElementById(optionsId);
+      const valueEl = document.getElementById(valueId);
+
+      let allOptions = [];
+      let selectedValue = "";
+      let selectedIsNew = false;
+
+      function renderTrigger() {
+        triggerEl.innerHTML = `${formatSectionTriggerText(selectedValue, selectedIsNew)}<i class="bi bi-chevron-down" style="font-size:0.75rem;flex-shrink:0;"></i>`;
+      }
+
+      function renderOptions(filter = "") {
+        const query = String(filter || "").trim().toLowerCase();
+        const filtered = allOptions.filter((option) => option.toLowerCase().includes(query));
+        const exactMatch = allOptions.some((option) => option.toLowerCase() === query);
+
+        optionsEl.innerHTML = "";
+
+        filtered.forEach((option) => {
+          const optionEl = document.createElement("div");
+          optionEl.className = `prompt-select-option${selectedValue === option && !selectedIsNew ? " selected" : ""}`;
+          optionEl.innerHTML = `
+            <span class="prompt-select-option-id">${escapeHtml(option)}</span>
+            <span class="prompt-select-option-name">Existing section</span>
+          `;
+          optionEl.addEventListener("mousedown", (event) => {
+            event.preventDefault();
+            selectValue(option, false);
+          });
+          optionsEl.appendChild(optionEl);
+        });
+
+        if (query && !exactMatch) {
+          const createOptionEl = document.createElement("div");
+          createOptionEl.className = `prompt-select-option section-create-option${selectedValue === searchEl.value.trim() && selectedIsNew ? " selected" : ""}`;
+          createOptionEl.innerHTML = `
+            <span class="prompt-select-option-id"><i class="bi bi-plus-circle me-1"></i>Create "${escapeHtml(searchEl.value.trim())}"</span>
+            <span class="prompt-select-option-name">Use this as a new section</span>
+          `;
+          createOptionEl.addEventListener("mousedown", (event) => {
+            event.preventDefault();
+            selectValue(searchEl.value.trim(), true);
+          });
+          optionsEl.appendChild(createOptionEl);
+        }
+
+        if (!filtered.length && (!query || exactMatch)) {
+          optionsEl.innerHTML = '<div class="prompt-select-no-results">No matching sections.</div>';
+        }
+      }
+
+      function openDropdown() {
+        dropdownEl.classList.add("open");
+        triggerEl.classList.add("open");
+        searchEl.value = "";
+        searchEl.focus();
+        renderOptions("");
+      }
+
+      function closeDropdown() {
+        dropdownEl.classList.remove("open");
+        triggerEl.classList.remove("open");
+      }
+
+      function selectValue(value, isNew) {
+        selectedValue = String(value || "").trim();
+        selectedIsNew = Boolean(isNew);
+        valueEl.value = selectedValue;
+        renderTrigger();
+        closeDropdown();
+      }
+
+      triggerEl.addEventListener("click", () => {
+        if (dropdownEl.classList.contains("open")) {
+          closeDropdown();
+          return;
+        }
+        openDropdown();
+      });
+
+      triggerEl.addEventListener("keydown", (event) => {
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          openDropdown();
+        }
+      });
+
+      searchEl.addEventListener("input", () => renderOptions(searchEl.value));
+      searchEl.addEventListener("keydown", (event) => {
+        if (event.key === "Escape") {
+          closeDropdown();
+        }
+        if (event.key === "Enter") {
+          event.preventDefault();
+          const typedValue = String(searchEl.value || "").trim();
+          if (!typedValue) return;
+          const exactExisting = allOptions.find((option) => option.toLowerCase() === typedValue.toLowerCase());
+          selectValue(exactExisting || typedValue, !exactExisting);
+        }
+      });
+
+      document.addEventListener("click", (event) => {
+        if (!wrapEl.contains(event.target)) {
+          closeDropdown();
+        }
+      });
+
+      return {
+        setOptions(nextOptions = []) {
+          allOptions = Array.from(new Set(nextOptions.map((option) => String(option || "").trim()).filter(Boolean))).sort((a, b) => a.localeCompare(b));
+          renderOptions(searchEl.value);
+        },
+        setValue(nextValue = "") {
+          const normalizedValue = String(nextValue || "").trim();
+          const existing = allOptions.find((option) => option.toLowerCase() === normalizedValue.toLowerCase());
+          selectedValue = existing || normalizedValue;
+          selectedIsNew = Boolean(normalizedValue) && !existing;
+          valueEl.value = selectedValue;
+          searchEl.value = "";
+          renderTrigger();
+          renderOptions("");
+        },
+        getValue() {
+          return String(valueEl.value || "").trim();
+        },
+        focusSearch() {
+          openDropdown();
+        },
+      };
+    }
+
+    const editSectionPicker = createSectionPicker({
+      wrapId: "editTcSectionPickerWrap",
+      triggerId: "editTcSectionTrigger",
+      triggerTextId: "editTcSectionTriggerText",
+      dropdownId: "editTcSectionDropdown",
+      searchId: "editTcSectionSearch",
+      optionsId: "editTcSectionOptions",
+      valueId: "editTcSectionValue",
+    });
+
+    const bulkSectionPicker = createSectionPicker({
+      wrapId: "bulkEditSectionPickerWrap",
+      triggerId: "bulkEditSectionTrigger",
+      triggerTextId: "bulkEditSectionTriggerText",
+      dropdownId: "bulkEditSectionDropdown",
+      searchId: "bulkEditSectionSearch",
+      optionsId: "bulkEditSectionOptions",
+      valueId: "bulkEditSectionValue",
+    });
+
     function openEditModal(tc) {
+      const sectionOptions = getSectionOptions();
+      const currentSection = String(tc.section || "").trim();
+
+      editSectionPicker.setOptions(sectionOptions);
+      editSectionPicker.setValue(currentSection);
+
       document.getElementById("editTcId").value = tc.id || "";
       document.getElementById("editTcPromptId").value = currentScopePromptId || "";
       document.getElementById("editTcTitle").value = tc.title || "";
-      document.getElementById("editTcSection").value = tc.section || "";
       document.getElementById("editTcPreconditions").value = tc.preconditions || "";
       document.getElementById("editTcSteps").value = tc.steps || "";
       document.getElementById("editTcExpected").value = tc.expected || "";
@@ -2504,11 +3640,18 @@
 
       const tcId = document.getElementById("editTcId").value;
       const promptId = document.getElementById("editTcPromptId").value;
+      const resolvedSection = editSectionPicker.getValue();
+
+      if (!resolvedSection) {
+        showBanner("Section is required.", "danger");
+        return;
+      }
+
       const updated = {
         id: tcId,
         promptId: promptId,
         title: document.getElementById("editTcTitle").value.trim(),
-        section: document.getElementById("editTcSection").value.trim(),
+        section: resolvedSection,
         preconditions: document.getElementById("editTcPreconditions").value.trim(),
         steps: document.getElementById("editTcSteps").value.trim(),
         expected: document.getElementById("editTcExpected").value.trim(),
@@ -2537,21 +3680,25 @@
         }
 
         editTestCaseModal.hide();
+        showBanner("Test case updated successfully.", "success");
       } catch (err) {
-        alert("Failed to update test case: " + err.message);
+        showBanner("Failed to update test case: " + err.message, "danger");
       }
     });
 
     // Delete
-    const deleteTestCaseModal = new bootstrap.Modal(document.getElementById("deleteTestCaseModal"));
-    const confirmDeleteBtn = document.getElementById("confirmDeleteBtn");
+    const deleteTcOverlay   = document.getElementById("deleteTcOverlay");
+    const deleteTcCancelBtn  = document.getElementById("deleteTcCancelBtn");
+    const confirmDeleteBtn   = document.getElementById("confirmDeleteBtn");
+
+    deleteTcCancelBtn.addEventListener("click", () => { deleteTcOverlay.classList.remove("open"); });
+    deleteTcOverlay.addEventListener("click", (e) => { if (e.target === deleteTcOverlay) deleteTcOverlay.classList.remove("open"); });
 
     function openDeleteModal(tc) {
       document.getElementById("deleteTcId").value = tc.id || "";
       document.getElementById("deleteTcPromptId").value = currentScopePromptId || "";
-      document.getElementById("deleteMessage").textContent =
-        `Are you sure you want to delete test case "${tc.title || tc.id}"?`;
-      deleteTestCaseModal.show();
+      document.getElementById("deleteTcOverlayBadge").textContent = tc.id ? `${tc.id} — ${tc.title || ""}` : (tc.title || "");
+      deleteTcOverlay.classList.add("open");
     }
 
     confirmDeleteBtn.addEventListener("click", async () => {
@@ -2562,7 +3709,7 @@
       confirmDeleteBtn.textContent = "Deleting...";
 
       try {
-        await apiRequest(`/deleteTestCase/${encodeURIComponent(promptId)}/${encodeURIComponent(tcId)}`, {
+        await apiRequest(`/testcase/deleteTestCase/${encodeURIComponent(promptId)}/${encodeURIComponent(tcId)}`, {
           method: "DELETE",
         });
 
@@ -2592,14 +3739,499 @@
           selectedSectionTitle.textContent = "All Test Cases";
         }
 
-        deleteTestCaseModal.hide();
+        deleteTcOverlay.classList.remove("open");
+        showBanner("Test case deleted successfully.", "success");
       } catch (err) {
-        alert("Failed to delete test case: " + err.message);
+        showBanner("Failed to delete test case: " + err.message, "danger");
       } finally {
         confirmDeleteBtn.disabled = false;
         confirmDeleteBtn.textContent = "Delete";
       }
     });
+
+    // --- TEST CASE SELECTION HELPERS ---
+    function updateBulkBar() {
+      const count = selectedTcIds.size;
+      const bulkBar = document.getElementById("tcBulkBar");
+      const bulkCount = document.getElementById("tcBulkCount");
+      if (bulkCount) bulkCount.textContent = count + " selected";
+      if (bulkBar) bulkBar.style.display = (isSelectMode && count > 0) ? "flex" : "none";
+    }
+
+    function updateSelectAllState() {
+      const selectAll = document.getElementById("tcSelectAll");
+      if (!selectAll) return;
+      const rows = Array.from(testCaseTableBody.querySelectorAll(".testcase-row"));
+      const ids = rows.map(r => r.dataset.tcId).filter(Boolean);
+      if (!ids.length) { selectAll.checked = false; selectAll.indeterminate = false; return; }
+      const checked = ids.filter(id => selectedTcIds.has(id)).length;
+      selectAll.checked = checked === ids.length;
+      selectAll.indeterminate = checked > 0 && checked < ids.length;
+    }
+
+    function getSectionOptions() {
+      const fromSections = sections.map(s => String(s?.name || "").trim()).filter(Boolean);
+      const fromCases = allTestCases.map(tc => String(tc?.section || "").trim()).filter(Boolean);
+      return Array.from(new Set([...fromSections, ...fromCases])).sort((a, b) => a.localeCompare(b));
+    }
+
+    function openBulkEditSectionDialog(sectionNames) {
+      return new Promise(function(resolve) {
+        const overlay    = document.getElementById("bulkEditSectionOverlay");
+        const sub        = document.getElementById("bulkEditSectionSub");
+        const confirmBtn = document.getElementById("bulkEditSectionConfirmBtn");
+        const cancelBtn  = document.getElementById("bulkEditSectionCancelBtn");
+
+        sub.textContent = "Move " + selectedTcIds.size + " test case(s) to a section";
+        bulkSectionPicker.setOptions(sectionNames || []);
+        bulkSectionPicker.setValue("");
+        overlay.classList.add("open");
+        setTimeout(function(){ bulkSectionPicker.focusSearch(); }, 50);
+
+        function cleanup() {
+          overlay.classList.remove("open");
+          confirmBtn.removeEventListener("click", onConfirm);
+          cancelBtn.removeEventListener("click", onCancel);
+          overlay.removeEventListener("click", onBackdrop);
+          document.removeEventListener("keydown", onKeydown);
+        }
+        function onConfirm()  {
+          const resolved = bulkSectionPicker.getValue();
+          cleanup();
+          resolve(resolved || null);
+        }
+        function onCancel()   { cleanup(); resolve(null); }
+        function onBackdrop(e){ if (e.target === overlay) onCancel(); }
+        function onKeydown(e) { if (e.key === "Enter") onConfirm(); if (e.key === "Escape") onCancel(); }
+        confirmBtn.addEventListener("click", onConfirm);
+        cancelBtn.addEventListener("click", onCancel);
+        overlay.addEventListener("click", onBackdrop);
+        document.addEventListener("keydown", onKeydown);
+      });
+    }
+
+    function openBulkDeleteConfirmDialog(count) {
+      return new Promise(function(resolve) {
+        const overlay    = document.getElementById("bulkDeleteOverlay");
+        const sub        = document.getElementById("bulkDeleteSub");
+        const confirmBtn = document.getElementById("bulkDeleteConfirmBtn");
+        const cancelBtn  = document.getElementById("bulkDeleteCancelBtn");
+        sub.textContent = "This will permanently delete " + count + " test case(s). This cannot be undone.";
+        overlay.classList.add("open");
+        function cleanup() {
+          overlay.classList.remove("open");
+          confirmBtn.removeEventListener("click", onConfirm);
+          cancelBtn.removeEventListener("click", onCancel);
+          overlay.removeEventListener("click", onBackdrop);
+          document.removeEventListener("keydown", onKeydown);
+        }
+        function onConfirm()  { cleanup(); resolve(true); }
+        function onCancel()   { cleanup(); resolve(false); }
+        function onBackdrop(e){ if (e.target === overlay) onCancel(); }
+        function onKeydown(e) { if (e.key === "Escape") onCancel(); }
+        confirmBtn.addEventListener("click", onConfirm);
+        cancelBtn.addEventListener("click", onCancel);
+        overlay.addEventListener("click", onBackdrop);
+        document.addEventListener("keydown", onKeydown);
+      });
+    }
+
+    async function handleBulkEditSection() {
+      if (!selectedTcIds.size) return;
+      const newSection = await openBulkEditSectionDialog(getSectionOptions());
+      if (!newSection) return;
+      const ids = Array.from(selectedTcIds);
+      let ok = 0, fail = 0;
+      for (const tcId of ids) {
+        const tc = allTestCases.find(t => t.id === tcId);
+        if (!tc) continue;
+        try {
+          await apiRequest("/testcase/edit?testcaseId=" + encodeURIComponent(tcId) + "&promptID=" + encodeURIComponent(currentScopePromptId), {
+            method: "POST",
+            body: JSON.stringify(Object.assign({}, tc, { section: newSection })),
+          });
+          const idx = allTestCases.findIndex(t => t.id === tcId);
+          if (idx !== -1) allTestCases[idx] = Object.assign({}, allTestCases[idx], { section: newSection });
+          ok++;
+        } catch(e) { fail++; }
+      }
+      selectedTcIds.clear();
+      buildSectionsFromCases();
+      renderSections();
+      renderAllTestCases();
+      updateBulkBar();
+      if (ok)   showBanner(ok + ' test case(s) moved to "' + escapeHtml(newSection) + '".', "success");
+      if (fail) showBanner(fail + " test case(s) failed to move.", "danger");
+    }
+
+    async function handleBulkDelete() {
+      if (!selectedTcIds.size) return;
+      const confirmed = await openBulkDeleteConfirmDialog(selectedTcIds.size);
+      if (!confirmed) return;
+      const ids = Array.from(selectedTcIds);
+      let ok = 0, fail = 0;
+      for (const tcId of ids) {
+        try {
+          await apiRequest("/testcase/deleteTestCase/" + encodeURIComponent(currentScopePromptId) + "/" + encodeURIComponent(tcId), { method: "DELETE" });
+          allTestCases = allTestCases.filter(t => t.id !== tcId);
+          ok++;
+        } catch(e) { fail++; }
+      }
+      selectedTcIds.clear();
+      buildSectionsFromCases();
+      renderSections();
+      renderAllTestCases();
+      updateBulkBar();
+      if (ok)   showBanner(ok + " test case(s) deleted.", "success");
+      if (fail) showBanner(fail + " test case(s) failed to delete.", "danger");
+    }
+
+    // --- SETTINGS CRUD: /settings ---
+    const settingsStatus = document.getElementById("settingsStatus");
+    const refreshSettingsBtn = document.getElementById("refreshSettingsBtn");
+    const settingsRows = document.getElementById("settingsRows");
+    const addSettingRowBtn = document.getElementById("addSettingRowBtn");
+    const saveSettingsBtn = document.getElementById("saveSettingsBtn");
+    const settingsTableBody = document.getElementById("settingsTableBody");
+
+    let availableSettingKeys = [];
+
+    function setSettingsStatus(message, variant = "muted") {
+      settingsStatus.textContent = message || "";
+      settingsStatus.classList.remove("text-muted", "text-danger", "text-success");
+      settingsStatus.classList.add(
+        variant === "danger" ? "text-danger" : variant === "success" ? "text-success" : "text-muted"
+      );
+    }
+
+    function setSettingRowKey(row, key = "") {
+      const hiddenInput = row.querySelector(".setting-key-value");
+      const triggerText = row.querySelector(".setting-key-trigger .prompt-select-trigger-text");
+      const normalizedKey = String(key || "").trim();
+
+      hiddenInput.value = normalizedKey;
+      triggerText.textContent = normalizedKey || "Select key...";
+      triggerText.classList.toggle("is-placeholder", !normalizedKey);
+    }
+
+    function renderSettingRowKeyOptions(row, filter = "") {
+      const optionsEl = row.querySelector(".setting-key-options");
+      const searchEl = row.querySelector(".setting-key-search");
+      const currentValue = String(row.querySelector(".setting-key-value")?.value || "").trim();
+      const query = String(filter || "").trim().toLowerCase();
+      const mergedKeys = currentValue && !availableSettingKeys.includes(currentValue)
+        ? [currentValue, ...availableSettingKeys]
+        : [...availableSettingKeys];
+      const filteredKeys = mergedKeys.filter((key) => String(key || "").toLowerCase().includes(query));
+
+      optionsEl.innerHTML = "";
+
+      if (!filteredKeys.length) {
+        optionsEl.innerHTML = '<div class="prompt-select-no-results">No keys found.</div>';
+        return;
+      }
+
+      filteredKeys.forEach((key) => {
+        const optionEl = document.createElement("div");
+        optionEl.className = `prompt-select-option${currentValue === key ? " selected" : ""}`;
+        optionEl.innerHTML = `
+          <span class="prompt-select-option-id">${escapeHtml(key)}</span>
+          <span class="prompt-select-option-name">Available setting key</span>
+        `;
+        optionEl.addEventListener("mousedown", (event) => {
+          event.preventDefault();
+          setSettingRowKey(row, key);
+          searchEl.value = "";
+          row.querySelector(".setting-key-dropdown")?.classList.remove("open");
+          row.querySelector(".setting-key-trigger")?.classList.remove("open");
+          renderSettingRowKeyOptions(row, "");
+        });
+        optionsEl.appendChild(optionEl);
+      });
+    }
+
+    function appendSettingRow(key = "", value = "") {
+      const row = document.createElement("div");
+      row.className = "row g-2 align-items-center setting-row";
+      row.innerHTML = `
+        <div class="col-md-5 setting-key-picker">
+          <div class="prompt-select-wrap">
+            <div class="prompt-select-trigger setting-key-trigger" tabindex="0">
+              <span class="prompt-select-trigger-text is-placeholder">Select key...</span>
+              <i class="bi bi-chevron-down" style="font-size:0.75rem;flex-shrink:0;"></i>
+            </div>
+            <div class="prompt-select-dropdown setting-key-dropdown">
+              <input type="text" class="prompt-select-search setting-key-search" placeholder="Search key..." autocomplete="off" />
+              <div class="prompt-select-options setting-key-options"></div>
+            </div>
+          </div>
+          <input type="hidden" class="setting-key-value" />
+        </div>
+        <div class="col-md-6">
+          <input type="text" class="form-control form-control-sm setting-value-input" placeholder="Enter value" value="${escapeHtml(String(value || ""))}" />
+        </div>
+        <div class="col-md-1 text-end">
+          <button type="button" class="btn btn-sm btn-outline-danger remove-setting-row" title="Remove row">
+            <i class="bi bi-x-lg"></i>
+          </button>
+        </div>
+      `;
+
+      const triggerEl = row.querySelector(".setting-key-trigger");
+      const dropdownEl = row.querySelector(".setting-key-dropdown");
+      const searchEl = row.querySelector(".setting-key-search");
+
+      setSettingRowKey(row, key);
+      renderSettingRowKeyOptions(row);
+
+      triggerEl.addEventListener("click", () => {
+        const isOpen = dropdownEl.classList.contains("open");
+        settingsRows.querySelectorAll(".setting-key-dropdown.open").forEach((el) => el.classList.remove("open"));
+        settingsRows.querySelectorAll(".setting-key-trigger.open").forEach((el) => el.classList.remove("open"));
+
+        if (isOpen) {
+          dropdownEl.classList.remove("open");
+          triggerEl.classList.remove("open");
+          return;
+        }
+
+        dropdownEl.classList.add("open");
+        triggerEl.classList.add("open");
+        searchEl.focus();
+        searchEl.select();
+        renderSettingRowKeyOptions(row, searchEl.value);
+      });
+
+      triggerEl.addEventListener("keydown", (event) => {
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          triggerEl.click();
+        }
+      });
+
+      searchEl.addEventListener("input", () => {
+        renderSettingRowKeyOptions(row, searchEl.value);
+      });
+
+      searchEl.addEventListener("keydown", (event) => {
+        if (event.key === "Escape") {
+          dropdownEl.classList.remove("open");
+          triggerEl.classList.remove("open");
+        }
+      });
+
+      row.querySelector(".remove-setting-row").addEventListener("click", () => {
+        row.remove();
+        if (!settingsRows.querySelector(".setting-row")) {
+          appendSettingRow();
+        }
+      });
+
+      settingsRows.appendChild(row);
+    }
+
+    function refreshSettingRowSelectOptions() {
+      settingsRows.querySelectorAll(".setting-row").forEach((row) => {
+        renderSettingRowKeyOptions(row, row.querySelector(".setting-key-search")?.value || "");
+      });
+    }
+
+    document.addEventListener("click", (event) => {
+      if (event.target.closest(".setting-key-picker .prompt-select-wrap")) {
+        return;
+      }
+
+      settingsRows.querySelectorAll(".setting-key-dropdown.open").forEach((el) => el.classList.remove("open"));
+      settingsRows.querySelectorAll(".setting-key-trigger.open").forEach((el) => el.classList.remove("open"));
+    });
+
+    async function loadAvailableSettingKeys() {
+      const resp = await apiRequest("/settings/key");
+      const keys = resp?.data ?? resp;
+      availableSettingKeys = Array.isArray(keys)
+        ? keys.map((value) => String(value || "").trim()).filter(Boolean)
+        : [];
+
+      refreshSettingRowSelectOptions();
+    }
+
+    function renderSettingsTable(items = []) {
+      const settings = Array.isArray(items) ? items : [];
+
+      if (!settings.length) {
+        settingsTableBody.innerHTML = `
+          <tr>
+            <td colspan="3" class="text-center text-muted small">No settings found in .env.</td>
+          </tr>`;
+        return;
+      }
+
+      settingsTableBody.innerHTML = "";
+      settings.forEach((item) => {
+        const row = document.createElement("tr");
+        row.innerHTML = `
+          <td><span class="badge bg-light text-dark border">${escapeHtml(item.key || "")}</span></td>
+          <td><code>${escapeHtml(item.value || "")}</code></td>
+          <td class="text-end">
+            <button class="btn btn-sm btn-outline-primary me-1 setting-edit-btn" data-key="${escapeHtml(item.key || "")}" data-value="${escapeHtml(item.value || "")}">
+              <i class="bi bi-pencil-square"></i>
+            </button>
+            <button class="btn btn-sm btn-outline-danger setting-delete-btn" data-key="${escapeHtml(item.key || "")}">
+              <i class="bi bi-trash"></i>
+            </button>
+          </td>
+        `;
+        settingsTableBody.appendChild(row);
+      });
+
+      settingsTableBody.querySelectorAll(".setting-edit-btn").forEach((btn) => {
+        btn.addEventListener("click", async () => {
+          const key = btn.dataset.key || "";
+          const currentValue = btn.dataset.value || "";
+          const nextValue = await openSettingEditDialog(key, currentValue);
+
+          if (nextValue == null) return;
+
+          try {
+            await apiRequest(`/settings/${encodeURIComponent(key)}`, {
+              method: "PUT",
+              body: JSON.stringify({ value: nextValue }),
+            });
+            setSettingsStatus(`Setting ${key} updated.`, "success");
+            showBanner(`Setting ${key} updated successfully.`, "success");
+            await loadSettingsPageData();
+          } catch (error) {
+            setSettingsStatus(`Update failed: ${error.message}`, "danger");
+            showBanner(`Update failed: ${error.message}`, "danger");
+          }
+        });
+      });
+
+      settingsTableBody.querySelectorAll(".setting-delete-btn").forEach((btn) => {
+        btn.addEventListener("click", async () => {
+          const key = btn.dataset.key || "";
+          const shouldDelete = await openSettingDeleteDialog(key);
+          if (!shouldDelete) return;
+
+          try {
+            await apiRequest(`/settings/${encodeURIComponent(key)}`, {
+              method: "DELETE",
+            });
+            setSettingsStatus(`Setting ${key} deleted.`, "success");
+            showBanner(`Setting ${key} deleted successfully.`, "success");
+            await loadSettingsPageData();
+          } catch (error) {
+            setSettingsStatus(`Delete failed: ${error.message}`, "danger");
+            showBanner(`Delete failed: ${error.message}`, "danger");
+          }
+        });
+      });
+    }
+
+    async function loadCurrentSettings() {
+      const resp = await apiRequest("/settings");
+      const list = resp?.data ?? resp;
+      renderSettingsTable(Array.isArray(list) ? list : []);
+    }
+
+    function collectSettingRowsPayload() {
+      const rows = Array.from(settingsRows.querySelectorAll(".setting-row"));
+      const payload = [];
+
+      rows.forEach((row) => {
+        const key = String(row.querySelector(".setting-key-value")?.value || "").trim();
+        const value = String(row.querySelector(".setting-value-input")?.value ?? "");
+        if (!key) return;
+        payload.push({ key, value });
+      });
+
+      return payload;
+    }
+
+    function findDuplicateSettingKeys(entries = []) {
+      const seen = new Set();
+      const duplicates = new Set();
+
+      entries.forEach((entry) => {
+        const key = String(entry?.key || "").trim();
+        if (!key) return;
+
+        if (seen.has(key)) {
+          duplicates.add(key);
+          return;
+        }
+
+        seen.add(key);
+      });
+
+      return Array.from(duplicates);
+    }
+
+    async function loadSettingsPageData() {
+      setSettingsStatus("Loading settings...");
+      await loadAvailableSettingKeys();
+      await loadCurrentSettings();
+
+      if (!settingsRows.querySelector(".setting-row")) {
+        appendSettingRow();
+      }
+
+      setSettingsStatus("Settings loaded.");
+    }
+
+    addSettingRowBtn.addEventListener("click", () => appendSettingRow());
+
+    saveSettingsBtn.addEventListener("click", async () => {
+      const settingsPayload = collectSettingRowsPayload();
+
+      if (!settingsPayload.length) {
+        setSettingsStatus("Please select at least one setting key to save.", "danger");
+        return;
+      }
+
+      const duplicateKeys = findDuplicateSettingKeys(settingsPayload);
+      if (duplicateKeys.length) {
+        const duplicateMessage = `Duplicate key selected: ${duplicateKeys.join(", ")}`;
+        setSettingsStatus(duplicateMessage, "danger");
+        showBanner(duplicateMessage, "danger");
+        return;
+      }
+
+      saveSettingsBtn.disabled = true;
+      saveSettingsBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1" role="status"></span>Saving...';
+
+      try {
+        await apiRequest("/settings", {
+          method: "POST",
+          body: JSON.stringify({ settings: settingsPayload }),
+        });
+
+        settingsRows.innerHTML = "";
+        appendSettingRow();
+
+        await loadSettingsPageData();
+        setSettingsStatus("Settings saved successfully.", "success");
+        showBanner("Settings saved successfully.", "success");
+      } catch (error) {
+        setSettingsStatus(`Save failed: ${error.message}`, "danger");
+        showBanner(`Save failed: ${error.message}`, "danger");
+      } finally {
+        saveSettingsBtn.disabled = false;
+        saveSettingsBtn.innerHTML = '<i class="bi bi-save me-1"></i>Save Settings';
+      }
+    });
+
+    refreshSettingsBtn.addEventListener("click", () => {
+      refreshSettingsBtn.classList.add("btn-spin");
+      refreshSettingsBtn.disabled = true;
+      loadSettingsPageData().finally(() => {
+        setTimeout(() => {
+          refreshSettingsBtn.classList.remove("btn-spin");
+          refreshSettingsBtn.disabled = false;
+        }, 600);
+      });
+    });
+    document.getElementById("settings-tab").addEventListener("shown.bs.tab", loadSettingsPageData);
 
     // --- PROMPT DROPDOWN ---
     let allPrompts = []; // [{promptId, projectName}]
@@ -2631,7 +4263,7 @@
       function selectPrompt(p) {
         hiddenInput.value = p.promptId;
         triggerTextEl.textContent = p.projectName ? `${p.promptId} — ${p.projectName}` : p.promptId;
-        triggerTextEl.classList.remove("placeholder");
+        triggerTextEl.classList.remove("is-placeholder");
         closeDropdown();
         if (onChange) onChange(p.promptId);
       }
@@ -2861,7 +4493,16 @@
       }
     }
 
-    dashRefreshBtn.addEventListener("click", loadDashboard);
+    dashRefreshBtn.addEventListener("click", () => {
+      dashRefreshBtn.classList.add("btn-spin");
+      dashRefreshBtn.disabled = true;
+      loadDashboard().finally(() => {
+        setTimeout(() => {
+          dashRefreshBtn.classList.remove("btn-spin");
+          dashRefreshBtn.disabled = false;
+        }, 600);
+      });
+    });
     document.getElementById("dashboard-tab").addEventListener("shown.bs.tab", loadDashboard);
     loadDashboard();
 

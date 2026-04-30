@@ -9,9 +9,11 @@ const path = require('path');
 const qagentRouter = require("./routes/qagentRouter")
 const testCaseRouter = require("./routes/testcaseRouter")
 const dashboardRouter = require("./routes/dashboardRouter")
+const testraiRouter = require("./routes/testrailRouter")
+const settingsRouter = require("./routes/settingsRouter")
 
 const app = express()
-const port = process.env.PORT || 3000
+const port = process.env.PORT || 9009
 
 app.use(cors())
 app.use(express.urlencoded({ extended: false }))
@@ -27,7 +29,12 @@ app.get('/', (req, res) => {
 app.use("/generate", qagentRouter)
 app.use("/testcase", testCaseRouter)
 app.use("/dashboard", dashboardRouter)
+app.use("/testrail", testraiRouter)
+app.use("/settings", settingsRouter)
 
 
 
-app.listen(port, () => console.log(`generated-ai:${port}`))
+app.listen(port, () => {
+	console.log(`generated-ai:${port}`)
+	console.log(`Click this url to access the tool --> http://localhost:${port}`)
+})

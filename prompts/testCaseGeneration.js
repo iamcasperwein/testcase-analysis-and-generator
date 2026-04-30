@@ -16,7 +16,7 @@ const TEST_CASE_OUTPUT_SCHEMA = `{
     "testCases": [
         {
             "section": "string",
-            "test cases": [
+            "testCases": [
                 {
                     "id": "TC-001",
                     "title": "string",
@@ -274,7 +274,7 @@ const buildTestCaseGenerationPrompt = (input = {}) => {
         "",
         "Rules:",
         "- Return valid JSON only.",
-        '- Each section must contain a "test cases" array.',
+        '- Each section must contain a "testCases" array.',
         "- Derive test case sections from the Testing Analysis scope and edge cases when available.",
         "- If RFC or Figma is missing, do not invent those details.",
         "- If documents conflict, prioritize PRD for scope, then use RFC for implementation detail, then Figma for UI behavior.",

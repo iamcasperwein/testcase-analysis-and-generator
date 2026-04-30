@@ -96,15 +96,15 @@ const normalizeGeneratedTestCases = (generated, featureFallback = "") => {
             : [];
 
     const normalizedSections = testCaseSections.map((section) => {
-        const sectionCases = Array.isArray(section?.["test cases"])
-            ? section["test cases"]
+        const sectionCases = Array.isArray(section?.testCases)
+            ? section.testCases
             : Array.isArray(section?.testcases)
                 ? section.testcases
                 : [];
 
         return {
             section: String(section?.section || "Uncategorized").trim() || "Uncategorized",
-            "test cases": sectionCases,
+            "testCases": sectionCases,
         };
     });
 
@@ -235,7 +235,7 @@ const sanitizeSubmissionPayload = (payload = {}) => {
 const countTestCases = (data = {}) => {
     const sections = Array.isArray(data.testCases) ? data.testCases : [];
     return sections.reduce((sum, section) => {
-        const list = Array.isArray(section?.["test cases"]) ? section["test cases"] : [];
+        const list = Array.isArray(section?.testCases) ? section.testCases : [];
         return sum + list.length;
     }, 0);
 };
@@ -260,11 +260,11 @@ const processSubmission = async (payload = {}) => {
     console.log(`[QAgentService] processSubmission :: record created with status=RECEIVED`);
 
     updatePromptRecord(promptId, { status: "IN_PROGRESS", startAt: new Date().toISOString() });
-    console.log(`[QAgentService] processSubmission :: status → IN_PROGRESS`);
+    console.log(`[QAgentService] processSubmission :: status ->  IN_PROGRESS`);
 
     try {
         updatePromptRecord(promptId, { status: "PROCESSING" });
-        console.log(`[QAgentService] processSubmission :: status → PROCESSING`);
+        console.log(`[QAgentService] processSubmission :: status -> PROCESSING`);
 
         // --- STEP 1: Analysis ---
         console.log("[QAgentService] processSubmission :: [Step 1/3] building analysis prompt...");
@@ -306,7 +306,7 @@ const processSubmission = async (payload = {}) => {
         console.log(`[QAgentService] processSubmission :: [Step 3/3] parsed OK — ${normalizedTestCases.testCases?.length || 0} sections`);
 
         FileReader.writeDataFile(`testcases/${promptId}.json`, normalizedTestCases);
-        console.log(`[QAgentService] processSubmission :: [Step 3/3] test cases saved → testcases/${promptId}.json`);
+        console.log(`[QAgentService] processSubmission :: [Step 3/3] test cases saved ->  testcases/${promptId}.json`);
 
         const totalTestCases = countTestCases(normalizedTestCases);
         const completedRecord = updatePromptRecord(promptId, {
@@ -326,7 +326,7 @@ const processSubmission = async (payload = {}) => {
             testCaseCount: totalTestCases,
         };
     } catch (error) {
-        console.error(`[QAgentService] processSubmission :: FAILED ✗ — promptId=${promptId} | error=${error.message}`);
+        console.error(`[QAgentService] processSubmission :: FAILED x — promptId=${promptId} | error=${error.message}`);
         const failureNote = String(error?.message || error || "Unknown processing error");
         updatePromptRecord(promptId, {
             status: "FAILED",

@@ -67,8 +67,39 @@ const editTestCase = async (req, res) => {
   }
 };
 
+const deleteTestCase = async (req, res) => {
+  try {
+    const { promptId, testcaseId } = req.params;
+
+    if (!promptId || !testcaseId) {
+      return res.status(400).json({
+        success: false,
+        error: "promptId and testcaseId are required",
+      });
+    }
+
+    const result = await TestCaseService.deleteTestCase(promptId, testcaseId);
+    res.status(200).json({
+      success: true,
+      message: "Test case deleted successfully",
+      data: result,
+    });
+  } catch (error) {
+    if (error.code === "ENOENT") {
+      return res.status(404).json({ success: false, error: "Test case data not found" });
+    }
+
+    if (error.statusCode) {
+      return res.status(error.statusCode).json({ success: false, error: error.message });
+    }
+
+    res.status(500).json({ success: false, error: error.message });
+  }
+};
+
 module.exports = {
   getTestCases,
   getAnalyzeResult,
   editTestCase,
+  deleteTestCase,
 };
