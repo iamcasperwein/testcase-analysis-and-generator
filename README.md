@@ -41,7 +41,7 @@ The **QE Test Case Generator** is a Node.js / Express backend that ingests produ
 - **CRUD on Test Cases** — Edit, move between sections, and delete generated test cases.
 - **Dashboard Analytics** — Aggregate counts, turnaround time, and failure notes.
 - **Runtime Settings** — Manage application secrets (API keys, ports) via a REST surface backed by `.env`.
-- **TestRail Integration (scaffolded)** — Reserved for future export to TestRail.
+- **TestRail Integration** — Fetch sections, auto-create missing sections, and post selected test cases to TestRail.
 
 ---
 
@@ -73,7 +73,7 @@ The **QE Test Case Generator** is a Node.js / Express backend that ingests produ
 ### External Services
 - **Google Gemini API** — `models/gemini-2.5-flash` for analysis & generation
 - **Google AI File Manager** — Server-side upload of binary PRD/RFC artifacts
-- **TestRail API** *(planned)*
+- **TestRail API** — Sections + Cases sync (`get_sections`, `add_section`, `add_cases` / `add_case` fallback)
 
 ---
 
@@ -118,6 +118,53 @@ The service exposes the following routes (mounted in [app.js](app.js)):
 | `POST` | `/settings/` | [controller/Settings.js](controller/Settings.js) | Create new settings |
 | `PUT` | `/settings/:key` | [controller/Settings.js](controller/Settings.js) | Update a single setting |
 | `DELETE` | `/settings/:key` | [controller/Settings.js](controller/Settings.js) | Delete a setting |
+| `GET` | `/testrail/getsections` | [controller/Testrail.js](controller/Testrail.js) | Fetch sections from TestRail |
+| `POST` | `/testrail/posttestcases` | [controller/Testrail.js](controller/Testrail.js) | Post selected prompt test cases to TestRail |
+
+### TestRail Posting Data Contract (file-backed)
+
+When posting test cases to TestRail, section metadata in [data/testcases/](data/testcases/) is updated so future syncs can reuse the right TestRail section:
+
+- `sectionId`: target TestRail section ID
+- `suiteId`: TestRail suite ID from environment
+- `sectionSource`: set to `testrail` after successful section resolution
+- `testrailPost`: section-level posting audit object:
+    - `status`: `success` / `partial` / `failed`
+    - `lastAttemptAt`, `lastPostedAt`
+    - `message`, `postedCount`, `failedCount`
+    - `targetSectionId`, `targetSectionName`, `sectionMode`
+
+Each posted test case also gets a `testrailPost` object with per-case status and returned `testrailCaseId` when available.
+
+### TestRail Case Payload Mapping
+
+When posting each case to TestRail, the service uses this payload shape:
+
+- `section_id`: target TestRail section id
+- `title`: test case title
+- Fixed fields (kept unchanged):
+    - `template_id: 2`
+    - `type_id: 6`
+    - `priority_id: 2`
+    - `custom_test_info: 7`
+    - `custom_automation_type: 0`
+    - `custom_automation_types: [5]`
+- `custom_preconds`: normalized preconditions
+- `custom_steps_separated`: each step is mapped as:
+    - `content`: step text
+    - `expected`: expected result text
+
+### Duplicate-Safe Retry Behavior
+
+Posting flow is **bulk-first** per section, then **one-by-one fallback** only when bulk fails:
+
+1. Try `add_cases` for all selected cases in the section.
+2. If bulk fails, fetch current section cases from TestRail (`get_cases`).
+3. Build a normalized content signature (`title + preconditions + steps/expected`).
+4. For any matching signature already present, skip `add_case` retry and reuse existing case id.
+5. Retry `add_case` only for unmatched cases.
+
+This minimizes duplicate creation during partial failures.
 
 ---
 
@@ -447,6 +494,82 @@ sequenceDiagram
         Svc-->>Ctrl: { key }
         Ctrl-->>Client: 200 { success }
     end
+```
+
+---
+
+### 12. `GET /testrail/getsections` — Fetch TestRail Sections
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant Client
+    participant Router as testrailRouter
+    participant Ctrl as Testrail.getSections
+    participant Svc as TestrailService
+    participant TR as TestRail API
+
+    Client->>Router: GET /testrail/getsections
+    Router->>Ctrl: forward
+    Ctrl->>Svc: getSections()
+    Svc->>Svc: read TESTRAIL_* env (url, user, password/api key, project, suite)
+    Svc->>TR: GET get_sections/{projectId}&suite_id={suiteId}
+    TR-->>Svc: sections payload
+    Svc->>Svc: normalize section fields
+    Svc-->>Ctrl: { offset, limit, sections[] }
+    Ctrl-->>Client: 200 { success, data }
+```
+
+---
+
+### 13. `POST /testrail/posttestcases` — Post Selected Test Cases to TestRail
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant Client
+    participant Router as testrailRouter
+    participant Ctrl as Testrail.postTestCases
+    participant Svc as TestrailService
+    participant FR as FileReader
+    participant TR as TestRail API
+    participant FS as data/testcases/{promptId}.json
+
+    Client->>Router: POST /testrail/posttestcases { promptId, testcaseIds[] }
+    Router->>Ctrl: forward
+    Ctrl->>Svc: postTestCases(payload)
+    Svc->>FR: readDataFile(testcases/{promptId}.json)
+    FR-->>Svc: parsed section groups + test cases
+    Svc->>TR: GET get_sections + GET get_case_fields
+    TR-->>Svc: sections + field metadata
+
+    loop each selected section
+        alt section already mapped to TestRail
+            Svc->>Svc: reuse sectionId
+        else AI/User section
+            Svc->>TR: POST add_section (ensure "AI generated" root)
+            TR-->>Svc: created/located section id
+        end
+
+        Svc->>TR: POST add_cases (bulk)
+        alt bulk success
+            TR-->>Svc: created cases[]
+        else bulk failure
+            Svc->>TR: GET get_cases (same section)
+            TR-->>Svc: existing section cases[]
+            Svc->>Svc: signature match to detect already-created cases
+            loop unmatched cases only
+                Svc->>TR: POST add_case
+                TR-->>Svc: created case
+            end
+        end
+
+        Svc->>Svc: write section/testcase testrailPost status
+    end
+
+    Svc->>FR: writeDataFile(testcases/{promptId}.json, updated)
+    Svc-->>Ctrl: summary { totalPosted, totalFailed, sections[] }
+    Ctrl-->>Client: 200 { success, data }
 ```
 
 ---

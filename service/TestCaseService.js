@@ -86,6 +86,33 @@ const normalizeSectionName = (value) => {
     return section || "Uncategorized";
 };
 
+const normalizeOptionalNumber = (value) => {
+    if (value == null || value === "") {
+        return null;
+    }
+
+    const asNumber = Number(value);
+    return Number.isFinite(asNumber) ? asNumber : null;
+};
+
+const normalizeSectionMeta = (payload = {}, fallback = {}) => {
+    const fromPayloadSectionId = normalizeOptionalNumber(payload.sectionId);
+    const fromPayloadSuiteId = normalizeOptionalNumber(payload.suiteId || payload.suite_id);
+    const fromPayloadSource = String(payload.sectionSource || payload.section_source || "").trim().toLowerCase();
+
+    const merged = {
+        sectionId: fromPayloadSectionId != null ? fromPayloadSectionId : normalizeOptionalNumber(fallback.sectionId),
+        suiteId: fromPayloadSuiteId != null ? fromPayloadSuiteId : normalizeOptionalNumber(fallback.suiteId),
+        sectionSource: fromPayloadSource || String(fallback.sectionSource || "").trim().toLowerCase() || "ai",
+    };
+
+    if (merged.sectionSource !== "testrail" && merged.sectionSource !== "ai" && merged.sectionSource !== "user") {
+        merged.sectionSource = merged.sectionId != null ? "testrail" : "ai";
+    }
+
+    return merged;
+};
+
 const sanitizeUpdatedTestCase = (payload = {}, fallbackId) => {
     const updatedTestCase = {};
 
@@ -152,6 +179,11 @@ const editTestCase = async (promptId, testcaseId, payload = {}) => {
     const currentTestCase = sourceSection.testCases[sourceTestCaseIndex];
     const currentSectionName = normalizeSectionName(sourceSection.section);
     const nextSectionName = normalizeSectionName(payload.section || currentSectionName);
+    const nextSectionMeta = normalizeSectionMeta(payload, {
+        sectionId: sourceSection.sectionId,
+        suiteId: sourceSection.suiteId,
+        sectionSource: sourceSection.sectionSource,
+    });
     const updatedFields = sanitizeUpdatedTestCase(payload, testcaseId);
     const updatedTestCase = {
         ...currentTestCase,
@@ -168,12 +200,28 @@ const editTestCase = async (promptId, testcaseId, payload = {}) => {
     if (!targetSection) {
         targetSection = {
             section: nextSectionName,
+            sectionId: nextSectionMeta.sectionId,
+            suiteId: nextSectionMeta.suiteId,
+            sectionSource: nextSectionMeta.sectionSource,
             testCases: [],
         };
         sectionGroups.push(targetSection);
     }
 
     targetSection.section = targetSection.section || nextSectionName;
+    if (nextSectionMeta.sectionId != null) {
+        targetSection.sectionId = nextSectionMeta.sectionId;
+    } else if (!Object.prototype.hasOwnProperty.call(targetSection, "sectionId")) {
+        targetSection.sectionId = null;
+    }
+
+    if (nextSectionMeta.suiteId != null) {
+        targetSection.suiteId = nextSectionMeta.suiteId;
+    } else if (!Object.prototype.hasOwnProperty.call(targetSection, "suiteId")) {
+        targetSection.suiteId = null;
+    }
+
+    targetSection.sectionSource = nextSectionMeta.sectionSource || targetSection.sectionSource || "ai";
     targetSection.testCases = Array.isArray(targetSection.testCases) ? targetSection.testCases : [];
     targetSection.testCases.push(updatedTestCase);
 
@@ -191,6 +239,9 @@ const editTestCase = async (promptId, testcaseId, payload = {}) => {
         updatedTestCase: {
             ...updatedTestCase,
             section: nextSectionName,
+            sectionId: targetSection.sectionId ?? null,
+            suiteId: targetSection.suiteId ?? null,
+            sectionSource: targetSection.sectionSource || "ai",
         },
     };
 };
