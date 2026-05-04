@@ -5,9 +5,17 @@ const FileReader = require("../utils/FileReader");
 const { createActionLogger } = require("../utils/AppLogger");
 const TestCaseService = require("./TestCaseService");
 const GeminiService = require("./GeminiService");
+const ClaudeService = require("./ClaudeService");
+const CopilotService = require("./CopilotService");
 
 const AGENTS = Object.freeze({
+    claude: async ({ prompt, payload }) => ClaudeService.generateFromPrompt(prompt, {
+        uploadedFiles: payload?.uploadedFiles,
+    }),
     gemini: async ({ prompt, payload }) => GeminiService.generateFromPrompt(prompt, {
+        uploadedFiles: payload?.uploadedFiles,
+    }),
+    copilot: async ({ prompt, payload }) => CopilotService.generateFromPrompt(prompt, {
         uploadedFiles: payload?.uploadedFiles,
     }),
 });
@@ -21,8 +29,14 @@ const SubmissionValidationError = class extends Error {
 };
 
 const normalizeAgentName = (value) => {
-    const normalized = String(value || "gemini").trim().toLowerCase();
-    return AGENTS[normalized] ? normalized : "gemini";
+    const normalized = String(value || "claude").trim().toLowerCase();
+    const aliases = {
+        "github-copilot": "copilot",
+        "github_copilot": "copilot",
+        "githubcopilot": "copilot",
+    };
+    const agentName = aliases[normalized] || normalized;
+    return AGENTS[agentName] ? agentName : "claude";
 };
 
 const readPromptData = () => {
@@ -272,6 +286,26 @@ const processSubmission = async (payload = {}) => {
     const agent = normalizeAgentName(validatedPayload.agent || validatedPayload.agentName);
     logger.info("Agent selected", { promptId, agent });
 
+    const runSelectedAgent = async ({ prompt, payload, mode }) => {
+        const handler = AGENTS[agent] || AGENTS.claude;
+        try {
+            return await handler({ prompt, payload, promptId, mode });
+        } catch (error) {
+            if (agent === "claude") {
+                throw error;
+            }
+
+            logger.warn("Primary agent failed. Falling back to Claude.", {
+                primaryAgent: agent,
+                fallbackAgent: "claude",
+                mode,
+                error: error.message,
+            });
+
+            return AGENTS.claude({ prompt, payload, promptId, mode });
+        }
+    };
+
     // Enrich documents with extracted text from uploaded files
     logger.step("Enriching document contents");
     validatedPayload.documents = await enrichDocumentContents(validatedPayload.documents, logger);
@@ -297,9 +331,8 @@ const processSubmission = async (payload = {}) => {
         });
         logger.success("Step 1/3 - Analysis prompt built", { chars: analysisPrompt.length });
 
-        const runAgent = AGENTS[agent];
         logger.step("Step 1/3 - Sending analysis prompt", { agent });
-        const analysisText = await runAgent({ prompt: analysisPrompt, payload: validatedPayload, promptId, mode: "analysis" });
+        const analysisText = await runSelectedAgent({ prompt: analysisPrompt, payload: validatedPayload, mode: "analysis" });
         logger.success("Step 1/3 - Analysis received", { chars: analysisText.length });
 
         FileReader.writeDataFile(`analyze/${promptId}.md`, analysisText);
@@ -317,7 +350,7 @@ const processSubmission = async (payload = {}) => {
         logger.success("Step 2/3 - Test case prompt built", { chars: testCasePrompt.length });
 
         logger.step("Step 2/3 - Sending test case prompt", { agent });
-        const generatedText = await runAgent({ prompt: testCasePrompt, payload: validatedPayload, promptId, mode: "testcases" });
+        const generatedText = await runSelectedAgent({ prompt: testCasePrompt, payload: validatedPayload, mode: "testcases" });
         logger.success("Step 2/3 - Test cases received", { chars: generatedText.length });
 
         // --- STEP 3: Parse & Save ---
