@@ -116,7 +116,7 @@ The service exposes the following routes (mounted in [app.js](app.js)):
 | `GET` | `/dashboard/` | [controller/Dashboard.js](controller/Dashboard.js) | Aggregate metrics |
 | `GET` | `/dashboard/prompts` | [controller/Dashboard.js](controller/Dashboard.js) | List prompts (id + project) |
 | `GET` | `/settings/` | [controller/Settings.js](controller/Settings.js) | List `.env` entries |
-| `GET` | `/settings/key` | [controller/Settings.js](controller/Settings.js) | List remaining default keys |
+| `GET` | `/settings/key` | [controller/Settings.js](controller/Settings.js) | List default key metadata (`key`, `confidential`, `isAvailable`) |
 | `POST` | `/settings/` | [controller/Settings.js](controller/Settings.js) | Create new settings |
 | `PUT` | `/settings/:key` | [controller/Settings.js](controller/Settings.js) | Update a single setting |
 | `DELETE` | `/settings/:key` | [controller/Settings.js](controller/Settings.js) | Delete a setting |
@@ -407,11 +407,28 @@ sequenceDiagram
 
     Client->>Router: GET /settings/key
     Router->>Ctrl: getSettingKeys
-    Ctrl->>Svc: getAvailableKeys()
-    Svc->>ENV: readEnvMap()
-    Svc->>Svc: filter DEFAULT_SETTING_KEYS minus existing
-    Svc-->>Ctrl: missing keys[]
+        Ctrl->>Svc: getAvailableKeys()
+        Svc->>ENV: readEnvMap()
+        Svc->>Svc: map DEFAULT_SETTING_KEYS[] -> { key, confidential, isAvailable }
+        Svc-->>Ctrl: key definitions[]
     Ctrl-->>Client: 200 { data }
+```
+
+`GET /settings/key` now returns an array like:
+
+```json
+[
+    {
+        "key": "GEMINI_API_KEY",
+        "confidential": true,
+        "isAvailable": true
+    },
+    {
+        "key": "PORT",
+        "confidential": false,
+        "isAvailable": false
+    }
+]
 ```
 
 ---
@@ -652,7 +669,8 @@ Stored in `.env` at the project root and managed at runtime via `/settings/*`.
 | `TESTRAIL_PROJECT_ID` | ✗ | Default TestRail project (planned) |
 | `NODE_ENV` | ✗ | `development` \| `production` |
 
-> The canonical list lives in `DEFAULT_SETTING_KEYS` inside [service/SettingsService.js](service/SettingsService.js#L7-L16).
+> The canonical list lives in `DEFAULT_SETTING_KEYS` inside [service/SettingsService.js](service/SettingsService.js).
+> It is defined as objects: `{ key, confidential }`.
 
 ### Local Development
 
