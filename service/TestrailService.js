@@ -384,7 +384,7 @@ const ensureAiGeneratedRootSection = async (creds, remoteSections) => {
 	const created = await createSection(creds, {
 		name: "AI generated",
 		suite_id: Number(creds.suiteId),
-		description: "Auto-created by QE Test Case Generator for AI/User-generated sections.",
+		description: "",
 	})
 
 	remoteSections.push(created)
