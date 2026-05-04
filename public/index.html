@@ -719,6 +719,11 @@
       color: #3b5b89;
       border-top: 1px solid #dbe8ff;
     }
+    .section-cb-wrap {
+      align-items: center;
+      margin-right: 0.35rem;
+      flex-shrink: 0;
+    }
 
     /* ── Bloom Modal ──────────────────────────────────────────── */
     .tc-bloom-modal {
@@ -1810,6 +1815,93 @@
       color: #92400e;
     }
 
+    /* TestRail posted badge on TC rows */
+    .tr-posted-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.25rem;
+      padding: 0.08rem 0.42rem;
+      border-radius: 999px;
+      border: 1px solid #a5f3fc;
+      background: #ecfeff;
+      color: #0e7490;
+      font-size: 0.65rem;
+      font-weight: 700;
+      line-height: 1.2;
+      white-space: nowrap;
+      vertical-align: middle;
+      margin-left: 0.4rem;
+    }
+    .tr-posted-badge i { font-size: 0.65rem; }
+    .tr-posted-badge[data-tooltip] {
+      position: relative;
+      cursor: default;
+    }
+    .tr-posted-badge[data-tooltip]::after {
+      content: attr(data-tooltip);
+      position: absolute;
+      bottom: calc(100% + 6px);
+      left: 50%;
+      transform: translateX(-50%);
+      background: #1e293b;
+      color: #f8fafc;
+      font-size: 0.72rem;
+      font-weight: 500;
+      padding: 0.3rem 0.6rem;
+      border-radius: 6px;
+      white-space: nowrap;
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 0.15s ease;
+      z-index: 9999;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.18);
+    }
+    .tr-posted-badge[data-tooltip]::before {
+      content: "";
+      position: absolute;
+      bottom: calc(100% + 1px);
+      left: 50%;
+      transform: translateX(-50%);
+      border: 5px solid transparent;
+      border-top-color: #1e293b;
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 0.15s ease;
+      z-index: 9999;
+    }
+    .tr-posted-badge[data-tooltip]:hover::after,
+    .tr-posted-badge[data-tooltip]:hover::before {
+      opacity: 1;
+    }
+
+    /* Blocked-move dialog case list */
+    .blocked-move-list {
+      max-height: 200px;
+      overflow-y: auto;
+      border: 1px solid #e5e7eb;
+      border-radius: 0.5rem;
+      padding: 0.5rem 0.75rem;
+      background: #f9fafb;
+      text-align: left;
+      margin-top: 0.5rem;
+      font-size: 0.82rem;
+    }
+    .blocked-move-list li {
+      padding: 0.2rem 0;
+      border-bottom: 1px solid #f3f4f6;
+      list-style: none;
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+    }
+    .blocked-move-list li:last-child { border-bottom: none; }
+    .blocked-move-note {
+      font-size: 0.8rem;
+      color: #6b7280;
+      margin-top: 0.6rem;
+      text-align: center;
+    }
+
     .setting-key-picker .prompt-select-wrap {
       min-width: 100%;
       max-width: 100%;
@@ -2632,6 +2724,21 @@
       <div class="settings-dialog-actions">
         <button type="button" class="btn btn-outline-secondary" id="bulkEditSectionCancelBtn">Cancel</button>
         <button type="button" class="btn btn-primary" id="bulkEditSectionConfirmBtn"><i class="bi bi-folder-symlink me-1"></i>Move</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Blocked Move Dialog (TestRail-posted cases can't be moved) -->
+  <div id="blockedMoveOverlay" class="settings-dialog-overlay" role="dialog" aria-modal="true" aria-labelledby="blockedMoveTitle">
+    <div class="settings-dialog dialog-danger">
+      <div class="settings-dialog-icon icon-edit" style="background:#ecfeff;color:#0e7490;"><i class="bi bi-shield-lock"></i></div>
+      <div class="settings-dialog-title" id="blockedMoveTitle">Cannot Move Some Test Cases</div>
+      <div class="settings-dialog-sub" id="blockedMoveSub">The following test cases are already posted to TestRail and cannot be moved to another section.</div>
+      <ul class="blocked-move-list" id="blockedMoveList"></ul>
+      <p class="blocked-move-note" id="blockedMoveNote"></p>
+      <div class="settings-dialog-actions">
+        <button type="button" class="btn btn-outline-secondary" id="blockedMoveCancelBtn">Cancel</button>
+        <button type="button" class="btn btn-primary" id="blockedMoveConfirmBtn" style="display:none;"><i class="bi bi-folder-symlink me-1"></i>Move remaining</button>
       </div>
     </div>
   </div>
@@ -3552,12 +3659,51 @@
         const normalizedSource = String(section.source || "ai").toLowerCase();
         const sectionSource = normalizedSource === "testrail" || normalizedSource === "user" ? normalizedSource : "ai";
         const sourceLabel = sectionSource === "testrail" ? "TestRail" : sectionSource === "user" ? "User" : "AI";
-        sectionCell.innerHTML = `
-          <div class="d-flex align-items-center justify-content-between gap-2">
-            <span>${escapeHtml(section.name)} (${section.testcases.length})</span>
-            <span class="section-origin-pill origin-${sectionSource}">${sourceLabel}</span>
-          </div>
+
+        // Section select-all checkbox (inside the cell, only visible in select mode)
+        const sectionCbWrap = document.createElement("span");
+        sectionCbWrap.className = "section-cb-wrap";
+        sectionCbWrap.style.display = isSelectMode ? "inline-flex" : "none";
+        const sectionCb = document.createElement("input");
+        sectionCb.type = "checkbox";
+        sectionCb.className = "form-check-input section-select-all-cb mb-0";
+        sectionCb.dataset.sectionName = section.name;
+        sectionCb.title = "Select all in this section";
+        const sectionIds = section.testcases.map(tc => tc.id).filter(Boolean);
+        const sCheckedCount = sectionIds.filter(id => selectedTcIds.has(id)).length;
+        sectionCb.checked = sectionIds.length > 0 && sCheckedCount === sectionIds.length;
+        sectionCb.indeterminate = sCheckedCount > 0 && sCheckedCount < sectionIds.length;
+        sectionCb.addEventListener("change", () => {
+          const tcRows = Array.from(testCaseTableBody.querySelectorAll(`.testcase-row[data-section="${CSS.escape(section.name)}"]`));
+          tcRows.forEach(row => {
+            const id = row.dataset.tcId;
+            if (!id) return;
+            if (sectionCb.checked) selectedTcIds.add(id);
+            else selectedTcIds.delete(id);
+            row.classList.toggle("tc-selected", sectionCb.checked);
+            const rowCb = row.querySelector(".tc-row-check");
+            if (rowCb) rowCb.checked = sectionCb.checked;
+          });
+          updateBulkBar();
+          updateSelectAllState();
+        });
+        sectionCbWrap.appendChild(sectionCb);
+
+        const sectionContentDiv = document.createElement("div");
+        sectionContentDiv.className = "d-flex align-items-center justify-content-between gap-2";
+        sectionContentDiv.innerHTML = `
+          <span class="d-flex align-items-center gap-2"></span>
+          <span class="section-origin-pill origin-${sectionSource}">${sourceLabel}</span>
         `;
+        const sectionNameSpan = sectionContentDiv.querySelector("span.d-flex");
+        sectionNameSpan.prepend(sectionCbWrap);
+        const nameText = document.createTextNode(`${escapeHtml(section.name)} (${section.testcases.length})`);
+        // Use innerHTML for the text portion safely
+        const namePart = document.createElement("span");
+        namePart.textContent = `${section.name} (${section.testcases.length})`;
+        sectionNameSpan.appendChild(namePart);
+
+        sectionCell.appendChild(sectionContentDiv);
         sectionRow.appendChild(sectionCell);
         testCaseTableBody.appendChild(sectionRow);
 
@@ -3588,12 +3734,31 @@
 
           const tdId = document.createElement("td");
           tdId.dataset.col = "id";
-          tdId.textContent = tc.id || "";
+          const trCaseId = tc.testrailPost?.testrailCaseId;
+          if (trCaseId != null) {
+            tdId.textContent = `C${trCaseId}`;
+            tdId.title = `Local ID: ${tc.id || ""}`;
+          } else {
+            tdId.textContent = tc.id || "";
+          }
           tr.appendChild(tdId);
 
           const tdTitle = document.createElement("td");
           tdTitle.dataset.col = "title";
-          tdTitle.textContent = tc.title || "";
+          if (tc.testrailPost?.status === "success") {
+            const titleSpan = document.createElement("span");
+            titleSpan.textContent = tc.title || "";
+            const icon = document.createElement("span");
+            icon.className = "tr-posted-badge";
+            const caseId = tc.testrailPost.testrailCaseId ?? "?";
+            const postedDate = tc.testrailPost.lastAttemptAt ? new Date(tc.testrailPost.lastAttemptAt).toLocaleDateString() : null;
+            icon.dataset.tooltip = `TestRail Case #${caseId}${postedDate ? " · Posted " + postedDate : ""}`;
+            icon.innerHTML = '<i class="bi bi-cloud-check-fill"></i>';
+            tdTitle.appendChild(titleSpan);
+            tdTitle.appendChild(icon);
+          } else {
+            tdTitle.textContent = tc.title || "";
+          }
           tr.appendChild(tdTitle);
 
           tr.appendChild(createActionButtons(tc));
@@ -4186,10 +4351,26 @@
       if (!selectAll) return;
       const rows = Array.from(testCaseTableBody.querySelectorAll(".testcase-row"));
       const ids = rows.map(r => r.dataset.tcId).filter(Boolean);
-      if (!ids.length) { selectAll.checked = false; selectAll.indeterminate = false; return; }
-      const checked = ids.filter(id => selectedTcIds.has(id)).length;
-      selectAll.checked = checked === ids.length;
-      selectAll.indeterminate = checked > 0 && checked < ids.length;
+      if (!ids.length) { selectAll.checked = false; selectAll.indeterminate = false; }
+      else {
+        const checked = ids.filter(id => selectedTcIds.has(id)).length;
+        selectAll.checked = checked === ids.length;
+        selectAll.indeterminate = checked > 0 && checked < ids.length;
+      }
+
+      // Sync each section's checkbox state and visibility
+      testCaseTableBody.querySelectorAll(".section-select-all-cb").forEach(sectionCb => {
+        const wrap = sectionCb.closest(".section-cb-wrap");
+        if (wrap) wrap.style.display = isSelectMode ? "inline-flex" : "none";
+        const sName = sectionCb.dataset.sectionName;
+        if (!sName) return;
+        const sRows = Array.from(testCaseTableBody.querySelectorAll(`.testcase-row[data-section="${CSS.escape(sName)}"]`));
+        const sIds = sRows.map(r => r.dataset.tcId).filter(Boolean);
+        if (!sIds.length) { sectionCb.checked = false; sectionCb.indeterminate = false; return; }
+        const sChecked = sIds.filter(id => selectedTcIds.has(id)).length;
+        sectionCb.checked = sChecked === sIds.length;
+        sectionCb.indeterminate = sChecked > 0 && sChecked < sIds.length;
+      });
     }
 
     const bulkFetchTestrailBtn = document.getElementById("bulkFetchTestrailBtn");
@@ -4271,7 +4452,7 @@
         sub.textContent = "Move " + selectedTcIds.size + " test case(s) to a section";
         bulkSectionPicker.setOptions(sectionNames || []);
         bulkSectionPicker.setValue("");
-  setBulkSectionStatus("Tip: click \"Get from TestRail\" to sync remote sections.", "muted");
+  setBulkSectionStatus("click \"Get from TestRail\" to sync remote sections.", "muted");
         overlay.classList.add("open");
         setTimeout(function(){ bulkSectionPicker.focusSearch(); }, 50);
 
@@ -4336,9 +4517,11 @@
 
     function summarizeSelectionForTestrailPosting() {
       const selectedCases = getSelectedTestCases();
+      const eligibleCases = selectedCases.filter((tc) => !(tc.testrailPost?.status === "success" || tc.testrailPost?.testrailCaseId != null));
+      const skippedCases = selectedCases.filter((tc) => tc.testrailPost?.status === "success" || tc.testrailPost?.testrailCaseId != null);
       const sectionMap = new Map();
 
-      selectedCases.forEach((tc) => {
+      eligibleCases.forEach((tc) => {
         const sectionName = String(tc.section || "Uncategorized").trim() || "Uncategorized";
         const key = tc.sectionId != null
           ? `id:${tc.sectionId}`
@@ -4362,6 +4545,8 @@
 
       return {
         selectedCases,
+        eligibleCases,
+        skippedCases,
         selectedSections,
         existingSections,
         newSections,
@@ -4381,22 +4566,29 @@
         const existingCountEl = document.getElementById("bulkPostExistingCount");
         const newCountEl = document.getElementById("bulkPostNewCount");
 
-        if (selectedCountEl) selectedCountEl.textContent = String(summary.selectedCases.length);
+        if (selectedCountEl) selectedCountEl.textContent = String(summary.eligibleCases.length);
         if (sectionCountEl) sectionCountEl.textContent = String(summary.selectedSections.length);
         if (existingCountEl) existingCountEl.textContent = String(summary.existingSections.length);
         if (newCountEl) newCountEl.textContent = String(summary.newSections.length);
 
         if (sub) {
-          sub.textContent = `Post ${summary.selectedCases.length} selected test case(s) to TestRail.`;
+          sub.textContent = summary.skippedCases.length
+            ? `Post ${summary.eligibleCases.length} test case(s) to TestRail. Skip ${summary.skippedCases.length} already posted.`
+            : `Post ${summary.eligibleCases.length} selected test case(s) to TestRail.`;
         }
 
         if (status) {
           const newNames = summary.newSections.map((item) => item.name).slice(0, 4);
-          if (newNames.length) {
+          if (!summary.eligibleCases.length && summary.skippedCases.length) {
+            status.textContent = `All selected test cases are already posted to TestRail and will be skipped.`;
+          } else if (newNames.length) {
             const overflow = summary.newSections.length > newNames.length ? ` +${summary.newSections.length - newNames.length} more` : "";
-            status.textContent = `New sections: ${newNames.join(", ")}${overflow}`;
+            const skippedText = summary.skippedCases.length ? ` Skipping ${summary.skippedCases.length} already posted case(s).` : "";
+            status.textContent = `New sections: ${newNames.join(", ")}${overflow}.${skippedText}`;
           } else {
-            status.textContent = "All selected sections already exist in TestRail.";
+            status.textContent = summary.skippedCases.length
+              ? `All selected sections already exist in TestRail. Skipping ${summary.skippedCases.length} already posted case(s).`
+              : "All selected sections already exist in TestRail.";
           }
         }
 
@@ -4448,6 +4640,11 @@
         return;
       }
 
+      if (!summary.eligibleCases.length) {
+        showBanner(`Skipped ${summary.skippedCases.length} test case(s): all selected items were already posted to TestRail.`, "success");
+        return;
+      }
+
       const confirmed = await openBulkPostToTestrailDialog(summary);
       if (!confirmed) return;
 
@@ -4468,10 +4665,13 @@
 
         const posted = Number(result?.totalPosted || 0);
         const failed = Number(result?.totalFailed || 0);
+        const skipped = Number(result?.totalSkipped || 0);
         if (failed > 0) {
-          showBanner(`Posted ${posted} test case(s), failed ${failed}. See section post status in testcases JSON.`, "danger");
+          const skippedText = skipped > 0 ? `, skipped ${skipped} already posted` : "";
+          showBanner(`Posted ${posted} test case(s), failed ${failed}${skippedText}. See section post status in testcases JSON.`, "danger");
         } else {
-          showBanner(`Successfully posted ${posted} test case(s) to TestRail.`, "success");
+          const skippedText = skipped > 0 ? ` Skipped ${skipped} already posted test case(s).` : "";
+          showBanner(`Successfully posted ${posted} test case(s) to TestRail.${skippedText}`, "success");
         }
       } catch (error) {
         showBanner("Failed to post to TestRail: " + error.message, "danger");
@@ -4480,8 +4680,65 @@
       }
     }
 
+    function openBlockedMoveDialog(blockedCases, movableCount) {
+      return new Promise(function(resolve) {
+        const overlay    = document.getElementById("blockedMoveOverlay");
+        const list       = document.getElementById("blockedMoveList");
+        const note       = document.getElementById("blockedMoveNote");
+        const confirmBtn = document.getElementById("blockedMoveConfirmBtn");
+        const cancelBtn  = document.getElementById("blockedMoveCancelBtn");
+
+        list.innerHTML = blockedCases.map(tc =>
+          `<li><i class="bi bi-cloud-check-fill" style="color:#0e7490;"></i><span><strong>${escapeHtml(tc.id || "")}</strong> — ${escapeHtml(tc.title || "")}</span></li>`
+        ).join("");
+
+        if (movableCount > 0) {
+          note.textContent = `${movableCount} other test case(s) can still be moved.`;
+          confirmBtn.style.display = "";
+          confirmBtn.textContent = `Move remaining ${movableCount} test case(s)`;
+          confirmBtn.innerHTML = `<i class="bi bi-folder-symlink me-1"></i>Move remaining ${movableCount} test case(s)`;
+        } else {
+          note.textContent = "No remaining test cases can be moved.";
+          confirmBtn.style.display = "none";
+        }
+
+        overlay.classList.add("open");
+
+        function cleanup() {
+          overlay.classList.remove("open");
+          confirmBtn.removeEventListener("click", onConfirm);
+          cancelBtn.removeEventListener("click", onCancel);
+          overlay.removeEventListener("click", onBackdrop);
+          document.removeEventListener("keydown", onKeydown);
+        }
+        function onConfirm()  { cleanup(); resolve(movableCount > 0); }
+        function onCancel()   { cleanup(); resolve(false); }
+        function onBackdrop(e){ if (e.target === overlay) onCancel(); }
+        function onKeydown(e) { if (e.key === "Escape") onCancel(); }
+        confirmBtn.addEventListener("click", onConfirm);
+        cancelBtn.addEventListener("click", onCancel);
+        overlay.addEventListener("click", onBackdrop);
+        document.addEventListener("keydown", onKeydown);
+      });
+    }
+
     async function handleBulkEditSection() {
       if (!selectedTcIds.size) return;
+
+      // Separate posted (blocked) from movable test cases
+      const selectedCases = getSelectedTestCases();
+      const blockedCases  = selectedCases.filter(tc => tc.testrailPost?.status === "success");
+      const movableCases  = selectedCases.filter(tc => tc.testrailPost?.status !== "success");
+
+      if (blockedCases.length > 0) {
+        const proceed = await openBlockedMoveDialog(blockedCases, movableCases.length);
+        if (!proceed) return;
+        // Restrict the selection to only movable cases
+        selectedTcIds.clear();
+        movableCases.forEach(tc => selectedTcIds.add(tc.id));
+        if (!selectedTcIds.size) return;
+      }
+
       const newSelection = await openBulkEditSectionDialog(getSectionOptions());
       if (!newSelection) return;
 

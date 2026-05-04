@@ -2,6 +2,7 @@ const { ulid } = require("ulid");
 const fs = require("fs");
 const { PDFParse } = require("pdf-parse");
 const FileReader = require("../utils/FileReader");
+const { createActionLogger } = require("../utils/AppLogger");
 const TestCaseService = require("./TestCaseService");
 const GeminiService = require("./GeminiService");
 
@@ -133,57 +134,57 @@ const createInitialRecord = ({ promptId, payload, agent }) => ({
     errorMessage: null,
 });
 
-const extractTextFromFile = async (filePath = "") => {
+const extractTextFromFile = async (filePath = "", logger = null) => {
     if (!filePath) return "";
-    console.log(`[QAgentService] extractTextFromFile :: reading file: ${filePath}`);
+    logger?.step("Reading uploaded file for text extraction", { filePath });
     try {
         const buffer = fs.readFileSync(filePath);
         const isPdf = filePath.toLowerCase().endsWith(".pdf");
         if (isPdf) {
-            console.log(`[QAgentService] extractTextFromFile :: parsing PDF (${(buffer.length / 1024).toFixed(1)} KB)`);
+            logger?.step("Parsing PDF", { filePath, kb: Number((buffer.length / 1024).toFixed(1)) });
             const parser = new PDFParse({ data: buffer });
             const result = await parser.getText();
             const text = String(result.text || "").trim();
-            console.log(`[QAgentService] extractTextFromFile :: PDF parsed OK — ${text.length} chars extracted`);
+            logger?.success("PDF extracted", { filePath, chars: text.length });
             return text;
         }
         // Plain text / markdown / JSON files
         const text = buffer.toString("utf8").trim();
-        console.log(`[QAgentService] extractTextFromFile :: plain-text read OK — ${text.length} chars`);
+        logger?.success("Text file extracted", { filePath, chars: text.length });
         return text;
     } catch (err) {
-        console.warn(`[QAgentService] extractTextFromFile :: FAILED for ${filePath} —`, err.message);
+        logger?.warn("File extraction failed", { filePath, error: err.message });
         return "";
     }
 };
 
-const enrichDocumentContents = async (documents = {}) => {
-    console.log("[QAgentService] enrichDocumentContents :: start");
+const enrichDocumentContents = async (documents = {}, logger = null) => {
+    logger?.start("Enriching document contents");
     const enriched = { ...documents };
     for (const docType of ["prd", "rfc", "figma"]) {
         const doc = enriched[docType];
         if (!doc) {
-            console.log(`[QAgentService] enrichDocumentContents :: ${docType.toUpperCase()} — not provided, skipping`);
+            logger?.step("Document not provided, skipping", { docType });
             continue;
         }
         if (String(doc.content || "").trim()) {
-            console.log(`[QAgentService] enrichDocumentContents :: ${docType.toUpperCase()} — already has content (${doc.content.length} chars), skipping extraction`);
+            logger?.step("Document already has content, skipping extraction", { docType, chars: String(doc.content || "").length });
             continue;
         }
         if (!String(doc.path || "").trim()) {
-            console.log(`[QAgentService] enrichDocumentContents :: ${docType.toUpperCase()} — no path, skipping`);
+            logger?.step("Document has no path, skipping extraction", { docType });
             continue;
         }
-        console.log(`[QAgentService] enrichDocumentContents :: ${docType.toUpperCase()} — extracting from ${doc.path}`);
-        const extracted = await extractTextFromFile(doc.path);
+        logger?.step("Extracting document", { docType, path: doc.path });
+        const extracted = await extractTextFromFile(doc.path, logger);
         if (extracted) {
             enriched[docType] = { ...doc, content: extracted };
-            console.log(`[QAgentService] enrichDocumentContents :: ${docType.toUpperCase()} — enriched OK (${extracted.length} chars)`);
+            logger?.success("Document enriched", { docType, chars: extracted.length });
         } else {
-            console.warn(`[QAgentService] enrichDocumentContents :: ${docType.toUpperCase()} — extraction returned empty`);
+            logger?.warn("Document extraction returned empty", { docType, path: doc.path });
         }
     }
-    console.log("[QAgentService] enrichDocumentContents :: done");
+    logger?.success("Document enrichment completed");
     return enriched;
 };
 
@@ -241,51 +242,71 @@ const countTestCases = (data = {}) => {
 };
 
 const processSubmission = async (payload = {}) => {
-    console.log("[QAgentService] processSubmission :: start");
-
-    const validatedPayload = sanitizeSubmissionPayload(payload);
-    console.log("[QAgentService] processSubmission :: payload validated");
-    console.log(`[QAgentService] processSubmission :: projectName=${validatedPayload.projectName} | docType=${validatedPayload.docType} | prd=${validatedPayload.prdUrl} | rfc=${validatedPayload.rfcUrl} | figma=${validatedPayload.figmaUrl}`);
-
     const promptId = payload.promptId || ulid();
+    const logger = createActionLogger({
+        service: "QAgentService",
+        action: "processSubmission",
+        promptId,
+        fileName: `analyze/${promptId}.txt`,
+        resetFile: true,
+    });
+    logger.start("Submission received", {
+        payloadKeys: Object.keys(payload || {}),
+    });
+
+    let validatedPayload;
+    try {
+        validatedPayload = sanitizeSubmissionPayload(payload);
+    } catch (error) {
+        logger.fail(error, { stage: "sanitizeSubmissionPayload" });
+        throw error;
+    }
+    logger.success("Payload validated", {
+        projectName: validatedPayload.projectName,
+        docType: validatedPayload.docType,
+        prdUrl: validatedPayload.prdUrl,
+        rfcUrl: validatedPayload.rfcUrl,
+        figmaUrl: validatedPayload.figmaUrl,
+    });
+
     const agent = normalizeAgentName(validatedPayload.agent || validatedPayload.agentName);
-    console.log(`[QAgentService] processSubmission :: promptId=${promptId} | agent=${agent}`);
+    logger.info("Agent selected", { promptId, agent });
 
     // Enrich documents with extracted text from uploaded files
-    console.log("[QAgentService] processSubmission :: enriching document contents...");
-    validatedPayload.documents = await enrichDocumentContents(validatedPayload.documents);
-    console.log("[QAgentService] processSubmission :: document enrichment complete");
+    logger.step("Enriching document contents");
+    validatedPayload.documents = await enrichDocumentContents(validatedPayload.documents, logger);
+    logger.success("Document enrichment complete");
 
     appendPromptRecord(createInitialRecord({ promptId, payload: validatedPayload, agent }));
-    console.log(`[QAgentService] processSubmission :: record created with status=RECEIVED`);
+    logger.success("Prompt record created", { status: "RECEIVED" });
 
     updatePromptRecord(promptId, { status: "IN_PROGRESS", startAt: new Date().toISOString() });
-    console.log(`[QAgentService] processSubmission :: status ->  IN_PROGRESS`);
+    logger.info("Status updated", { status: "IN_PROGRESS" });
 
     try {
         updatePromptRecord(promptId, { status: "PROCESSING" });
-        console.log(`[QAgentService] processSubmission :: status -> PROCESSING`);
+        logger.info("Status updated", { status: "PROCESSING" });
 
         // --- STEP 1: Analysis ---
-        console.log("[QAgentService] processSubmission :: [Step 1/3] building analysis prompt...");
+        logger.step("Step 1/3 - Building analysis prompt");
         const analysisPrompt = await TestCaseService.getTestAnalysisPrompt({
             ...validatedPayload,
             promptId,
             feature: validatedPayload.feature,
             additionalContext: validatedPayload.additionalContext || validatedPayload.context || "",
         });
-        console.log(`[QAgentService] processSubmission :: [Step 1/3] analysis prompt built (${analysisPrompt.length} chars)`);
+        logger.success("Step 1/3 - Analysis prompt built", { chars: analysisPrompt.length });
 
         const runAgent = AGENTS[agent];
-        console.log(`[QAgentService] processSubmission :: [Step 1/3] sending analysis prompt to ${agent}...`);
+        logger.step("Step 1/3 - Sending analysis prompt", { agent });
         const analysisText = await runAgent({ prompt: analysisPrompt, payload: validatedPayload, promptId, mode: "analysis" });
-        console.log(`[QAgentService] processSubmission :: [Step 1/3] analysis received (${analysisText.length} chars)`);
+        logger.success("Step 1/3 - Analysis received", { chars: analysisText.length });
 
         FileReader.writeDataFile(`analyze/${promptId}.md`, analysisText);
-        console.log(`[QAgentService] processSubmission :: [Step 1/3] analysis saved → analyze/${promptId}.md`);
+        logger.success("Step 1/3 - Analysis saved", { path: `analyze/${promptId}.md` });
 
         // --- STEP 2: Test Case Generation ---
-        console.log("[QAgentService] processSubmission :: [Step 2/3] building test case generation prompt...");
+        logger.step("Step 2/3 - Building test case generation prompt");
         const testCasePrompt = await TestCaseService.getTestCaseGenerationPrompt({
             ...validatedPayload,
             promptId,
@@ -293,20 +314,20 @@ const processSubmission = async (payload = {}) => {
             additionalContext: validatedPayload.additionalContext || validatedPayload.context || "",
             analysisContext: analysisText,
         });
-        console.log(`[QAgentService] processSubmission :: [Step 2/3] test case prompt built (${testCasePrompt.length} chars)`);
+        logger.success("Step 2/3 - Test case prompt built", { chars: testCasePrompt.length });
 
-        console.log(`[QAgentService] processSubmission :: [Step 2/3] sending test case prompt to ${agent}...`);
+        logger.step("Step 2/3 - Sending test case prompt", { agent });
         const generatedText = await runAgent({ prompt: testCasePrompt, payload: validatedPayload, promptId, mode: "testcases" });
-        console.log(`[QAgentService] processSubmission :: [Step 2/3] test cases received (${generatedText.length} chars)`);
+        logger.success("Step 2/3 - Test cases received", { chars: generatedText.length });
 
         // --- STEP 3: Parse & Save ---
-        console.log("[QAgentService] processSubmission :: [Step 3/3] parsing JSON response...");
+        logger.step("Step 3/3 - Parsing generated test case JSON");
         const parsed = extractJsonPayload(generatedText);
         const normalizedTestCases = normalizeGeneratedTestCases(parsed, validatedPayload.feature || validatedPayload.projectName || "");
-        console.log(`[QAgentService] processSubmission :: [Step 3/3] parsed OK — ${normalizedTestCases.testCases?.length || 0} sections`);
+        logger.success("Step 3/3 - Parsing completed", { sections: normalizedTestCases.testCases?.length || 0 });
 
         FileReader.writeDataFile(`testcases/${promptId}.json`, normalizedTestCases);
-        console.log(`[QAgentService] processSubmission :: [Step 3/3] test cases saved ->  testcases/${promptId}.json`);
+        logger.success("Step 3/3 - Test cases saved", { path: `testcases/${promptId}.json` });
 
         const totalTestCases = countTestCases(normalizedTestCases);
         const completedRecord = updatePromptRecord(promptId, {
@@ -317,7 +338,7 @@ const processSubmission = async (payload = {}) => {
             errorMessage: null,
         });
 
-        console.log(`[QAgentService] processSubmission :: COMPLETED ✓ — promptId=${promptId} | totalTestCases=${totalTestCases}`);
+        logger.success("Submission completed", { promptId, totalTestCases });
 
         return {
             promptId,
@@ -326,7 +347,7 @@ const processSubmission = async (payload = {}) => {
             testCaseCount: totalTestCases,
         };
     } catch (error) {
-        console.error(`[QAgentService] processSubmission :: FAILED x — promptId=${promptId} | error=${error.message}`);
+        logger.fail(error, { promptId });
         const failureNote = String(error?.message || error || "Unknown processing error");
         updatePromptRecord(promptId, {
             status: "FAILED",

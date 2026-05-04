@@ -1,5 +1,6 @@
 const axios = require("axios")
 const FileReader = require("../utils/FileReader")
+const { createActionLogger } = require("../utils/AppLogger")
 
 const createValidationError = (message, statusCode = 400) => {
 	const error = new Error(message)
@@ -42,7 +43,7 @@ const pickCredentials = () => {
 	}
 
 	if (!suiteId) {
-		throw createValidationError("TESTRAIL_TESTSUITE_ID or TESTRAIL_SUITE_ID is required", 400)
+		throw createValidationError("TESTRAIL_TESTSUITE_ID is required", 400)
 	}
 
 	return { username, password, projectId, suiteId, baseUrl }
@@ -110,6 +111,13 @@ const mapTestrailSection = (section = {}) => ({
 })
 
 const getSections = async () => {
+	const logger = createActionLogger({
+		service: "TestrailService",
+		action: "getSections",
+		fileName: "runtime/testrail-sections.txt",
+	})
+	logger.start("Fetching sections from TestRail")
+
 	const creds = pickCredentials()
 	const requestUrl = buildSectionsUrl({
 		baseUrl: creds.baseUrl,
@@ -121,6 +129,11 @@ const getSections = async () => {
 		const response = await axios.get(requestUrl, createAuthConfig(creds, { timeout: 15000 }))
 		const payload = response.data || {}
 		const sections = Array.isArray(payload?.sections) ? payload.sections.map(mapTestrailSection) : []
+		logger.success("Sections fetched", {
+			projectId: creds.projectId,
+			suiteId: creds.suiteId,
+			count: sections.length,
+		})
 
 		return {
 			offset: payload?.offset ?? 0,
@@ -130,6 +143,7 @@ const getSections = async () => {
 			sections,
 		}
 	} catch (error) {
+		logger.fail(error, { requestUrl })
 		throw extractApiError(error)
 	}
 }
@@ -336,6 +350,12 @@ const buildSelectedSections = (parsedData = {}, testcaseIds = []) => {
 	return selectedGroups
 }
 
+const hasPostedToTestrail = (testCase = {}) => {
+	const status = String(testCase?.testrailPost?.status || "").trim().toLowerCase()
+	const testrailCaseId = normalizeOptionalNumber(testCase?.testrailPost?.testrailCaseId)
+	return status === "success" || testrailCaseId != null
+}
+
 const findSectionByName = (sections = [], sectionName = "", parentId = undefined) => {
 	const normalizedName = String(sectionName || "").trim().toLowerCase()
 	if (!normalizedName) return null
@@ -428,21 +448,93 @@ const ensurePostingSection = async (creds, remoteSections, sectionGroup = {}) =>
 
 const postTestCases = async ({ promptId, testcaseIds = [] } = {}) => {
 	const normalizedPromptId = String(promptId || "").trim()
+	const logger = createActionLogger({
+		service: "TestrailService",
+		action: "postTestCases",
+		promptId: normalizedPromptId || "unknown",
+		fileName: normalizedPromptId ? `analyze/${normalizedPromptId}.txt` : "runtime/testrail-posting.txt",
+	})
+	logger.start("Post test cases requested", {
+		promptId: normalizedPromptId || null,
+		selectedCount: Array.isArray(testcaseIds) ? testcaseIds.length : 0,
+	})
+
 	if (!normalizedPromptId) {
+		logger.fail("Validation failed: promptId is required")
 		throw createValidationError("promptId is required", 400)
 	}
 
 	const parsedData = readPromptTestCases(normalizedPromptId)
 	const selectedGroups = buildSelectedSections(parsedData, testcaseIds)
+	logger.info("Selected groups resolved", {
+		groups: selectedGroups.length,
+		totalSelectedCases: selectedGroups.reduce((sum, item) => sum + item.selectedCases.length, 0),
+	})
 
 	if (!selectedGroups.length) {
+		logger.fail("No test cases found for posting")
 		throw createValidationError("No test cases found for posting", 404)
+	}
+
+	const skippedCases = []
+	const postableGroups = selectedGroups.reduce((acc, group) => {
+		const eligibleCases = []
+
+		group.selectedCases.forEach((selectedCase) => {
+			if (hasPostedToTestrail(selectedCase.testCase)) {
+				skippedCases.push({
+					testcaseId: selectedCase.testcaseId,
+					section: String(group.sectionGroup?.section || "").trim() || "Uncategorized",
+					testrailCaseId: normalizeOptionalNumber(selectedCase.testCase?.testrailPost?.testrailCaseId),
+				})
+				return
+			}
+
+			eligibleCases.push(selectedCase)
+		})
+
+		if (eligibleCases.length) {
+			acc.push({
+				...group,
+				selectedCases: eligibleCases,
+			})
+		}
+
+		return acc
+	}, [])
+
+	if (!postableGroups.length) {
+		logger.success("No-op: all selected test cases already posted", {
+			totalSelectedCases: selectedGroups.reduce((sum, item) => sum + item.selectedCases.length, 0),
+			totalSkipped: skippedCases.length,
+		})
+		return {
+			promptId: normalizedPromptId,
+			totalSections: 0,
+			existingSectionCount: 0,
+			newSectionCount: 0,
+			totalSelectedCases: selectedGroups.reduce((sum, item) => sum + item.selectedCases.length, 0),
+			totalEligibleCases: 0,
+			totalSkipped: skippedCases.length,
+			totalPosted: 0,
+			totalFailed: 0,
+			sections: [],
+			skippedCases,
+			message: "All selected test cases were already posted to TestRail and were skipped.",
+		}
 	}
 
 	const creds = pickCredentials()
 	const remote = await getSections()
 	const remoteSections = Array.isArray(remote?.sections) ? [...remote.sections] : []
 	await getCaseFields(creds)
+	logger.info("Initialized TestRail posting context", {
+		projectId: creds.projectId,
+		suiteId: creds.suiteId,
+		remoteSections: remoteSections.length,
+		totalSkipped: skippedCases.length,
+		eligibleGroups: postableGroups.length,
+	})
 
 	const sectionSummaries = []
 	let totalPosted = 0
@@ -450,15 +542,23 @@ const postTestCases = async ({ promptId, testcaseIds = [] } = {}) => {
 	let existingSectionCount = 0
 	let newSectionCount = 0
 
-	for (const group of selectedGroups) {
+	for (const group of postableGroups) {
 		const sectionGroup = group.sectionGroup
 		const nowIso = new Date().toISOString()
 		const sectionName = String(sectionGroup?.section || "").trim() || "Uncategorized"
+		logger.step("Posting section started", {
+			section: sectionName,
+			selectedCases: group.selectedCases.length,
+		})
 
 		let sectionInfo
 		try {
 			sectionInfo = await ensurePostingSection(creds, remoteSections, sectionGroup)
 		} catch (error) {
+			logger.fail(error, {
+				section: sectionName,
+				stage: "ensurePostingSection",
+			})
 			sectionGroup.testrailPost = {
 				status: "failed",
 				lastAttemptAt: nowIso,
@@ -504,7 +604,18 @@ const postTestCases = async ({ promptId, testcaseIds = [] } = {}) => {
 		try {
 			const batchedCases = await addCases(creds, sectionInfo.sectionId, casePayloads)
 			postedCases = group.selectedCases.map((_, index) => batchedCases[index] || null)
+			logger.success("Bulk add_cases completed", {
+				section: sectionName,
+				sectionId: sectionInfo.sectionId,
+				requested: casePayloads.length,
+				returned: batchedCases.length,
+			})
 		} catch (batchError) {
+			logger.warn("Bulk add_cases failed. Falling back to one-by-one with duplicate detection", {
+				section: sectionName,
+				sectionId: sectionInfo.sectionId,
+				error: batchError.message,
+			})
 			let existingCaseIdsBySignature = new Map()
 			try {
 				const sectionCasesAfterBulk = await getCasesBySection(creds, sectionInfo.sectionId)
@@ -519,7 +630,17 @@ const postTestCases = async ({ promptId, testcaseIds = [] } = {}) => {
 					acc.set(signature, ids)
 					return acc
 				}, new Map())
+				logger.info("Duplicate detection cache built", {
+					section: sectionName,
+					sectionId: sectionInfo.sectionId,
+					signatures: existingCaseIdsBySignature.size,
+				})
 			} catch (searchError) {
+				logger.warn("Duplicate detection failed; continuing fallback posting", {
+					section: sectionName,
+					sectionId: sectionInfo.sectionId,
+					error: searchError.message,
+				})
 				caseStatuses.push({
 					index: -1,
 					status: "info",
@@ -541,6 +662,11 @@ const postTestCases = async ({ promptId, testcaseIds = [] } = {}) => {
 							id: reusedCaseId,
 							_existing: true,
 						}
+						logger.step("Reused existing TestRail case during fallback", {
+							section: sectionName,
+							sectionId: sectionInfo.sectionId,
+							reusedCaseId,
+						})
 						continue
 					}
 				}
@@ -549,6 +675,12 @@ const postTestCases = async ({ promptId, testcaseIds = [] } = {}) => {
 					const posted = await addSingleCase(creds, sectionInfo.sectionId, payload)
 					postedCases[index] = posted
 				} catch (singleError) {
+					logger.warn("Single add_case failed", {
+						section: sectionName,
+						sectionId: sectionInfo.sectionId,
+						index,
+						error: singleError.message,
+					})
 					caseStatuses.push({
 						index,
 						status: "failed",
@@ -560,6 +692,11 @@ const postTestCases = async ({ promptId, testcaseIds = [] } = {}) => {
 			const successfulPosts = postedCases.filter((item) => item?.id != null).length
 			if (!successfulPosts && caseStatuses.length === group.selectedCases.length) {
 				const message = batchError?.message || "Failed to post section test cases"
+				logger.fail("Section posting failed after fallback", {
+					section: sectionName,
+					sectionId: sectionInfo.sectionId,
+					message,
+				})
 				sectionGroup.testrailPost = {
 					status: "failed",
 					lastAttemptAt: nowIso,
@@ -659,19 +796,38 @@ const postTestCases = async ({ promptId, testcaseIds = [] } = {}) => {
 			postedCount,
 			failedCount,
 		})
+
+		logger.success("Section posting completed", {
+			section: sectionName,
+			status: sectionStatus,
+			postedCount,
+			failedCount,
+			targetSectionId: sectionInfo.sectionId,
+		})
 	}
 
 	FileReader.writeDataFile(`testcases/${normalizedPromptId}.json`, parsedData)
+	logger.success("Posting operation completed", {
+		totalSections: postableGroups.length,
+		totalSelectedCases: selectedGroups.reduce((sum, item) => sum + item.selectedCases.length, 0),
+		totalEligibleCases: postableGroups.reduce((sum, item) => sum + item.selectedCases.length, 0),
+		totalSkipped: skippedCases.length,
+		totalPosted,
+		totalFailed,
+	})
 
 	return {
 		promptId: normalizedPromptId,
-		totalSections: selectedGroups.length,
+		totalSections: postableGroups.length,
 		existingSectionCount,
 		newSectionCount,
 		totalSelectedCases: selectedGroups.reduce((sum, item) => sum + item.selectedCases.length, 0),
+		totalEligibleCases: postableGroups.reduce((sum, item) => sum + item.selectedCases.length, 0),
+		totalSkipped: skippedCases.length,
 		totalPosted,
 		totalFailed,
 		sections: sectionSummaries,
+		skippedCases,
 	}
 }
 

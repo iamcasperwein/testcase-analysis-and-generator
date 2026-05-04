@@ -269,9 +269,30 @@
                         "Enter an email address that is not registered.",
                         "Tap the 'Send Reset Link' button."
                     ],
-                    "expectedResult": "A generic success message is displayed (e.g., 'If an account exists with this email...') to prevent user enumeration, but no email is sent. No specific error message indicating 'email not found' should be displayed."
+                    "expectedResult": "A generic success message is displayed (e.g., 'If an account exists with this email...') to prevent user enumeration, but no email is sent. No specific error message indicating 'email not found' should be displayed.",
+                    "testrailPost": {
+                        "status": "success",
+                        "lastAttemptAt": "2026-05-04T05:37:06.330Z",
+                        "message": "Posted to TestRail",
+                        "sectionId": 1058766,
+                        "testrailCaseId": 5358191
+                    }
                 }
-            ]
+            ],
+            "sectionId": 1058766,
+            "suiteId": 67624,
+            "sectionSource": "testrail",
+            "testrailPost": {
+                "status": "success",
+                "lastAttemptAt": "2026-05-04T05:37:06.330Z",
+                "lastPostedAt": "2026-05-04T05:37:06.330Z",
+                "message": "Posted 1 test case(s) to TestRail",
+                "targetSectionId": 1058766,
+                "targetSectionName": "test 2",
+                "sectionMode": "new",
+                "postedCount": 1,
+                "failedCount": 0
+            }
         },
         {
             "section": "Initial Login/Registration Screen Layout & Thumb-Reachability",
@@ -386,29 +407,11 @@
                     "expectedResult": "An instant, inline, and unambiguous error message is displayed (e.g., 'This email is already registered. Please log in or use a different email.') The user is not allowed to register with the existing email. A direct path/link to the login screen or 'Forgot Password' should be available if appropriate.",
                     "testrailPost": {
                         "status": "success",
-                        "lastAttemptAt": "2026-05-03T15:34:09.632Z",
+                        "lastAttemptAt": "2026-05-03T16:20:30.996Z",
                         "message": "Posted to TestRail",
                         "sectionId": 1049966,
-                        "testrailCaseId": 5356800
+                        "testrailCaseId": 5356822
                     }
-                },
-                {
-                    "id": "TC-REG-001",
-                    "title": "Successful User Registration with Valid Credentials Successful User Registration with Valid Credentials Successful User Registration with Valid Credentials Successful User Registration with Valid Credentials Successful User Registration with Valid Credentials",
-                    "type": "positive",
-                    "priority": "high",
-                    "preconditions": [
-                        "App is on the registration screen.",
-                        "User has a unique, valid email address not already registered.",
-                        "User has a password meeting all strength requirements."
-                    ],
-                    "steps": [
-                        "Enter a unique valid email address in the 'Email' field.",
-                        "Enter a strong password in the 'Password' field.",
-                        "If 'Confirm Password' is present, re-enter the strong password.",
-                        "Tap the 'Sign Up' button."
-                    ],
-                    "expectedResult": "User account is successfully created. User is either logged in automatically and redirected to the main app dashboard, or shown a clear success message and prompted to log in. No error messages are displayed."
                 },
                 {
                     "id": "TC-LOG-001",
@@ -424,7 +427,14 @@
                         "Enter the correct password in the 'Password' field.",
                         "Tap the 'Sign In' button."
                     ],
-                    "expectedResult": "User is successfully authenticated and redirected to the main app dashboard/home screen. No error messages are displayed."
+                    "expectedResult": "User is successfully authenticated and redirected to the main app dashboard/home screen. No error messages are displayed.",
+                    "testrailPost": {
+                        "status": "success",
+                        "lastAttemptAt": "2026-05-03T16:20:30.996Z",
+                        "message": "Posted to TestRail",
+                        "sectionId": 1049966,
+                        "testrailCaseId": 5356823
+                    }
                 },
                 {
                     "id": "TC-LOG-003",
@@ -444,13 +454,13 @@
             ],
             "testrailPost": {
                 "status": "success",
-                "lastAttemptAt": "2026-05-03T15:34:09.632Z",
-                "lastPostedAt": "2026-05-03T15:34:09.632Z",
-                "message": "Posted 1 test case(s) to TestRail",
+                "lastAttemptAt": "2026-05-03T16:20:30.996Z",
+                "lastPostedAt": "2026-05-03T16:20:30.996Z",
+                "message": "Posted 2 test case(s) to TestRail",
                 "targetSectionId": 1049966,
                 "targetSectionName": "Login Button",
                 "sectionMode": "existing",
-                "postedCount": 1,
+                "postedCount": 2,
                 "failedCount": 0
             }
         },
@@ -473,19 +483,6 @@
                         "Rotate the device back from landscape to portrait."
                     ],
                     "expectedResult": "The layout of the login/registration screen adapts smoothly to both portrait and landscape orientations, maintaining readability, usability, and optimal thumb-reach where applicable, without any UI distortions or data loss in fields."
-                },
-                {
-                    "id": "TC-UI-005",
-                    "title": "Keyboard Interaction and UI Overlap",
-                    "type": "positive",
-                    "priority": "medium",
-                    "preconditions": [
-                        "App is on the login/registration screen."
-                    ],
-                    "steps": [
-                        "Tap on various input fields to bring up the keyboard."
-                    ],
-                    "expectedResult": "The virtual keyboard appears without overlapping critical input fields or primary action buttons. The UI adjusts appropriately (e.g., scrolls, resizes) to ensure all active elements are visible and accessible."
                 }
             ]
         },
@@ -508,6 +505,53 @@
                         "Move focus out of the email field."
                     ],
                     "expectedResult": "Instant, inline feedback is provided directly beneath the email input field, clearly stating the email format is invalid (e.g., 'Please enter a valid email address.'). The 'Sign Up' button should remain disabled or display an error upon submission until the email is valid."
+                }
+            ]
+        },
+        {
+            "section": "newsections",
+            "sectionId": 1049966,
+            "suiteId": 67624,
+            "sectionSource": "user",
+            "testCases": [
+                {
+                    "id": "TC-REG-001",
+                    "title": "Successful User Registration with Valid Credentials Successful User Registration with Valid Credentials Successful User Registration with Valid Credentials Successful User Registration with Valid Credentials Successful User Registration with Valid Credentials",
+                    "type": "positive",
+                    "priority": "high",
+                    "preconditions": [
+                        "App is on the registration screen.",
+                        "User has a unique, valid email address not already registered.",
+                        "User has a password meeting all strength requirements."
+                    ],
+                    "steps": [
+                        "Enter a unique valid email address in the 'Email' field.",
+                        "Enter a strong password in the 'Password' field.",
+                        "If 'Confirm Password' is present, re-enter the strong password.",
+                        "Tap the 'Sign Up' button."
+                    ],
+                    "expectedResult": "User account is successfully created. User is either logged in automatically and redirected to the main app dashboard, or shown a clear success message and prompted to log in. No error messages are displayed."
+                }
+            ]
+        },
+        {
+            "section": "usercreatedsection",
+            "sectionId": null,
+            "suiteId": null,
+            "sectionSource": "user",
+            "testCases": [
+                {
+                    "id": "TC-UI-005",
+                    "title": "Keyboard Interaction and UI Overlap",
+                    "type": "positive",
+                    "priority": "medium",
+                    "preconditions": [
+                        "App is on the login/registration screen."
+                    ],
+                    "steps": [
+                        "Tap on various input fields to bring up the keyboard."
+                    ],
+                    "expectedResult": "The virtual keyboard appears without overlapping critical input fields or primary action buttons. The UI adjusts appropriately (e.g., scrolls, resizes) to ensure all active elements are visible and accessible."
                 }
             ]
         }
