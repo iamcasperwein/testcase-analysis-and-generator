@@ -719,6 +719,11 @@
       color: #3b5b89;
       border-top: 1px solid #dbe8ff;
     }
+    .section-cb-wrap {
+      align-items: center;
+      margin-right: 0.35rem;
+      flex-shrink: 0;
+    }
 
     /* ── Bloom Modal ──────────────────────────────────────────── */
     .tc-bloom-modal {
@@ -1208,6 +1213,19 @@
       color: #6b82a8;
     }
 
+    .prompt-select-option-meta {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.45rem;
+      width: 100%;
+    }
+
+    .prompt-select-option-desc {
+      font-size: 0.74rem;
+      color: #6b82a8;
+    }
+
     .prompt-select-no-results {
       padding: 0.6rem 0.65rem;
       font-size: 0.82rem;
@@ -1638,6 +1656,250 @@
       font-size: 0.76rem;
       font-weight: 700;
       flex-shrink: 0;
+    }
+
+    .section-selected-badge.badge-new {
+      background: #eef4ff;
+      border-color: #bfd8ff;
+      color: #1d4ed8;
+    }
+
+    .section-selected-badge.badge-testrail {
+      background: #ecfeff;
+      border-color: #a5f3fc;
+      color: #0e7490;
+    }
+
+    .section-selected-badge.badge-ai {
+      background: #f5f3ff;
+      border-color: #ddd6fe;
+      color: #6d28d9;
+    }
+
+    .settings-dialog.bulk-section-dialog {
+      min-width: min(720px, 94vw);
+      max-width: min(840px, 94vw);
+    }
+
+    .settings-dialog.bulk-post-dialog {
+      min-width: min(560px, 92vw);
+      max-width: min(680px, 92vw);
+    }
+
+    .bulk-post-summary {
+      margin: 0.45rem 0 0;
+      padding: 0.65rem 0.8rem;
+      border-radius: 0.7rem;
+      border: 1px solid #dbeafe;
+      background: #f8fbff;
+      list-style: none;
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 0.5rem;
+    }
+
+    .bulk-post-summary li {
+      font-size: 0.82rem;
+      color: #305486;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.6rem;
+      border: 1px solid #dbeafe;
+      border-radius: 0.55rem;
+      background: #ffffff;
+      padding: 0.42rem 0.58rem;
+      font-weight: 600;
+    }
+
+    .bulk-post-summary .count {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 26px;
+      padding: 0.1rem 0.4rem;
+      border-radius: 999px;
+      background: #eff6ff;
+      color: #1d4ed8;
+      font-size: 0.76rem;
+      font-weight: 700;
+    }
+
+    .page-blocking-overlay {
+      position: fixed;
+      inset: 0;
+      z-index: 2200;
+      background: rgba(10, 25, 55, 0.45);
+      backdrop-filter: blur(3px);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      pointer-events: auto;
+    }
+
+    .page-blocking-overlay.open {
+      display: flex;
+    }
+
+    .page-blocking-overlay .blocking-card {
+      min-width: 260px;
+      max-width: 90vw;
+      background: #fff;
+      border-radius: 0.9rem;
+      border: 1px solid #dbeafe;
+      box-shadow: 0 20px 44px rgba(37, 99, 235, 0.2);
+      padding: 1rem 1.15rem;
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      color: #1f4b88;
+      font-size: 0.9rem;
+      font-weight: 600;
+    }
+
+    .bulk-section-toolbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.65rem;
+      margin: 0.35rem 0 0.55rem;
+    }
+
+    .bulk-section-status {
+      font-size: 0.76rem;
+      color: #5575a2;
+      min-height: 1rem;
+      margin: 0.3rem 0 0;
+    }
+
+    .bulk-section-help {
+      font-size: 0.76rem;
+      color: #627da8;
+      margin-top: 0.45rem;
+      display: flex;
+      align-items: center;
+      gap: 0.35rem;
+      flex-wrap: wrap;
+    }
+
+    .section-origin-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.3rem;
+      padding: 0.1rem 0.48rem;
+      border-radius: 999px;
+      border: 1px solid #dbeafe;
+      background: #eff6ff;
+      color: #1d4ed8;
+      font-size: 0.7rem;
+      font-weight: 700;
+      line-height: 1.2;
+      white-space: nowrap;
+    }
+
+    .section-origin-pill.origin-testrail {
+      background: #ecfeff;
+      border-color: #a5f3fc;
+      color: #0e7490;
+    }
+
+    .section-origin-pill.origin-ai {
+      background: #f5f3ff;
+      border-color: #ddd6fe;
+      color: #6d28d9;
+    }
+
+    .section-origin-pill.origin-user {
+      background: #fef3c7;
+      border-color: #fde68a;
+      color: #92400e;
+    }
+
+    /* TestRail posted badge on TC rows */
+    .tr-posted-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.25rem;
+      padding: 0.08rem 0.42rem;
+      border-radius: 999px;
+      border: 1px solid #a5f3fc;
+      background: #ecfeff;
+      color: #0e7490;
+      font-size: 0.65rem;
+      font-weight: 700;
+      line-height: 1.2;
+      white-space: nowrap;
+      vertical-align: middle;
+      margin-left: 0.4rem;
+    }
+    .tr-posted-badge i { font-size: 0.65rem; }
+    .tr-posted-badge[data-tooltip] {
+      position: relative;
+      cursor: default;
+    }
+    .tr-posted-badge[data-tooltip]::after {
+      content: attr(data-tooltip);
+      position: absolute;
+      bottom: calc(100% + 6px);
+      left: 50%;
+      transform: translateX(-50%);
+      background: #1e293b;
+      color: #f8fafc;
+      font-size: 0.72rem;
+      font-weight: 500;
+      padding: 0.3rem 0.6rem;
+      border-radius: 6px;
+      white-space: nowrap;
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 0.15s ease;
+      z-index: 9999;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.18);
+    }
+    .tr-posted-badge[data-tooltip]::before {
+      content: "";
+      position: absolute;
+      bottom: calc(100% + 1px);
+      left: 50%;
+      transform: translateX(-50%);
+      border: 5px solid transparent;
+      border-top-color: #1e293b;
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 0.15s ease;
+      z-index: 9999;
+    }
+    .tr-posted-badge[data-tooltip]:hover::after,
+    .tr-posted-badge[data-tooltip]:hover::before {
+      opacity: 1;
+    }
+
+    /* Blocked-move dialog case list */
+    .blocked-move-list {
+      max-height: 200px;
+      overflow-y: auto;
+      border: 1px solid #e5e7eb;
+      border-radius: 0.5rem;
+      padding: 0.5rem 0.75rem;
+      background: #f9fafb;
+      text-align: left;
+      margin-top: 0.5rem;
+      font-size: 0.82rem;
+    }
+    .blocked-move-list li {
+      padding: 0.2rem 0;
+      border-bottom: 1px solid #f3f4f6;
+      list-style: none;
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+    }
+    .blocked-move-list li:last-child { border-bottom: none; }
+    .blocked-move-note {
+      font-size: 0.8rem;
+      color: #6b7280;
+      margin-top: 0.6rem;
+      text-align: center;
     }
 
     .setting-key-picker .prompt-select-wrap {
@@ -2138,6 +2400,9 @@
               <button class="btn btn-sm btn-outline-primary py-0 px-2" id="tcBulkEditSectionBtn">
                 <i class="bi bi-folder-symlink me-1"></i>Move Section
               </button>
+              <button class="btn btn-sm btn-outline-success py-0 px-2" id="tcBulkPostTestrailBtn">
+                <i class="bi bi-cloud-upload me-1"></i>Post to TestRail
+              </button>
               <button class="btn btn-sm btn-outline-danger py-0 px-2" id="tcBulkDeleteBtn">
                 <i class="bi bi-trash me-1"></i>Delete
               </button>
@@ -2427,12 +2692,17 @@
 
   <!-- Bulk Move Section Dialog -->
   <div id="bulkEditSectionOverlay" class="settings-dialog-overlay" role="dialog" aria-modal="true" aria-labelledby="bulkEditSectionTitle">
-    <div class="settings-dialog">
+    <div class="settings-dialog bulk-section-dialog">
       <div class="settings-dialog-icon icon-edit"><i class="bi bi-folder-symlink"></i></div>
       <div class="settings-dialog-title" id="bulkEditSectionTitle">Move to Section</div>
       <div class="settings-dialog-sub" id="bulkEditSectionSub">Move selected test cases to a section</div>
+      <div class="bulk-section-toolbar">
+        <label class="form-label small fw-semibold text-secondary mb-0">Section</label>
+        <button type="button" class="btn btn-sm btn-outline-primary" id="bulkFetchTestrailBtn">
+          <i class="bi bi-cloud-download me-1"></i>Get from TestRail
+        </button>
+      </div>
       <div class="mb-1">
-        <label class="form-label small fw-semibold text-secondary mb-1">Section</label>
         <div class="prompt-select-wrap" id="bulkEditSectionPickerWrap">
           <div class="prompt-select-trigger" id="bulkEditSectionTrigger" tabindex="0">
             <span class="prompt-select-trigger-text is-placeholder" id="bulkEditSectionTriggerText">Search or create section...</span>
@@ -2444,10 +2714,31 @@
           </div>
         </div>
         <input type="hidden" id="bulkEditSectionValue" />
+        <div class="bulk-section-status" id="bulkEditSectionStatus"></div>
+        <div class="bulk-section-help">
+          <span class="section-origin-pill origin-testrail"><i class="bi bi-cloud-check"></i>TestRail section</span>
+          <span class="section-origin-pill origin-ai"><i class="bi bi-stars"></i>AI-created section</span>
+          <span class="section-origin-pill origin-user"><i class="bi bi-person"></i>User-created section</span>
+        </div>
       </div>
       <div class="settings-dialog-actions">
         <button type="button" class="btn btn-outline-secondary" id="bulkEditSectionCancelBtn">Cancel</button>
         <button type="button" class="btn btn-primary" id="bulkEditSectionConfirmBtn"><i class="bi bi-folder-symlink me-1"></i>Move</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Blocked Move Dialog (TestRail-posted cases can't be moved) -->
+  <div id="blockedMoveOverlay" class="settings-dialog-overlay" role="dialog" aria-modal="true" aria-labelledby="blockedMoveTitle">
+    <div class="settings-dialog dialog-danger">
+      <div class="settings-dialog-icon icon-edit" style="background:#ecfeff;color:#0e7490;"><i class="bi bi-shield-lock"></i></div>
+      <div class="settings-dialog-title" id="blockedMoveTitle">Cannot Move Some Test Cases</div>
+      <div class="settings-dialog-sub" id="blockedMoveSub">The following test cases are already posted to TestRail and cannot be moved to another section.</div>
+      <ul class="blocked-move-list" id="blockedMoveList"></ul>
+      <p class="blocked-move-note" id="blockedMoveNote"></p>
+      <div class="settings-dialog-actions">
+        <button type="button" class="btn btn-outline-secondary" id="blockedMoveCancelBtn">Cancel</button>
+        <button type="button" class="btn btn-primary" id="blockedMoveConfirmBtn" style="display:none;"><i class="bi bi-folder-symlink me-1"></i>Move remaining</button>
       </div>
     </div>
   </div>
@@ -2462,6 +2753,34 @@
         <button type="button" class="btn btn-outline-secondary" id="bulkDeleteCancelBtn">Cancel</button>
         <button type="button" class="btn btn-danger" id="bulkDeleteConfirmBtn"><i class="bi bi-trash3 me-1"></i>Delete All</button>
       </div>
+    </div>
+  </div>
+
+  <!-- Bulk Post TestRail Confirm Dialog -->
+  <div id="bulkPostTestrailOverlay" class="settings-dialog-overlay" role="dialog" aria-modal="true" aria-labelledby="bulkPostTestrailTitle">
+    <div class="settings-dialog bulk-post-dialog">
+      <div class="settings-dialog-icon icon-edit"><i class="bi bi-cloud-upload"></i></div>
+      <div class="settings-dialog-title" id="bulkPostTestrailTitle">Post to TestRail</div>
+      <div class="settings-dialog-sub" id="bulkPostTestrailSub">Review selected scope before posting.</div>
+      <ul class="bulk-post-summary" id="bulkPostTestrailSummary">
+        <li><span>Total selected test cases</span><span class="count" id="bulkPostSelectedCount">0</span></li>
+        <li><span>Total selected sections</span><span class="count" id="bulkPostSectionCount">0</span></li>
+        <li><span>Existing TestRail sections</span><span class="count" id="bulkPostExistingCount">0</span></li>
+        <li><span>New sections to create</span><span class="count" id="bulkPostNewCount">0</span></li>
+      </ul>
+      <div class="bulk-section-status text-muted" id="bulkPostTestrailStatus"></div>
+      <div class="settings-dialog-actions">
+        <button type="button" class="btn btn-outline-secondary" id="bulkPostTestrailCancelBtn">Cancel</button>
+        <button type="button" class="btn btn-primary" id="bulkPostTestrailConfirmBtn"><i class="bi bi-cloud-upload me-1"></i>Post</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Global Blocking Overlay -->
+  <div id="pageBlockingOverlay" class="page-blocking-overlay" aria-live="polite" aria-busy="true">
+    <div class="blocking-card">
+      <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+      <span id="pageBlockingText">Processing...</span>
     </div>
   </div>
 
@@ -2549,6 +2868,17 @@
       clearTimeout(_bannerTimer);
       appBanner.classList.remove("banner-show");
     });
+
+    const pageBlockingOverlay = document.getElementById("pageBlockingOverlay");
+    const pageBlockingText = document.getElementById("pageBlockingText");
+
+    function setPageBlockingOverlay(isOpen, message = "Processing...") {
+      if (!pageBlockingOverlay) return;
+      if (pageBlockingText) {
+        pageBlockingText.textContent = String(message || "Processing...");
+      }
+      pageBlockingOverlay.classList.toggle("open", Boolean(isOpen));
+    }
 
     // --- SETTINGS CUSTOM DIALOGS ---
     const settingEditOverlay     = document.getElementById("settingEditOverlay");
@@ -3034,6 +3364,8 @@
     let isSelectMode = false;
     let selectedTcIds = new Set();
     let tcSearchQuery = "";
+    let testrailSectionsCache = [];
+    let isFetchingTestrailSections = false;
 
     toggleIdColumn.addEventListener("change", () => {
       applyAllViewColumnVisibility();
@@ -3096,6 +3428,7 @@
       isSelectMode = false;
       selectedTcIds.clear();
       tcSearchQuery = "";
+      testrailSectionsCache = [];
       const _si = document.getElementById("tcSearchInput");
       if (_si) _si.value = "";
       const _sb = document.getElementById("tcSelectModeBtn");
@@ -3122,6 +3455,9 @@
           (group.testCases || []).map(tc => ({
             ...tc,
             section: group.section || "Uncategorized",
+            sectionId: group.sectionId ?? null,
+            suiteId: group.suiteId ?? null,
+            sectionSource: group.sectionSource || (group.sectionId != null ? "testrail" : "ai"),
             preconditions: Array.isArray(tc.preconditions)
               ? tc.preconditions.join("\n")
               : (tc.preconditions || ""),
@@ -3145,16 +3481,24 @@
         const sectionMap = new Map();
         allTestCases.forEach(tc => {
           const sec = (tc.section || "Uncategorized").trim();
-          if (!sectionMap.has(sec)) {
-            sectionMap.set(sec, []);
+          const sectionKey = tc.sectionId != null
+            ? `id:${tc.sectionId}`
+            : `name:${sec.toLowerCase()}`;
+
+          if (!sectionMap.has(sectionKey)) {
+            sectionMap.set(sectionKey, {
+              name: sec,
+              sectionId: tc.sectionId ?? null,
+              suiteId: tc.suiteId ?? null,
+              source: tc.sectionSource || (tc.sectionId != null ? "testrail" : "ai"),
+              testcases: [],
+            });
           }
-          sectionMap.get(sec).push(tc);
+
+          sectionMap.get(sectionKey).testcases.push(tc);
         });
 
-        sections = Array.from(sectionMap.entries()).map(([name, tcs]) => ({
-          name,
-          testcases: tcs,
-        }));
+        sections = Array.from(sectionMap.values());
 
         renderSections();
         renderAllTestCases();
@@ -3176,16 +3520,23 @@
       const sectionMap = new Map();
       allTestCases.forEach(tc => {
         const sec = (tc.section || "Uncategorized").trim();
-        if (!sectionMap.has(sec)) {
-          sectionMap.set(sec, []);
+        const sectionKey = tc.sectionId != null
+          ? `id:${tc.sectionId}`
+          : `name:${sec.toLowerCase()}`;
+
+        if (!sectionMap.has(sectionKey)) {
+          sectionMap.set(sectionKey, {
+            name: sec,
+            sectionId: tc.sectionId ?? null,
+            suiteId: tc.suiteId ?? null,
+            source: tc.sectionSource || (tc.sectionId != null ? "testrail" : "ai"),
+            testcases: [],
+          });
         }
-        sectionMap.get(sec).push(tc);
+        sectionMap.get(sectionKey).testcases.push(tc);
       });
 
-      sections = Array.from(sectionMap.entries()).map(([name, tcs]) => ({
-        name,
-        testcases: tcs,
-      }));
+      sections = Array.from(sectionMap.values());
     }
 
     function renderSections() {
@@ -3203,7 +3554,15 @@
         if (sec.name === selectedSection) {
           div.classList.add("active");
         }
-        div.textContent = `${sec.name} (${sec.testcases.length})`;
+        const normalizedSource = String(sec.source || "ai").toLowerCase();
+        const sectionSource = normalizedSource === "testrail" || normalizedSource === "user" ? normalizedSource : "ai";
+        const sourceLabel = sectionSource === "testrail" ? "TestRail" : sectionSource === "user" ? "User" : "AI";
+        div.innerHTML = `
+          <div class="d-flex align-items-center justify-content-between gap-2">
+            <span class="text-truncate">${escapeHtml(sec.name)} (${sec.testcases.length})</span>
+            <span class="section-origin-pill origin-${sectionSource}">${sourceLabel}</span>
+          </div>
+        `;
         div.dataset.section = sec.name;
         div.addEventListener("click", () => {
           selectSection(sec.name);
@@ -3297,7 +3656,54 @@
         sectionRow.dataset.sectionHeader = section.name;
         const sectionCell = document.createElement("td");
         sectionCell.colSpan = getVisibleColumnsCount();
-        sectionCell.textContent = `${section.name} (${section.testcases.length})`;
+        const normalizedSource = String(section.source || "ai").toLowerCase();
+        const sectionSource = normalizedSource === "testrail" || normalizedSource === "user" ? normalizedSource : "ai";
+        const sourceLabel = sectionSource === "testrail" ? "TestRail" : sectionSource === "user" ? "User" : "AI";
+
+        // Section select-all checkbox (inside the cell, only visible in select mode)
+        const sectionCbWrap = document.createElement("span");
+        sectionCbWrap.className = "section-cb-wrap";
+        sectionCbWrap.style.display = isSelectMode ? "inline-flex" : "none";
+        const sectionCb = document.createElement("input");
+        sectionCb.type = "checkbox";
+        sectionCb.className = "form-check-input section-select-all-cb mb-0";
+        sectionCb.dataset.sectionName = section.name;
+        sectionCb.title = "Select all in this section";
+        const sectionIds = section.testcases.map(tc => tc.id).filter(Boolean);
+        const sCheckedCount = sectionIds.filter(id => selectedTcIds.has(id)).length;
+        sectionCb.checked = sectionIds.length > 0 && sCheckedCount === sectionIds.length;
+        sectionCb.indeterminate = sCheckedCount > 0 && sCheckedCount < sectionIds.length;
+        sectionCb.addEventListener("change", () => {
+          const tcRows = Array.from(testCaseTableBody.querySelectorAll(`.testcase-row[data-section="${CSS.escape(section.name)}"]`));
+          tcRows.forEach(row => {
+            const id = row.dataset.tcId;
+            if (!id) return;
+            if (sectionCb.checked) selectedTcIds.add(id);
+            else selectedTcIds.delete(id);
+            row.classList.toggle("tc-selected", sectionCb.checked);
+            const rowCb = row.querySelector(".tc-row-check");
+            if (rowCb) rowCb.checked = sectionCb.checked;
+          });
+          updateBulkBar();
+          updateSelectAllState();
+        });
+        sectionCbWrap.appendChild(sectionCb);
+
+        const sectionContentDiv = document.createElement("div");
+        sectionContentDiv.className = "d-flex align-items-center justify-content-between gap-2";
+        sectionContentDiv.innerHTML = `
+          <span class="d-flex align-items-center gap-2"></span>
+          <span class="section-origin-pill origin-${sectionSource}">${sourceLabel}</span>
+        `;
+        const sectionNameSpan = sectionContentDiv.querySelector("span.d-flex");
+        sectionNameSpan.prepend(sectionCbWrap);
+        const nameText = document.createTextNode(`${escapeHtml(section.name)} (${section.testcases.length})`);
+        // Use innerHTML for the text portion safely
+        const namePart = document.createElement("span");
+        namePart.textContent = `${section.name} (${section.testcases.length})`;
+        sectionNameSpan.appendChild(namePart);
+
+        sectionCell.appendChild(sectionContentDiv);
         sectionRow.appendChild(sectionCell);
         testCaseTableBody.appendChild(sectionRow);
 
@@ -3328,12 +3734,31 @@
 
           const tdId = document.createElement("td");
           tdId.dataset.col = "id";
-          tdId.textContent = tc.id || "";
+          const trCaseId = tc.testrailPost?.testrailCaseId;
+          if (trCaseId != null) {
+            tdId.textContent = `C${trCaseId}`;
+            tdId.title = `Local ID: ${tc.id || ""}`;
+          } else {
+            tdId.textContent = tc.id || "";
+          }
           tr.appendChild(tdId);
 
           const tdTitle = document.createElement("td");
           tdTitle.dataset.col = "title";
-          tdTitle.textContent = tc.title || "";
+          if (tc.testrailPost?.status === "success") {
+            const titleSpan = document.createElement("span");
+            titleSpan.textContent = tc.title || "";
+            const icon = document.createElement("span");
+            icon.className = "tr-posted-badge";
+            const caseId = tc.testrailPost.testrailCaseId ?? "?";
+            const postedDate = tc.testrailPost.lastAttemptAt ? new Date(tc.testrailPost.lastAttemptAt).toLocaleDateString() : null;
+            icon.dataset.tooltip = `TestRail Case #${caseId}${postedDate ? " · Posted " + postedDate : ""}`;
+            icon.innerHTML = '<i class="bi bi-cloud-check-fill"></i>';
+            tdTitle.appendChild(titleSpan);
+            tdTitle.appendChild(icon);
+          } else {
+            tdTitle.textContent = tc.title || "";
+          }
           tr.appendChild(tdTitle);
 
           tr.appendChild(createActionButtons(tc));
@@ -3414,6 +3839,7 @@
     });
 
     document.getElementById("tcBulkEditSectionBtn").addEventListener("click", handleBulkEditSection);
+    document.getElementById("tcBulkPostTestrailBtn").addEventListener("click", handleBulkPostToTestrail);
     document.getElementById("tcBulkDeleteBtn").addEventListener("click", handleBulkDelete);
     document.getElementById("tcClearSelectionBtn").addEventListener("click", () => {
       selectedTcIds.clear();
@@ -3450,17 +3876,88 @@
     const editTestCaseModal = new bootstrap.Modal(document.getElementById("editTestCaseModal"));
     const editTestCaseForm = document.getElementById("editTestCaseForm");
 
-    function formatSectionTriggerText(value = "", isNew = false) {
-      const text = String(value || "").trim();
+    function normalizeSectionOption(option = {}) {
+      if (typeof option === "string") {
+        const name = String(option || "").trim();
+        return {
+          name,
+          sectionId: null,
+          suiteId: null,
+          source: "ai",
+          depth: 0,
+          parentId: null,
+        };
+      }
+
+      const name = String(option.name || option.section || "").trim();
+      const sectionIdRaw = option.sectionId != null ? option.sectionId : option.id;
+      const suiteIdRaw = option.suiteId != null ? option.suiteId : option.suite_id;
+      const sectionId = sectionIdRaw != null && sectionIdRaw !== "" ? Number(sectionIdRaw) : null;
+      const suiteId = suiteIdRaw != null && suiteIdRaw !== "" ? Number(suiteIdRaw) : null;
+      const sourceHint = String(option.source || option.sectionSource || "").trim().toLowerCase();
+      const source = sourceHint === "testrail" || sourceHint === "ai" || sourceHint === "user"
+        ? sourceHint
+        : (sectionId != null ? "testrail" : "ai");
+
+      return {
+        name,
+        sectionId: Number.isFinite(sectionId) ? sectionId : null,
+        suiteId: Number.isFinite(suiteId) ? suiteId : null,
+        source,
+        depth: Number.isFinite(Number(option.depth)) ? Number(option.depth) : 0,
+        parentId: option.parentId != null ? option.parentId : option.parent_id ?? null,
+      };
+    }
+
+    function buildSectionOptionKey(option = {}) {
+      const normalized = normalizeSectionOption(option);
+      if (normalized.sectionId != null) {
+        return `id:${normalized.sectionId}`;
+      }
+      return `name:${normalized.name.toLowerCase()}`;
+    }
+
+    function dedupeSectionOptions(options = []) {
+      const map = new Map();
+      (options || []).forEach((item) => {
+        const normalized = normalizeSectionOption(item);
+        if (!normalized.name) return;
+        const key = buildSectionOptionKey(normalized);
+        if (!map.has(key)) {
+          map.set(key, normalized);
+        }
+      });
+
+      return Array.from(map.values()).sort((a, b) => {
+        const sourceRank = { testrail: 0, user: 1, ai: 2 };
+        if (a.source !== b.source) {
+          return (sourceRank[a.source] ?? 99) - (sourceRank[b.source] ?? 99);
+        }
+        return a.name.localeCompare(b.name);
+      });
+    }
+
+    function formatSectionTriggerText(selection = {}, isNew = false) {
+      const option = normalizeSectionOption(selection);
+      const text = String(option.name || "").trim();
       if (!text) {
         return '<span class="prompt-select-trigger-text is-placeholder">Search or create section...</span>';
       }
 
       if (isNew) {
-        return `<span class="section-selected-badge"><i class="bi bi-plus-lg"></i>New</span><span class="prompt-select-trigger-text">${escapeHtml(text)}</span>`;
+        return `<span class="section-selected-badge badge-new"><i class="bi bi-plus-lg"></i>New</span><span class="prompt-select-trigger-text">${escapeHtml(text)}</span>`;
       }
 
-      return `<span class="prompt-select-trigger-text">${escapeHtml(text)}</span>`;
+      const sourceLabelMap = {
+        testrail: { css: "testrail", text: "TestRail", icon: "bi-cloud-check" },
+        ai: { css: "ai", text: "AI", icon: "bi-stars" },
+        user: { css: "user", text: "User", icon: "bi-person" },
+      };
+      const sourceMeta = sourceLabelMap[option.source] || sourceLabelMap.ai;
+      const badgeClass = sourceMeta.css === "testrail" ? "badge-testrail" : sourceMeta.css === "user" ? "badge-new" : "badge-ai";
+      const badgeText = sourceMeta.text;
+      const badgeIcon = sourceMeta.icon;
+      return `<span class="section-selected-badge ${badgeClass}"><i class="bi ${badgeIcon}"></i>${badgeText}</span><span class="prompt-select-trigger-text">${escapeHtml(text)}</span>`;
     }
 
     function createSectionPicker({ wrapId, triggerId, triggerTextId, dropdownId, searchId, optionsId, valueId }) {
@@ -3474,24 +3971,72 @@
       let allOptions = [];
       let selectedValue = "";
       let selectedIsNew = false;
+      let selectedOption = normalizeSectionOption({});
 
       function renderTrigger() {
-        triggerEl.innerHTML = `${formatSectionTriggerText(selectedValue, selectedIsNew)}<i class="bi bi-chevron-down" style="font-size:0.75rem;flex-shrink:0;"></i>`;
+        triggerEl.innerHTML = `${formatSectionTriggerText(selectedOption, selectedIsNew)}<i class="bi bi-chevron-down" style="font-size:0.75rem;flex-shrink:0;"></i>`;
       }
 
       function renderOptions(filter = "") {
         const query = String(filter || "").trim().toLowerCase();
-        const filtered = allOptions.filter((option) => option.toLowerCase().includes(query));
-        const exactMatch = allOptions.some((option) => option.toLowerCase() === query);
+        const filtered = allOptions.filter((option) => option.name.toLowerCase().includes(query));
+        const exactMatch = allOptions.some((option) => option.name.toLowerCase() === query);
+        const testrailById = new Map(
+          allOptions
+            .filter((option) => option.source === "testrail" && option.sectionId != null)
+            .map((option) => [Number(option.sectionId), option])
+        );
+
+        function resolveTestrailPath(option) {
+          if (!option || option.source !== "testrail") {
+            return "";
+          }
+
+          const names = [];
+          const visited = new Set();
+          let cursor = option;
+
+          while (cursor) {
+            const cursorId = cursor.sectionId != null ? Number(cursor.sectionId) : null;
+            if (cursorId != null) {
+              if (visited.has(cursorId)) break;
+              visited.add(cursorId);
+            }
+
+            if (cursor.name) {
+              names.unshift(String(cursor.name).trim());
+            }
+
+            const parentId = cursor.parentId != null ? Number(cursor.parentId) : null;
+            if (parentId == null) break;
+            cursor = testrailById.get(parentId) || null;
+          }
+
+          return names.filter(Boolean).join(":");
+        }
 
         optionsEl.innerHTML = "";
 
         filtered.forEach((option) => {
+          const optionKey = buildSectionOptionKey(option);
+          const selectedKey = buildSectionOptionKey(selectedOption);
+          const isSelected = !selectedIsNew && optionKey === selectedKey;
+          const sectionSource = option.source === "testrail" || option.source === "user" ? option.source : "ai";
+          const isTestrail = sectionSource === "testrail";
+          const sourceLabel = sectionSource === "testrail" ? "TestRail" : sectionSource === "user" ? "User" : "AI";
+          const sectionPath = resolveTestrailPath(option);
+          const sectionMeta = isTestrail
+            ? `${sectionPath ? `${escapeHtml(sectionPath)} · ` : ""}TestRail section${option.suiteId != null ? ` · Suite ${escapeHtml(option.suiteId)}` : ""}`
+            : (sectionSource === "user" ? "User-created section" : "AI-created section");
+
           const optionEl = document.createElement("div");
-          optionEl.className = `prompt-select-option${selectedValue === option && !selectedIsNew ? " selected" : ""}`;
+          optionEl.className = `prompt-select-option${isSelected ? " selected" : ""}`;
           optionEl.innerHTML = `
-            <span class="prompt-select-option-id">${escapeHtml(option)}</span>
-            <span class="prompt-select-option-name">Existing section</span>
+            <div class="prompt-select-option-meta">
+              <span class="prompt-select-option-id">${escapeHtml(option.name)}</span>
+              <span class="section-origin-pill origin-${sectionSource}">${sourceLabel}</span>
+            </div>
+            <span class="prompt-select-option-desc">${sectionMeta}</span>
           `;
           optionEl.addEventListener("mousedown", (event) => {
             event.preventDefault();
@@ -3501,15 +4046,16 @@
         });
 
         if (query && !exactMatch) {
+          const typed = searchEl.value.trim();
           const createOptionEl = document.createElement("div");
           createOptionEl.className = `prompt-select-option section-create-option${selectedValue === searchEl.value.trim() && selectedIsNew ? " selected" : ""}`;
           createOptionEl.innerHTML = `
-            <span class="prompt-select-option-id"><i class="bi bi-plus-circle me-1"></i>Create "${escapeHtml(searchEl.value.trim())}"</span>
+            <span class="prompt-select-option-id"><i class="bi bi-plus-circle me-1"></i>Create "${escapeHtml(typed)}"</span>
             <span class="prompt-select-option-name">Use this as a new section</span>
           `;
           createOptionEl.addEventListener("mousedown", (event) => {
             event.preventDefault();
-            selectValue(searchEl.value.trim(), true);
+            selectValue({ name: typed, source: "user", sectionId: null, suiteId: null }, true);
           });
           optionsEl.appendChild(createOptionEl);
         }
@@ -3533,7 +4079,12 @@
       }
 
       function selectValue(value, isNew) {
-        selectedValue = String(value || "").trim();
+        const normalized = normalizeSectionOption(value);
+        selectedValue = String(normalized.name || "").trim();
+        selectedOption = {
+          ...normalized,
+          name: selectedValue,
+        };
         selectedIsNew = Boolean(isNew);
         valueEl.value = selectedValue;
         renderTrigger();
@@ -3564,8 +4115,8 @@
           event.preventDefault();
           const typedValue = String(searchEl.value || "").trim();
           if (!typedValue) return;
-          const exactExisting = allOptions.find((option) => option.toLowerCase() === typedValue.toLowerCase());
-          selectValue(exactExisting || typedValue, !exactExisting);
+          const exactExisting = allOptions.find((option) => option.name.toLowerCase() === typedValue.toLowerCase());
+          selectValue(exactExisting || { name: typedValue, source: "user", sectionId: null, suiteId: null }, !exactExisting);
         }
       });
 
@@ -3577,13 +4128,33 @@
 
       return {
         setOptions(nextOptions = []) {
-          allOptions = Array.from(new Set(nextOptions.map((option) => String(option || "").trim()).filter(Boolean))).sort((a, b) => a.localeCompare(b));
+          allOptions = dedupeSectionOptions(nextOptions);
           renderOptions(searchEl.value);
         },
-        setValue(nextValue = "") {
+        addOptions(nextOptions = []) {
+          allOptions = dedupeSectionOptions([...(allOptions || []), ...(nextOptions || [])]);
+          renderOptions(searchEl.value);
+        },
+        setValue(nextValue = "", metadata = {}) {
           const normalizedValue = String(nextValue || "").trim();
-          const existing = allOptions.find((option) => option.toLowerCase() === normalizedValue.toLowerCase());
-          selectedValue = existing || normalizedValue;
+          const desiredSectionId = metadata.sectionId != null ? Number(metadata.sectionId) : null;
+          const existing = allOptions.find((option) => {
+            if (option.name.toLowerCase() !== normalizedValue.toLowerCase()) return false;
+            if (desiredSectionId != null && option.sectionId != null) {
+              return Number(option.sectionId) === desiredSectionId;
+            }
+            return true;
+          });
+
+          const fallbackOption = normalizeSectionOption({
+            name: normalizedValue,
+            sectionId: metadata.sectionId,
+            suiteId: metadata.suiteId,
+            source: metadata.source || metadata.sectionSource || (metadata.sectionId != null ? "testrail" : "ai"),
+          });
+
+          selectedValue = existing ? existing.name : normalizedValue;
+          selectedOption = existing || fallbackOption;
           selectedIsNew = Boolean(normalizedValue) && !existing;
           valueEl.value = selectedValue;
           searchEl.value = "";
@@ -3592,6 +4163,15 @@
         },
         getValue() {
           return String(valueEl.value || "").trim();
+        },
+        getSelection() {
+          return {
+            name: String(selectedOption.name || "").trim(),
+            sectionId: selectedOption.sectionId != null ? selectedOption.sectionId : null,
+            suiteId: selectedOption.suiteId != null ? selectedOption.suiteId : null,
+            source: selectedOption.source || "ai",
+            isNew: selectedIsNew,
+          };
         },
         focusSearch() {
           openDropdown();
@@ -3624,7 +4204,11 @@
       const currentSection = String(tc.section || "").trim();
 
       editSectionPicker.setOptions(sectionOptions);
-      editSectionPicker.setValue(currentSection);
+      editSectionPicker.setValue(currentSection, {
+        sectionId: tc.sectionId,
+        suiteId: tc.suiteId,
+        source: tc.sectionSource,
+      });
 
       document.getElementById("editTcId").value = tc.id || "";
       document.getElementById("editTcPromptId").value = currentScopePromptId || "";
@@ -3641,6 +4225,7 @@
       const tcId = document.getElementById("editTcId").value;
       const promptId = document.getElementById("editTcPromptId").value;
       const resolvedSection = editSectionPicker.getValue();
+      const resolvedSelection = editSectionPicker.getSelection();
 
       if (!resolvedSection) {
         showBanner("Section is required.", "danger");
@@ -3652,6 +4237,9 @@
         promptId: promptId,
         title: document.getElementById("editTcTitle").value.trim(),
         section: resolvedSection,
+        sectionId: resolvedSelection.sectionId,
+        suiteId: resolvedSelection.suiteId,
+        sectionSource: resolvedSelection.source,
         preconditions: document.getElementById("editTcPreconditions").value.trim(),
         steps: document.getElementById("editTcSteps").value.trim(),
         expected: document.getElementById("editTcExpected").value.trim(),
@@ -3763,16 +4351,95 @@
       if (!selectAll) return;
       const rows = Array.from(testCaseTableBody.querySelectorAll(".testcase-row"));
       const ids = rows.map(r => r.dataset.tcId).filter(Boolean);
-      if (!ids.length) { selectAll.checked = false; selectAll.indeterminate = false; return; }
-      const checked = ids.filter(id => selectedTcIds.has(id)).length;
-      selectAll.checked = checked === ids.length;
-      selectAll.indeterminate = checked > 0 && checked < ids.length;
+      if (!ids.length) { selectAll.checked = false; selectAll.indeterminate = false; }
+      else {
+        const checked = ids.filter(id => selectedTcIds.has(id)).length;
+        selectAll.checked = checked === ids.length;
+        selectAll.indeterminate = checked > 0 && checked < ids.length;
+      }
+
+      // Sync each section's checkbox state and visibility
+      testCaseTableBody.querySelectorAll(".section-select-all-cb").forEach(sectionCb => {
+        const wrap = sectionCb.closest(".section-cb-wrap");
+        if (wrap) wrap.style.display = isSelectMode ? "inline-flex" : "none";
+        const sName = sectionCb.dataset.sectionName;
+        if (!sName) return;
+        const sRows = Array.from(testCaseTableBody.querySelectorAll(`.testcase-row[data-section="${CSS.escape(sName)}"]`));
+        const sIds = sRows.map(r => r.dataset.tcId).filter(Boolean);
+        if (!sIds.length) { sectionCb.checked = false; sectionCb.indeterminate = false; return; }
+        const sChecked = sIds.filter(id => selectedTcIds.has(id)).length;
+        sectionCb.checked = sChecked === sIds.length;
+        sectionCb.indeterminate = sChecked > 0 && sChecked < sIds.length;
+      });
+    }
+
+    const bulkFetchTestrailBtn = document.getElementById("bulkFetchTestrailBtn");
+    const bulkEditSectionStatus = document.getElementById("bulkEditSectionStatus");
+
+    function setBulkSectionStatus(message = "", type = "muted") {
+      if (!bulkEditSectionStatus) return;
+      bulkEditSectionStatus.textContent = message;
+      bulkEditSectionStatus.classList.remove("text-muted", "text-danger", "text-success");
+      bulkEditSectionStatus.classList.add(
+        type === "danger" ? "text-danger" : type === "success" ? "text-success" : "text-muted"
+      );
     }
 
     function getSectionOptions() {
-      const fromSections = sections.map(s => String(s?.name || "").trim()).filter(Boolean);
-      const fromCases = allTestCases.map(tc => String(tc?.section || "").trim()).filter(Boolean);
-      return Array.from(new Set([...fromSections, ...fromCases])).sort((a, b) => a.localeCompare(b));
+      const fromSections = sections.map((s) => ({
+        name: String(s?.name || "").trim(),
+        sectionId: s?.sectionId ?? null,
+        suiteId: s?.suiteId ?? null,
+        source: s?.source || (s?.sectionId != null ? "testrail" : "ai"),
+      })).filter((item) => item.name);
+
+      const fromCases = allTestCases.map((tc) => ({
+        name: String(tc?.section || "").trim(),
+        sectionId: tc?.sectionId ?? null,
+        suiteId: tc?.suiteId ?? null,
+        source: tc?.sectionSource || (tc?.sectionId != null ? "testrail" : "ai"),
+      })).filter((item) => item.name);
+
+      return dedupeSectionOptions([...(fromSections || []), ...(fromCases || []), ...(testrailSectionsCache || [])]);
+    }
+
+    async function fetchTestrailSectionsForPicker() {
+      if (isFetchingTestrailSections) return;
+
+      isFetchingTestrailSections = true;
+      bulkFetchTestrailBtn.disabled = true;
+      bulkFetchTestrailBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1" role="status"></span>Fetching...';
+      setBulkSectionStatus("Fetching sections from TestRail...", "muted");
+
+      try {
+        const response = await apiRequest("/testrail/getsections");
+        const payload = response?.data ?? response;
+        const remoteSections = Array.isArray(payload?.sections) ? payload.sections : [];
+
+        testrailSectionsCache = remoteSections
+          .map((section) => normalizeSectionOption({
+            name: section?.name,
+            sectionId: section?.id,
+            suiteId: section?.suite_id,
+            source: "testrail",
+            depth: section?.depth,
+            parentId: section?.parent_id,
+          }))
+          .filter((item) => item.name);
+
+        bulkSectionPicker.setOptions(getSectionOptions());
+        setBulkSectionStatus(`Loaded ${testrailSectionsCache.length} section(s) from TestRail.`, "success");
+      } catch (error) {
+        setBulkSectionStatus(`Failed to fetch TestRail sections: ${error.message}`, "danger");
+      } finally {
+        isFetchingTestrailSections = false;
+        bulkFetchTestrailBtn.disabled = false;
+        bulkFetchTestrailBtn.innerHTML = '<i class="bi bi-cloud-download me-1"></i>Get from TestRail';
+      }
+    }
+
+    if (bulkFetchTestrailBtn) {
+      bulkFetchTestrailBtn.addEventListener("click", fetchTestrailSectionsForPicker);
     }
 
     function openBulkEditSectionDialog(sectionNames) {
@@ -3785,6 +4452,7 @@
         sub.textContent = "Move " + selectedTcIds.size + " test case(s) to a section";
         bulkSectionPicker.setOptions(sectionNames || []);
         bulkSectionPicker.setValue("");
+  setBulkSectionStatus("click \"Get from TestRail\" to sync remote sections.", "muted");
         overlay.classList.add("open");
         setTimeout(function(){ bulkSectionPicker.focusSearch(); }, 50);
 
@@ -3796,13 +4464,18 @@
           document.removeEventListener("keydown", onKeydown);
         }
         function onConfirm()  {
-          const resolved = bulkSectionPicker.getValue();
+          const resolved = bulkSectionPicker.getSelection();
           cleanup();
-          resolve(resolved || null);
+          resolve(resolved && resolved.name ? resolved : null);
         }
         function onCancel()   { cleanup(); resolve(null); }
         function onBackdrop(e){ if (e.target === overlay) onCancel(); }
-        function onKeydown(e) { if (e.key === "Enter") onConfirm(); if (e.key === "Escape") onCancel(); }
+        function onKeydown(e) {
+          if (e.key === "Escape") onCancel();
+          if (e.key === "Enter" && !document.getElementById("bulkEditSectionDropdown")?.classList.contains("open")) {
+            onConfirm();
+          }
+        }
         confirmBtn.addEventListener("click", onConfirm);
         cancelBtn.addEventListener("click", onCancel);
         overlay.addEventListener("click", onBackdrop);
@@ -3836,10 +4509,240 @@
       });
     }
 
+    function getSelectedTestCases() {
+      if (!selectedTcIds.size) return [];
+      const selectedIds = new Set(Array.from(selectedTcIds).map((id) => String(id || "").trim()));
+      return allTestCases.filter((tc) => selectedIds.has(String(tc.id || "").trim()));
+    }
+
+    function summarizeSelectionForTestrailPosting() {
+      const selectedCases = getSelectedTestCases();
+      const eligibleCases = selectedCases.filter((tc) => !(tc.testrailPost?.status === "success" || tc.testrailPost?.testrailCaseId != null));
+      const skippedCases = selectedCases.filter((tc) => tc.testrailPost?.status === "success" || tc.testrailPost?.testrailCaseId != null);
+      const sectionMap = new Map();
+
+      eligibleCases.forEach((tc) => {
+        const sectionName = String(tc.section || "Uncategorized").trim() || "Uncategorized";
+        const key = tc.sectionId != null
+          ? `id:${tc.sectionId}`
+          : `name:${sectionName.toLowerCase()}`;
+
+        if (!sectionMap.has(key)) {
+          const source = String(tc.sectionSource || "").trim().toLowerCase();
+          const isExisting = tc.sectionId != null || source === "testrail";
+
+          sectionMap.set(key, {
+            key,
+            name: sectionName,
+            isExisting,
+          });
+        }
+      });
+
+      const selectedSections = Array.from(sectionMap.values());
+      const existingSections = selectedSections.filter((section) => section.isExisting);
+      const newSections = selectedSections.filter((section) => !section.isExisting);
+
+      return {
+        selectedCases,
+        eligibleCases,
+        skippedCases,
+        selectedSections,
+        existingSections,
+        newSections,
+      };
+    }
+
+    function openBulkPostToTestrailDialog(summary) {
+      return new Promise(function(resolve) {
+        const overlay = document.getElementById("bulkPostTestrailOverlay");
+        const sub = document.getElementById("bulkPostTestrailSub");
+        const status = document.getElementById("bulkPostTestrailStatus");
+        const confirmBtn = document.getElementById("bulkPostTestrailConfirmBtn");
+        const cancelBtn = document.getElementById("bulkPostTestrailCancelBtn");
+
+        const selectedCountEl = document.getElementById("bulkPostSelectedCount");
+        const sectionCountEl = document.getElementById("bulkPostSectionCount");
+        const existingCountEl = document.getElementById("bulkPostExistingCount");
+        const newCountEl = document.getElementById("bulkPostNewCount");
+
+        if (selectedCountEl) selectedCountEl.textContent = String(summary.eligibleCases.length);
+        if (sectionCountEl) sectionCountEl.textContent = String(summary.selectedSections.length);
+        if (existingCountEl) existingCountEl.textContent = String(summary.existingSections.length);
+        if (newCountEl) newCountEl.textContent = String(summary.newSections.length);
+
+        if (sub) {
+          sub.textContent = summary.skippedCases.length
+            ? `Post ${summary.eligibleCases.length} test case(s) to TestRail. Skip ${summary.skippedCases.length} already posted.`
+            : `Post ${summary.eligibleCases.length} selected test case(s) to TestRail.`;
+        }
+
+        if (status) {
+          const newNames = summary.newSections.map((item) => item.name).slice(0, 4);
+          if (!summary.eligibleCases.length && summary.skippedCases.length) {
+            status.textContent = `All selected test cases are already posted to TestRail and will be skipped.`;
+          } else if (newNames.length) {
+            const overflow = summary.newSections.length > newNames.length ? ` +${summary.newSections.length - newNames.length} more` : "";
+            const skippedText = summary.skippedCases.length ? ` Skipping ${summary.skippedCases.length} already posted case(s).` : "";
+            status.textContent = `New sections: ${newNames.join(", ")}${overflow}.${skippedText}`;
+          } else {
+            status.textContent = summary.skippedCases.length
+              ? `All selected sections already exist in TestRail. Skipping ${summary.skippedCases.length} already posted case(s).`
+              : "All selected sections already exist in TestRail.";
+          }
+        }
+
+        overlay.classList.add("open");
+
+        function cleanup() {
+          overlay.classList.remove("open");
+          confirmBtn.removeEventListener("click", onConfirm);
+          cancelBtn.removeEventListener("click", onCancel);
+          overlay.removeEventListener("click", onBackdrop);
+          document.removeEventListener("keydown", onKeydown);
+        }
+
+        function onConfirm() {
+          cleanup();
+          resolve(true);
+        }
+
+        function onCancel() {
+          cleanup();
+          resolve(false);
+        }
+
+        function onBackdrop(e) {
+          if (e.target === overlay) onCancel();
+        }
+
+        function onKeydown(e) {
+          if (e.key === "Escape") onCancel();
+        }
+
+        confirmBtn.addEventListener("click", onConfirm);
+        cancelBtn.addEventListener("click", onCancel);
+        overlay.addEventListener("click", onBackdrop);
+        document.addEventListener("keydown", onKeydown);
+      });
+    }
+
+    async function handleBulkPostToTestrail() {
+      if (!selectedTcIds.size) return;
+      if (!currentScopePromptId) {
+        showBanner("Please select a prompt before posting to TestRail.", "danger");
+        return;
+      }
+
+      const summary = summarizeSelectionForTestrailPosting();
+      if (!summary.selectedCases.length) {
+        showBanner("No valid test cases selected for posting.", "danger");
+        return;
+      }
+
+      if (!summary.eligibleCases.length) {
+        showBanner(`Skipped ${summary.skippedCases.length} test case(s): all selected items were already posted to TestRail.`, "success");
+        return;
+      }
+
+      const confirmed = await openBulkPostToTestrailDialog(summary);
+      if (!confirmed) return;
+
+      try {
+        setPageBlockingOverlay(true, "Posting selected test cases to TestRail...");
+        const payload = {
+          promptId: currentScopePromptId,
+          testcaseIds: Array.from(selectedTcIds),
+        };
+
+        const response = await apiRequest("/testrail/posttestcases", {
+          method: "POST",
+          body: JSON.stringify(payload),
+        });
+
+        const result = response?.data || {};
+        await loadTestScope(currentScopePromptId);
+
+        const posted = Number(result?.totalPosted || 0);
+        const failed = Number(result?.totalFailed || 0);
+        const skipped = Number(result?.totalSkipped || 0);
+        if (failed > 0) {
+          const skippedText = skipped > 0 ? `, skipped ${skipped} already posted` : "";
+          showBanner(`Posted ${posted} test case(s), failed ${failed}${skippedText}. See section post status in testcases JSON.`, "danger");
+        } else {
+          const skippedText = skipped > 0 ? ` Skipped ${skipped} already posted test case(s).` : "";
+          showBanner(`Successfully posted ${posted} test case(s) to TestRail.${skippedText}`, "success");
+        }
+      } catch (error) {
+        showBanner("Failed to post to TestRail: " + error.message, "danger");
+      } finally {
+        setPageBlockingOverlay(false);
+      }
+    }
+
+    function openBlockedMoveDialog(blockedCases, movableCount) {
+      return new Promise(function(resolve) {
+        const overlay    = document.getElementById("blockedMoveOverlay");
+        const list       = document.getElementById("blockedMoveList");
+        const note       = document.getElementById("blockedMoveNote");
+        const confirmBtn = document.getElementById("blockedMoveConfirmBtn");
+        const cancelBtn  = document.getElementById("blockedMoveCancelBtn");
+
+        list.innerHTML = blockedCases.map(tc =>
+          `<li><i class="bi bi-cloud-check-fill" style="color:#0e7490;"></i><span><strong>${escapeHtml(tc.id || "")}</strong> — ${escapeHtml(tc.title || "")}</span></li>`
+        ).join("");
+
+        if (movableCount > 0) {
+          note.textContent = `${movableCount} other test case(s) can still be moved.`;
+          confirmBtn.style.display = "";
+          confirmBtn.textContent = `Move remaining ${movableCount} test case(s)`;
+          confirmBtn.innerHTML = `<i class="bi bi-folder-symlink me-1"></i>Move remaining ${movableCount} test case(s)`;
+        } else {
+          note.textContent = "No remaining test cases can be moved.";
+          confirmBtn.style.display = "none";
+        }
+
+        overlay.classList.add("open");
+
+        function cleanup() {
+          overlay.classList.remove("open");
+          confirmBtn.removeEventListener("click", onConfirm);
+          cancelBtn.removeEventListener("click", onCancel);
+          overlay.removeEventListener("click", onBackdrop);
+          document.removeEventListener("keydown", onKeydown);
+        }
+        function onConfirm()  { cleanup(); resolve(movableCount > 0); }
+        function onCancel()   { cleanup(); resolve(false); }
+        function onBackdrop(e){ if (e.target === overlay) onCancel(); }
+        function onKeydown(e) { if (e.key === "Escape") onCancel(); }
+        confirmBtn.addEventListener("click", onConfirm);
+        cancelBtn.addEventListener("click", onCancel);
+        overlay.addEventListener("click", onBackdrop);
+        document.addEventListener("keydown", onKeydown);
+      });
+    }
+
     async function handleBulkEditSection() {
       if (!selectedTcIds.size) return;
-      const newSection = await openBulkEditSectionDialog(getSectionOptions());
-      if (!newSection) return;
+
+      // Separate posted (blocked) from movable test cases
+      const selectedCases = getSelectedTestCases();
+      const blockedCases  = selectedCases.filter(tc => tc.testrailPost?.status === "success");
+      const movableCases  = selectedCases.filter(tc => tc.testrailPost?.status !== "success");
+
+      if (blockedCases.length > 0) {
+        const proceed = await openBlockedMoveDialog(blockedCases, movableCases.length);
+        if (!proceed) return;
+        // Restrict the selection to only movable cases
+        selectedTcIds.clear();
+        movableCases.forEach(tc => selectedTcIds.add(tc.id));
+        if (!selectedTcIds.size) return;
+      }
+
+      const newSelection = await openBulkEditSectionDialog(getSectionOptions());
+      if (!newSelection) return;
+
+      const newSection = String(newSelection.name || "").trim();
       const ids = Array.from(selectedTcIds);
       let ok = 0, fail = 0;
       for (const tcId of ids) {
@@ -3848,10 +4751,22 @@
         try {
           await apiRequest("/testcase/edit?testcaseId=" + encodeURIComponent(tcId) + "&promptID=" + encodeURIComponent(currentScopePromptId), {
             method: "POST",
-            body: JSON.stringify(Object.assign({}, tc, { section: newSection })),
+            body: JSON.stringify(Object.assign({}, tc, {
+              section: newSection,
+              sectionId: newSelection.sectionId,
+              suiteId: newSelection.suiteId,
+              sectionSource: newSelection.source,
+            })),
           });
           const idx = allTestCases.findIndex(t => t.id === tcId);
-          if (idx !== -1) allTestCases[idx] = Object.assign({}, allTestCases[idx], { section: newSection });
+          if (idx !== -1) {
+            allTestCases[idx] = Object.assign({}, allTestCases[idx], {
+              section: newSection,
+              sectionId: newSelection.sectionId,
+              suiteId: newSelection.suiteId,
+              sectionSource: newSelection.source,
+            });
+          }
           ok++;
         } catch(e) { fail++; }
       }
@@ -3860,7 +4775,7 @@
       renderSections();
       renderAllTestCases();
       updateBulkBar();
-      if (ok)   showBanner(ok + ' test case(s) moved to "' + escapeHtml(newSection) + '".', "success");
+      if (ok)   showBanner(ok + ' test case(s) moved to "' + newSection + '".', "success");
       if (fail) showBanner(fail + " test case(s) failed to move.", "danger");
     }
 

@@ -3,6 +3,7 @@ const router = express.Router()
 
 const Testrail = require("../controller/Testrail")
 
-// router.get("/", Dashboard.getDashboard)
+router.get("/getsections", Testrail.getSections)
+router.post("/posttestcases", Testrail.postTestCases)
 
 module.exports = router
