@@ -308,7 +308,14 @@
                     "steps": [
                         "Navigate to the initial login/registration screen."
                     ],
-                    "expectedResult": "The primary action buttons (e.g., 'Sign In', 'Sign Up') are high-contrast, easily visible, and located within optimal thumb-reach on typical mobile screen sizes. Input fields are clearly labeled and sized appropriately for touch input. Layout is minimalist and conversion-focused."
+                    "expectedResult": "The primary action buttons (e.g., 'Sign In', 'Sign Up') are high-contrast, easily visible, and located within optimal thumb-reach on typical mobile screen sizes. Input fields are clearly labeled and sized appropriately for touch input. Layout is minimalist and conversion-focused.",
+                    "testrailPost": {
+                        "status": "success",
+                        "lastAttemptAt": "2026-05-04T11:05:48.630Z",
+                        "message": "Posted to TestRail",
+                        "sectionId": 1058809,
+                        "testrailCaseId": 5358349
+                    }
                 },
                 {
                     "id": "TC-LOG-007",
@@ -322,7 +329,14 @@
                         "Attempt to log in with incorrect credentials (e.g., invalid password).",
                         "Observe the screen after the error message appears."
                     ],
-                    "expectedResult": "A clear and direct link/button to the 'Forgot Password' flow is visible and easily accessible immediately after a failed login attempt, facilitating error recovery without user ambiguity."
+                    "expectedResult": "A clear and direct link/button to the 'Forgot Password' flow is visible and easily accessible immediately after a failed login attempt, facilitating error recovery without user ambiguity.",
+                    "testrailPost": {
+                        "status": "success",
+                        "lastAttemptAt": "2026-05-04T11:05:48.630Z",
+                        "message": "Posted to TestRail",
+                        "sectionId": 1058809,
+                        "testrailCaseId": 5358350
+                    }
                 },
                 {
                     "id": "TC-VAL-001",
@@ -337,7 +351,14 @@
                         "Continue typing to make it invalid (e.g., 'user@').",
                         "Continue typing to make it valid (e.g., 'user@example.com')."
                     ],
-                    "expectedResult": "Error message for invalid format appears instantly and inline when the email is invalid, and disappears instantly when the email becomes valid. This feedback occurs without requiring the user to tap away or submit."
+                    "expectedResult": "Error message for invalid format appears instantly and inline when the email is invalid, and disappears instantly when the email becomes valid. This feedback occurs without requiring the user to tap away or submit.",
+                    "testrailPost": {
+                        "status": "success",
+                        "lastAttemptAt": "2026-05-04T11:05:48.630Z",
+                        "message": "Posted to TestRail",
+                        "sectionId": 1058809,
+                        "testrailCaseId": 5358351
+                    }
                 },
                 {
                     "id": "TC-VAL-002",
@@ -351,7 +372,14 @@
                     "steps": [
                         "Start typing a password into the 'Password' field, gradually adding characters that meet requirements."
                     ],
-                    "expectedResult": "As the password is typed, instant, inline feedback (e.g., strength indicator: 'Weak', 'Medium', 'Strong') and contextual tooltips/lists of requirements appear directly beneath the field. As each requirement is met, it should visually update (e.g., turn green, checkmark) and eventually disappear, leaving only unmet requirements (or disappearing entirely if all are met), preventing error fatigue."
+                    "expectedResult": "As the password is typed, instant, inline feedback (e.g., strength indicator: 'Weak', 'Medium', 'Strong') and contextual tooltips/lists of requirements appear directly beneath the field. As each requirement is met, it should visually update (e.g., turn green, checkmark) and eventually disappear, leaving only unmet requirements (or disappearing entirely if all are met), preventing error fatigue.",
+                    "testrailPost": {
+                        "status": "success",
+                        "lastAttemptAt": "2026-05-04T11:05:48.630Z",
+                        "message": "Posted to TestRail",
+                        "sectionId": 1058809,
+                        "testrailCaseId": 5358352
+                    }
                 },
                 {
                     "id": "TC-SOC-002",
@@ -366,7 +394,14 @@
                         "Tap the 'Continue with Google' button.",
                         "Select the previously used Google account (if prompted)."
                     ],
-                    "expectedResult": "User is successfully logged into their existing account via Google, redirected to the main dashboard, typically without needing to re-enter credentials or grant permissions."
+                    "expectedResult": "User is successfully logged into their existing account via Google, redirected to the main dashboard, typically without needing to re-enter credentials or grant permissions.",
+                    "testrailPost": {
+                        "status": "success",
+                        "lastAttemptAt": "2026-05-04T11:05:48.630Z",
+                        "message": "Posted to TestRail",
+                        "sectionId": 1058809,
+                        "testrailCaseId": 5358353
+                    }
                 },
                 {
                     "id": "TC-SOC-003",
@@ -380,9 +415,51 @@
                     "steps": [
                         "Tap any social login button (e.g., 'Continue with Google')."
                     ],
-                    "expectedResult": "An appropriate error message is displayed, indicating a network issue (e.g., 'No internet connection. Please check your network and try again.'). The social login flow does not proceed."
+                    "expectedResult": "An appropriate error message is displayed, indicating a network issue (e.g., 'No internet connection. Please check your network and try again.'). The social login flow does not proceed.",
+                    "testrailPost": {
+                        "status": "success",
+                        "lastAttemptAt": "2026-05-04T11:05:48.630Z",
+                        "message": "Posted to TestRail",
+                        "sectionId": 1058809,
+                        "testrailCaseId": 5358354
+                    }
+                },
+                {
+                    "id": "TC-REG-003",
+                    "title": "Registration Attempt with Invalid Email Format",
+                    "type": "negative",
+                    "priority": "high",
+                    "preconditions": [
+                        "App is on the registration screen."
+                    ],
+                    "steps": [
+                        "Enter an email address in an invalid format (e.g., 'test@', 'test', 'test@domain').",
+                        "Move focus out of the email field."
+                    ],
+                    "expectedResult": "Instant, inline feedback is provided directly beneath the email input field, clearly stating the email format is invalid (e.g., 'Please enter a valid email address.'). The 'Sign Up' button should remain disabled or display an error upon submission until the email is valid.",
+                    "testrailPost": {
+                        "status": "success",
+                        "lastAttemptAt": "2026-05-04T11:07:33.150Z",
+                        "message": "Posted to TestRail",
+                        "sectionId": 1058809,
+                        "testrailCaseId": 5358355
+                    }
                 }
-            ]
+            ],
+            "sectionId": 1058809,
+            "suiteId": 67624,
+            "sectionSource": "testrail",
+            "testrailPost": {
+                "status": "success",
+                "lastAttemptAt": "2026-05-04T11:07:33.150Z",
+                "lastPostedAt": "2026-05-04T11:07:33.150Z",
+                "message": "Posted 1 test case(s) to TestRail",
+                "targetSectionId": 1058809,
+                "targetSectionName": "Initial Login/Registration Screen Layout & Thumb-Reachability",
+                "sectionMode": "existing",
+                "postedCount": 1,
+                "failedCount": 0
+            }
         },
         {
             "section": "Login Button",
@@ -483,28 +560,6 @@
                         "Rotate the device back from landscape to portrait."
                     ],
                     "expectedResult": "The layout of the login/registration screen adapts smoothly to both portrait and landscape orientations, maintaining readability, usability, and optimal thumb-reach where applicable, without any UI distortions or data loss in fields."
-                }
-            ]
-        },
-        {
-            "section": "iyaaa",
-            "sectionId": 1049966,
-            "suiteId": 67624,
-            "sectionSource": "user",
-            "testCases": [
-                {
-                    "id": "TC-REG-003",
-                    "title": "Registration Attempt with Invalid Email Format",
-                    "type": "negative",
-                    "priority": "high",
-                    "preconditions": [
-                        "App is on the registration screen."
-                    ],
-                    "steps": [
-                        "Enter an email address in an invalid format (e.g., 'test@', 'test', 'test@domain').",
-                        "Move focus out of the email field."
-                    ],
-                    "expectedResult": "Instant, inline feedback is provided directly beneath the email input field, clearly stating the email format is invalid (e.g., 'Please enter a valid email address.'). The 'Sign Up' button should remain disabled or display an error upon submission until the email is valid."
                 }
             ]
         },

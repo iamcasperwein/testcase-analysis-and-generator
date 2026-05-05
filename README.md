@@ -19,7 +19,7 @@
 
 ## Feature Overview
 
-The **QE Test Case Generator** is a Node.js / Express backend that ingests product artifacts (PRD, RFC, Figma references), forwards them to a Generative AI agent (Google Gemini), and produces:
+The **QE Test Case Generator** is a Node.js / Express backend that ingests product artifacts (PRD, RFC, Figma references), forwards them to a Generative AI agent (Claude, Gemini, or GitHub Copilot), and produces:
 
 1. A **structured analysis** (Markdown) of the feature.
 2. A **machine-readable list of test cases** (JSON) grouped by section, including title, type, priority, preconditions, steps, and expected results.
@@ -72,6 +72,8 @@ The **QE Test Case Generator** is a Node.js / Express backend that ingests produ
 
 ### External Services
 - **Google Gemini API** — `models/gemini-2.5-flash` for analysis & generation
+- **Anthropic Claude API** — Claude chat completion endpoint for analysis & generation
+- **GitHub Models API** — GitHub Copilot-compatible model inference (`/chat/completions`)
 - **Google AI File Manager** — Server-side upload of binary PRD/RFC artifacts
 - **TestRail API** — Sections + Cases sync (`get_sections`, `add_section`, `add_cases` / `add_case` fallback)
 
@@ -88,7 +90,7 @@ Routes  →  Controller  →  Service  →  Utils / External APIs / File Store
 | Pattern | Where It Is Used | Justification |
 |---|---|---|
 | **Layered Architecture** | [routes/](routes/), [controller/](controller/), [service/](service/), [utils/](utils/) | Keeps HTTP concerns out of business logic; each layer is independently testable. |
-| **Strategy Pattern** | `AGENTS` map in [service/QAgentService.js](service/QAgentService.js#L8-L12) | Pluggable AI agents (`gemini`, future `openai`) selected at runtime via `normalizeAgentName`. |
+| **Strategy Pattern** | `AGENTS` map in [service/QAgentService.js](service/QAgentService.js#L10-L21) | Pluggable AI agents (`claude`, `gemini`, `copilot`) selected at runtime via `normalizeAgentName`. |
 | **Facade** | [service/GeminiService.js](service/GeminiService.js) | Hides complexity of Gemini SDK, file upload, base64 fallback, and prompt building behind `generateFromPrompt`. |
 | **Template Method** | [prompts/index.js](prompts/index.js), [prompts/testCaseGeneration.js](prompts/testCaseGeneration.js) | `buildTestAnalysisPrompt` and `buildTestCaseGenerationPrompt` follow a fixed scaffold filled by inputs. |
 | **Repository (file-backed)** | `readPromptData` / `writePromptData` in [service/QAgentService.js](service/QAgentService.js#L28-L46), [utils/FileReader.js](utils/FileReader.js) | Abstracts storage so the JSON-on-disk layer can later be swapped for a database. |
@@ -114,7 +116,7 @@ The service exposes the following routes (mounted in [app.js](app.js)):
 | `GET` | `/dashboard/` | [controller/Dashboard.js](controller/Dashboard.js) | Aggregate metrics |
 | `GET` | `/dashboard/prompts` | [controller/Dashboard.js](controller/Dashboard.js) | List prompts (id + project) |
 | `GET` | `/settings/` | [controller/Settings.js](controller/Settings.js) | List `.env` entries |
-| `GET` | `/settings/key` | [controller/Settings.js](controller/Settings.js) | List remaining default keys |
+| `GET` | `/settings/key` | [controller/Settings.js](controller/Settings.js) | List default key metadata (`key`, `confidential`, `isAvailable`) |
 | `POST` | `/settings/` | [controller/Settings.js](controller/Settings.js) | Create new settings |
 | `PUT` | `/settings/:key` | [controller/Settings.js](controller/Settings.js) | Update a single setting |
 | `DELETE` | `/settings/:key` | [controller/Settings.js](controller/Settings.js) | Delete a setting |
@@ -405,11 +407,28 @@ sequenceDiagram
 
     Client->>Router: GET /settings/key
     Router->>Ctrl: getSettingKeys
-    Ctrl->>Svc: getAvailableKeys()
-    Svc->>ENV: readEnvMap()
-    Svc->>Svc: filter DEFAULT_SETTING_KEYS minus existing
-    Svc-->>Ctrl: missing keys[]
+        Ctrl->>Svc: getAvailableKeys()
+        Svc->>ENV: readEnvMap()
+        Svc->>Svc: map DEFAULT_SETTING_KEYS[] -> { key, confidential, isAvailable }
+        Svc-->>Ctrl: key definitions[]
     Ctrl-->>Client: 200 { data }
+```
+
+`GET /settings/key` now returns an array like:
+
+```json
+[
+    {
+        "key": "GEMINI_API_KEY",
+        "confidential": true,
+        "isAvailable": true
+    },
+    {
+        "key": "PORT",
+        "confidential": false,
+        "isAvailable": false
+    }
+]
 ```
 
 ---
@@ -638,7 +657,11 @@ Stored in `.env` at the project root and managed at runtime via `/settings/*`.
 | Key | Required | Description |
 |---|---|---|
 | `PORT` | ✗ (default `9009`) | HTTP port for the Express server |
-| `GEMINI_API_KEY` | ✓ | Google Generative AI API key |
+| `GEMINI_API_KEY` | ✓ (if using `gemini`) | Google Generative AI API key |
+| `CLAUDE_API_KEY` or `ANTHROPIC_API_KEY` | ✓ (if using `claude`) | Anthropic Claude API key |
+| `GITHUB_TOKEN` | ✓ (if using `copilot`) | GitHub token for GitHub Models API |
+| `GITHUB_MODEL` | ✗ (default `gpt-4.1-mini`) | Model id for Copilot/GitHub Models requests |
+| `GITHUB_MODELS_API_URL` | ✗ | Override for inference endpoint (default `https://models.inference.ai.azure.com/chat/completions`) |
 | `OPENAI_API_KEY` | ✗ | Reserved for a future OpenAI agent |
 | `TESTRAIL_URL` | ✗ | Base URL of TestRail instance (planned) |
 | `TESTRAIL_USERNAME` | ✗ | TestRail user (planned) |
@@ -646,7 +669,8 @@ Stored in `.env` at the project root and managed at runtime via `/settings/*`.
 | `TESTRAIL_PROJECT_ID` | ✗ | Default TestRail project (planned) |
 | `NODE_ENV` | ✗ | `development` \| `production` |
 
-> The canonical list lives in `DEFAULT_SETTING_KEYS` inside [service/SettingsService.js](service/SettingsService.js#L7-L16).
+> The canonical list lives in `DEFAULT_SETTING_KEYS` inside [service/SettingsService.js](service/SettingsService.js).
+> It is defined as objects: `{ key, confidential }`.
 
 ### Local Development
 
@@ -656,6 +680,9 @@ npm install
 
 # 2. Create .env (or use POST /settings/ once running)
 echo "GEMINI_API_KEY=your_key_here" > .env
+echo "CLAUDE_API_KEY=your_key_here" >> .env
+echo "GITHUB_TOKEN=your_github_token_here" >> .env
+echo "GITHUB_MODEL=gpt-4.1-mini" >> .env
 echo "PORT=9009" >> .env
 
 # 3. Run with hot reload
@@ -699,7 +726,9 @@ qe-test-case-generator/
 │   └── Testrail.js
 ├── service/                 # Business logic
 │   ├── QAgentService.js     # Orchestrates the AI pipeline
+│   ├── ClaudeService.js     # Anthropic Claude integration
 │   ├── GeminiService.js     # Google Gemini integration (Strategy/Facade)
+│   ├── CopilotService.js    # GitHub Copilot/GitHub Models integration
 │   ├── TestCaseService.js   # CRUD on generated test cases
 │   ├── DashboardService.js
 │   ├── SettingsService.js   # .env management

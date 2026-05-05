@@ -5,17 +5,20 @@ const dotenv = require("dotenv")
 const ENV_FILE_PATH = path.join(__dirname, "../.env")
 
 const DEFAULT_SETTING_KEYS = [
-	"PORT",
-	"GEMINI_API_KEY",
-	"TESTRAIL_API_KEY",
-	"TESTRAIL_PASSWORD",
-	"TESTRAIL_URL",
-	"TESTRAIL_USERNAME",
-	"TESTRAIL_PROJECT_ID",
-	"TESTRAIL_TESTSUITE_ID",
-	"TESTRAIL_SUITE_ID",
-	"OPENAI_API_KEY",
-	"NODE_ENV",
+	{ key: "PORT", confidential: false },
+	{ key: "GEMINI_API_KEY", confidential: true },
+	{ key: "GITHUB_TOKEN", confidential: true },
+	{ key: "GITHUB_MODEL", confidential: false },
+	{ key: "GITHUB_MODELS_API_URL", confidential: false },
+	{ key: "TESTRAIL_API_KEY", confidential: true },
+	{ key: "TESTRAIL_PASSWORD", confidential: true },
+	{ key: "TESTRAIL_URL", confidential: false },
+	{ key: "TESTRAIL_USERNAME", confidential: true },
+	{ key: "TESTRAIL_PROJECT_ID", confidential: false },
+	{ key: "TESTRAIL_TESTSUITE_ID", confidential: false },
+	{ key: "TESTRAIL_SUITE_ID", confidential: false },
+	{ key: "OPENAI_API_KEY", confidential: true },
+	{ key: "NODE_ENV", confidential: false },
 ]
 
 const createValidationError = (message, statusCode = 400) => {
@@ -111,6 +114,22 @@ const normalizeEntriesInput = (payload = {}) => {
 	return []
 }
 
+const normalizeDefaultSettingKeys = (entries = []) => {
+	const map = new Map()
+
+	entries.forEach((entry) => {
+		const normalizedKey = validateKey(entry?.key)
+		if (!map.has(normalizedKey)) {
+			map.set(normalizedKey, {
+				key: normalizedKey,
+				confidential: Boolean(entry?.confidential),
+			})
+		}
+	})
+
+	return Array.from(map.values()).sort((a, b) => a.key.localeCompare(b.key))
+}
+
 const getSettings = async () => {
 	const envMap = readEnvMap()
 	return Object.keys(envMap)
@@ -124,13 +143,13 @@ const getSettings = async () => {
 const getAvailableKeys = async () => {
 	const envMap = readEnvMap()
 	const existingKeys = new Set(Object.keys(envMap).map((key) => String(key || "").trim()))
+	const defaultKeys = normalizeDefaultSettingKeys(DEFAULT_SETTING_KEYS)
 
-	return DEFAULT_SETTING_KEYS
-		.map((key) => String(key || "").trim())
-		.filter(Boolean)
-		.filter((key, index, array) => array.indexOf(key) === index)
-		.filter((key) => !existingKeys.has(key))
-		.sort((a, b) => a.localeCompare(b))
+	return defaultKeys.map((item) => ({
+		key: item.key,
+		confidential: Boolean(item.confidential),
+		isAvailable: !existingKeys.has(item.key),
+	}))
 }
 
 const createSettings = async (payload = {}) => {
