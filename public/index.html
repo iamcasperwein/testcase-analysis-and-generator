@@ -2217,18 +2217,18 @@
 
               <!-- Artifact Type -->
               <div class="col-md-4">
-                <label for="docTypeSelect" class="form-label">Primary Artifact Type</label>
-                <select
-                  class="form-select"
-                  id="docTypeSelect"
-                  name="docType"
-                >
-                  <option value="prd" selected>PRD</option>
-                  <option value="rfc">RFC</option>
-                  <option value="figma">Figma</option>
-                  <option value="user-story">User Story</option>
-                  <option value="other">Other</option>
-                </select>
+                <label class="form-label">Primary Artifact Type</label>
+                <div class="prompt-select-wrap" id="docTypeSelectWrap">
+                  <div class="prompt-select-trigger" id="docTypeTrigger" tabindex="0">
+                    <span class="prompt-select-trigger-text" id="docTypeTriggerText">PRD</span>
+                    <i class="bi bi-chevron-down" style="font-size:0.75rem;flex-shrink:0;"></i>
+                  </div>
+                  <div class="prompt-select-dropdown" id="docTypeDropdown">
+                    <input type="text" class="prompt-select-search" id="docTypeSearch" placeholder="Search type..." autocomplete="off" />
+                    <div class="prompt-select-options" id="docTypeOptions"></div>
+                  </div>
+                </div>
+                <input type="hidden" id="docTypeSelect" name="docType" value="prd" />
               </div>
 
               <div class="col-12 form-section-title mt-1">
@@ -3150,6 +3150,23 @@
       ],
     });
 
+    const docTypePicker = createStaticOptionSelect({
+      wrapId: "docTypeSelectWrap",
+      triggerId: "docTypeTrigger",
+      triggerTextId: "docTypeTriggerText",
+      dropdownId: "docTypeDropdown",
+      searchId: "docTypeSearch",
+      optionsId: "docTypeOptions",
+      valueId: "docTypeSelect",
+      options: [
+        { value: "prd", label: "PRD", description: "Product Requirements Document" },
+        { value: "rfc", label: "RFC", description: "Request for Comments" },
+        { value: "figma", label: "Figma", description: "Figma design file" },
+        { value: "user-story", label: "User Story", description: "User story format" },
+        { value: "other", label: "Other", description: "Other artifact type" },
+      ],
+    });
+
     qaForm.addEventListener("submit", async (e) => {
       e.preventDefault();
       formStatus.textContent = "";
@@ -3176,7 +3193,7 @@
       formData.append("agent", agentPicker.getValue() || "claude");
       formData.append("projectName", document.getElementById("projectNameInput").value.trim());
       formData.append("feature", document.getElementById("projectNameInput").value.trim());
-      formData.append("docType", document.getElementById("docTypeSelect").value);
+      formData.append("docType", docTypePicker.getValue() || "prd");
       formData.append("context", document.getElementById("contextInput").value.trim());
       formData.append("rawContent", manualRawContent);
 
@@ -5710,7 +5727,7 @@
         setTimeout(() => {
           dashRefreshBtn.classList.remove("btn-spin");
           dashRefreshBtn.disabled = false;
-        }, 600);
+        }, 200);
       });
     });
     document.getElementById("dashboard-tab").addEventListener("shown.bs.tab", loadDashboard);
