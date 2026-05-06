@@ -808,7 +808,7 @@ async function loadTestScope(promptId) {
         preconditions: Array.isArray(tc.preconditions)
           ? tc.preconditions.join("\n")
           : (tc.preconditions || ""),
-        steps: Array.isArray(tc.steps) ? tc.steps.join("\n") : (tc.steps || ""),
+        steps: Array.isArray(tc.steps) ? tc.steps : (tc.steps || ""),
         expected: tc.expectedResult || tc.expected || "",
       }))
     );
@@ -1209,12 +1209,117 @@ function renderListItems(raw, ordered = false) {
   return `<${tag} class="${cls}">${items}</${tag}>`;
 }
 
+function renderStepItems(steps) {
+  if (!steps) return `<span class="tc-view-empty">—</span>`;
+  // Handle new format: array of {content, expected}
+  if (Array.isArray(steps)) {
+    if (!steps.length) return `<span class="tc-view-empty">—</span>`;
+    // Check if objects with content/expected
+    if (typeof steps[0] === "object" && steps[0] !== null) {
+      const rows = steps.map((s, i) => {
+        const content = escapeHtml(s.content || "");
+        const expected = escapeHtml(s.expected || "N/A");
+        return `<tr><td class="step-num">${i + 1}</td><td>${content}</td><td class="step-expected">${expected}</td></tr>`;
+      }).join("");
+      return `<table class="tc-steps-table"><thead><tr><th>#</th><th>Action</th><th>Expected</th></tr></thead><tbody>${rows}</tbody></table>`;
+    }
+    // Legacy: array of strings
+    return renderListItems(steps.join("\n"), true);
+  }
+  // Legacy: plain string
+  return renderListItems(steps, true);
+}
+
+// ─── Steps Editor (structured rows) ───
+function renderStepEditorRows(steps) {
+  const container = document.getElementById("editTcStepsEditor");
+  container.innerHTML = "";
+  const stepsArr = normalizeStepsForEditor(steps);
+  if (!stepsArr.length) stepsArr.push({ content: "", expected: "" });
+  stepsArr.forEach((s, i) => container.appendChild(createStepRow(s, i)));
+  renumberStepRows();
+}
+
+function normalizeStepsForEditor(steps) {
+  if (!steps) return [];
+  if (Array.isArray(steps)) {
+    if (steps.length && typeof steps[0] === "object" && steps[0] !== null) {
+      return steps.map(s => ({ content: s.content || "", expected: s.expected || "" }));
+    }
+    return steps.filter(Boolean).map(s => ({ content: String(s), expected: "" }));
+  }
+  return String(steps || "").split("\n").filter(Boolean).map(s => ({ content: s, expected: "" }));
+}
+
+function createStepRow(step, index) {
+  const row = document.createElement("div");
+  row.className = "tc-step-row";
+  row.innerHTML = `
+    <div class="tc-step-num"><span>${index + 1}</span></div>
+    <div class="tc-step-fields">
+      <div class="tc-step-field">
+        <label class="tc-step-field-label">Action</label>
+        <textarea class="form-control tc-step-input" data-field="content" rows="2" placeholder="Describe the action...">${escapeHtml(step.content || "")}</textarea>
+      </div>
+      <div class="tc-step-field">
+        <label class="tc-step-field-label">Expected Result</label>
+        <textarea class="form-control tc-step-input tc-step-expected-input" data-field="expected" rows="2" placeholder="Expected outcome (leave empty for N/A)">${escapeHtml(step.expected === "N/A" ? "" : (step.expected || ""))}</textarea>
+      </div>
+    </div>
+    <div class="tc-step-actions">
+      <button type="button" class="btn btn-sm tc-step-move-btn" data-dir="up" title="Move up"><i class="bi bi-chevron-up"></i></button>
+      <button type="button" class="btn btn-sm tc-step-move-btn" data-dir="down" title="Move down"><i class="bi bi-chevron-down"></i></button>
+      <button type="button" class="btn btn-sm tc-step-delete-btn" title="Remove step"><i class="bi bi-trash3"></i></button>
+    </div>
+  `;
+  // Event listeners
+  row.querySelector(".tc-step-delete-btn").addEventListener("click", () => {
+    const editor = document.getElementById("editTcStepsEditor");
+    if (editor.children.length > 1) { row.remove(); renumberStepRows(); }
+  });
+  row.querySelector('[data-dir="up"]').addEventListener("click", () => {
+    const prev = row.previousElementSibling;
+    if (prev) { row.parentNode.insertBefore(row, prev); renumberStepRows(); }
+  });
+  row.querySelector('[data-dir="down"]').addEventListener("click", () => {
+    const next = row.nextElementSibling;
+    if (next) { row.parentNode.insertBefore(next, row); renumberStepRows(); }
+  });
+  return row;
+}
+
+function renumberStepRows() {
+  const rows = document.querySelectorAll("#editTcStepsEditor .tc-step-row");
+  rows.forEach((row, i) => { row.querySelector(".tc-step-num span").textContent = i + 1; });
+}
+
+function collectStepsFromEditor() {
+  const rows = document.querySelectorAll("#editTcStepsEditor .tc-step-row");
+  const steps = [];
+  rows.forEach(row => {
+    const content = row.querySelector('[data-field="content"]').value.trim();
+    const expected = row.querySelector('[data-field="expected"]').value.trim() || "N/A";
+    if (content) steps.push({ content, expected });
+  });
+  return steps;
+}
+
+// Add step button
+document.getElementById("editTcAddStepBtn").addEventListener("click", () => {
+  const editor = document.getElementById("editTcStepsEditor");
+  const idx = editor.children.length;
+  editor.appendChild(createStepRow({ content: "", expected: "" }, idx));
+  renumberStepRows();
+  const lastRow = editor.lastElementChild;
+  lastRow.querySelector('[data-field="content"]').focus();
+});
+
 function openViewModal(tc) {
   document.getElementById("viewTcId").textContent = tc.id || "";
   document.getElementById("viewTcTitle").textContent = tc.title || "";
   document.getElementById("viewTcSection").textContent = tc.section || "";
   document.getElementById("viewTcPreconditions").innerHTML = renderListItems(tc.preconditions, false);
-  document.getElementById("viewTcSteps").innerHTML = renderListItems(tc.steps, true);
+  document.getElementById("viewTcSteps").innerHTML = renderStepItems(tc.steps);
   document.getElementById("viewTcExpected").textContent = tc.expected || "";
   viewTestCaseModal.show();
 }
@@ -1563,7 +1668,7 @@ function openEditModal(tc) {
   document.getElementById("editTcPromptId").value = currentScopePromptId || "";
   document.getElementById("editTcTitle").value = tc.title || "";
   document.getElementById("editTcPreconditions").value = tc.preconditions || "";
-  document.getElementById("editTcSteps").value = tc.steps || "";
+  renderStepEditorRows(tc.steps);
   document.getElementById("editTcExpected").value = tc.expected || "";
   editTestCaseModal.show();
 }
@@ -1581,6 +1686,12 @@ editTestCaseForm.addEventListener("submit", async (e) => {
     return;
   }
 
+  const steps = collectStepsFromEditor();
+  if (!steps.length) {
+    showBanner("At least one step with an action is required.", "danger");
+    return;
+  }
+
   const updated = {
     id: tcId,
     promptId: promptId,
@@ -1590,7 +1701,7 @@ editTestCaseForm.addEventListener("submit", async (e) => {
     suiteId: resolvedSelection.suiteId,
     sectionSource: resolvedSelection.source,
     preconditions: document.getElementById("editTcPreconditions").value.trim(),
-    steps: document.getElementById("editTcSteps").value.trim(),
+    steps: steps,
     expected: document.getElementById("editTcExpected").value.trim(),
   };
 
@@ -2848,7 +2959,7 @@ if (promptLogRefreshBtn) {
     if (!_logCurrentPromptId) return;
     promptLogRefreshBtn.disabled = true;
     fetchAndRenderLog(_logCurrentPromptId).finally(() => {
-      setTimeout(() => { promptLogRefreshBtn.disabled = false; }, 300);
+      setTimeout(() => { promptLogRefreshBtn.disabled = false; }, 150);
     });
   });
 }

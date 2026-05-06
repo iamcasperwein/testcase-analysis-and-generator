@@ -644,7 +644,7 @@
 
   <!-- Edit Test Case Modal -->
   <div class="modal fade" id="editTestCaseModal" tabindex="-1" aria-labelledby="editTestCaseModalLabel" aria-hidden="true">
-    <div class="modal-dialog modal-lg modal-dialog-scrollable tc-edit-dialog">
+    <div class="modal-dialog modal-xl tc-edit-dialog">
       <div class="modal-content tc-bloom-modal">
         <form id="editTestCaseForm">
           <div class="modal-header tc-bloom-header tc-bloom-header-edit">
@@ -694,8 +694,13 @@
               <textarea class="form-control tc-field-input" id="editTcPreconditions" rows="3" placeholder="One precondition per line..."></textarea>
             </div>
             <div class="mb-3">
-              <label for="editTcSteps" class="tc-field-label">Steps <span class="text-danger">*</span></label>
-              <textarea class="form-control tc-field-input" id="editTcSteps" rows="5" placeholder="Describe each step clearly..." required></textarea>
+              <label class="tc-field-label">Steps <span class="text-danger">*</span></label>
+              <div class="tc-steps-editor" id="editTcStepsEditor">
+                <!-- Step rows will be rendered dynamically -->
+              </div>
+              <button type="button" class="btn btn-sm btn-outline-primary mt-2" id="editTcAddStepBtn">
+                <i class="bi bi-plus-circle me-1"></i>Add Step
+              </button>
             </div>
             <div class="mb-3 mb-0">
               <label for="editTcExpected" class="tc-field-label">Expected Result <span class="text-danger">*</span></label>

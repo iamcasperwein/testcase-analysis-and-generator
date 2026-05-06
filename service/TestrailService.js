@@ -217,6 +217,14 @@ const normalizeFieldText = (value) => {
 
 const normalizeSteps = (value) => {
 	if (Array.isArray(value)) {
+		// New format: array of {content, expected} objects
+		if (value.length && typeof value[0] === "object" && value[0] !== null) {
+			return value.map((item) => ({
+				content: String(item.content || "").trim(),
+				expected: String(item.expected || "N/A").trim(),
+			})).filter((s) => s.content)
+		}
+		// Legacy: array of strings
 		return value.map((item) => String(item).trim()).filter(Boolean)
 	}
 
@@ -281,23 +289,29 @@ const DEFAULT_CASE_STATIC_FIELDS = Object.freeze({
 const buildCasePayload = (testCase = {}, sectionId) => {
 	const title = String(testCase?.title || testCase?.id || "Untitled test case").trim()
 	const preconditions = normalizeFieldText(testCase?.preconditions)
-	const stepsLines = normalizeSteps(testCase?.steps)
+	const stepsNormalized = normalizeSteps(testCase?.steps)
 	const expectedResult = normalizeFieldText(testCase?.expectedResult || testCase?.expected)
 
-	const payload = {
-		section_id: Number(sectionId),
-		title,
-		...DEFAULT_CASE_STATIC_FIELDS,
-		custom_preconds: preconditions,
-		custom_steps_separated: stepsLines.length
-			? stepsLines.map((line) => ({
+	// If steps are already objects with content/expected, use directly
+	const isObjectSteps = stepsNormalized.length && typeof stepsNormalized[0] === "object"
+	const customStepsSeparated = isObjectSteps
+		? stepsNormalized
+		: stepsNormalized.length
+			? stepsNormalized.map((line) => ({
 				content: line,
 				expected: expectedResult,
 			}))
 			: [{
 				content: "",
 				expected: expectedResult,
-			}],
+			}]
+
+	const payload = {
+		section_id: Number(sectionId),
+		title,
+		...DEFAULT_CASE_STATIC_FIELDS,
+		custom_preconds: preconditions,
+		custom_steps_separated: customStepsSeparated,
 	}
 
 	return payload

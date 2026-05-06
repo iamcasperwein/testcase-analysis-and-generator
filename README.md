@@ -115,6 +115,7 @@ The service exposes the following routes (mounted in [app.js](app.js)):
 | `DELETE` | `/testcase/deleteTestCase/:promptId/:testcaseId` | [controller/TestCase.js](controller/TestCase.js) | Delete a test case |
 | `GET` | `/dashboard/` | [controller/Dashboard.js](controller/Dashboard.js) | Aggregate metrics |
 | `GET` | `/dashboard/prompts` | [controller/Dashboard.js](controller/Dashboard.js) | List prompts (id + project) |
+| `GET` | `/dashboard/log/:promptId` | [controller/Dashboard.js](controller/Dashboard.js) | Get processing log for a prompt |
 | `GET` | `/settings/` | [controller/Settings.js](controller/Settings.js) | List `.env` entries |
 | `GET` | `/settings/key` | [controller/Settings.js](controller/Settings.js) | List default key metadata (`key`, `confidential`, `isAvailable`) |
 | `POST` | `/settings/` | [controller/Settings.js](controller/Settings.js) | Create new settings |
@@ -153,8 +154,10 @@ When posting each case to TestRail, the service uses this payload shape:
     - `custom_automation_types: [5]`
 - `custom_preconds`: normalized preconditions
 - `custom_steps_separated`: each step is mapped as:
-    - `content`: step text
-    - `expected`: expected result text
+    - `content`: step action text
+    - `expected`: expected result for that specific step (or "N/A" if not applicable)
+
+> **Note:** Test case steps in the generated JSON are stored as `[{"content": "...", "expected": "..."}]` objects. Each step has its own expected result, enabling per-step validation in TestRail.
 
 ### Duplicate-Safe Retry Behavior
 
