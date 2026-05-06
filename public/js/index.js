@@ -449,8 +449,22 @@ function parseAnalysisSections(rawText) {
   lines.forEach((line) => {
     const trimmed = line.trim();
     const hasLeadingWhitespace = /^\s+/.test(line);
-    const headingMatch = trimmed.match(/^(\d+(?:\.\d+)*)\.?\s+(.+)$/);
 
+    // Match markdown headings: ## 1. Title or ### 2.1 Title
+    const mdHeadingMatch = trimmed.match(/^(#{1,6})\s+(\d+(?:\.\d+)*)\.?\s+(.+)$/);
+    if (mdHeadingMatch && !hasLeadingWhitespace) {
+      currentSection = {
+        numbering: mdHeadingMatch[2],
+        title: mdHeadingMatch[3].replace(/\s*\*+$/g, "").trim(),
+        level: mdHeadingMatch[2].split(".").length,
+        lines: [],
+      };
+      parsedSections.push(currentSection);
+      return;
+    }
+
+    // Match plain numbered lines: 1. Title or 2.1 Title
+    const headingMatch = trimmed.match(/^(\d+(?:\.\d+)*)\.?\s+(.+)$/);
     if (headingMatch && !hasLeadingWhitespace) {
       currentSection = {
         numbering: headingMatch[1],
@@ -460,6 +474,26 @@ function parseAnalysisSections(rawText) {
       };
       parsedSections.push(currentSection);
       return;
+    }
+
+    // Match markdown headings without numbering: ## Title
+    const mdPlainHeadingMatch = trimmed.match(/^(#{2,6})\s+(.+)$/);
+    if (mdPlainHeadingMatch && !hasLeadingWhitespace && !currentSection) {
+      // Only treat as a new section if it's a top-level heading without numbering
+      // (e.g., ## Assumptions) — but only after intro
+    }
+    if (mdPlainHeadingMatch && !hasLeadingWhitespace && currentSection) {
+      const depth = mdPlainHeadingMatch[1].length; // ## = 2, ### = 3
+      if (depth <= 2) {
+        currentSection = {
+          numbering: "",
+          title: mdPlainHeadingMatch[2].replace(/\s*\*+$/g, "").trim(),
+          level: 1,
+          lines: [],
+        };
+        parsedSections.push(currentSection);
+        return;
+      }
     }
 
     if (!currentSection) {
@@ -516,7 +550,15 @@ function renderTocItem(item, tocContainer, depth = 0) {
     tocBtn.classList.add(`analysis-toc-indent-${Math.min(3, depth)}`);
   }
   tocBtn.dataset.sectionId = item.id;
-  tocBtn.textContent = `${item.numbering ? `${item.numbering} ` : ""}${item.title}`;
+
+  const title = item.title || "";
+  if (item.numbering) {
+    tocBtn.innerHTML = `<span class="toc-number">${item.numbering}</span><span class="toc-label">${title}</span>`;
+  } else {
+    tocBtn.innerHTML = `<span class="toc-label">${title}</span>`;
+  }
+  tocBtn.title = `${item.numbering ? item.numbering + ". " : ""}${title}`;
+
   tocBtn.addEventListener("click", () => {
     const target = document.getElementById(item.id);
     if (target) {
@@ -533,6 +575,26 @@ function renderTocItem(item, tocContainer, depth = 0) {
   }
 }
 
+(function initAnalysisScrollSpy() {
+  const docEl = document.getElementById("analysisDoc");
+  if (!docEl) return;
+  docEl.addEventListener("scroll", () => {
+    const sections = docEl.querySelectorAll(".analysis-doc-section");
+    if (!sections.length) return;
+    let activeId = sections[0]?.id || "";
+    for (const section of sections) {
+      const rect = section.getBoundingClientRect();
+      const docRect = docEl.getBoundingClientRect();
+      if (rect.top - docRect.top <= 60) {
+        activeId = section.id;
+      } else {
+        break;
+      }
+    }
+    if (activeId) setActiveAnalysisTocItem(activeId);
+  });
+})();
+
 function renderAnalysisBodyLines(container, lines) {
   const usefulLines = Array.isArray(lines) ? lines : [];
   const hasContent = usefulLines.some((line) => line.trim());
@@ -545,74 +607,40 @@ function renderAnalysisBodyLines(container, lines) {
     return;
   }
 
-  const escapeHtml = (value) => String(value || "")
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/\"/g, "&quot;")
-    .replace(/'/g, "&#39;");
+  const markdown = usefulLines.join("\n");
+  const div = document.createElement("div");
+  div.className = "analysis-md-rendered";
 
-  const formatInlineMarkdown = (value) => {
-    let text = escapeHtml(value);
+  if (typeof marked !== "undefined") {
+    marked.setOptions({
+      breaks: true,
+      gfm: true,
+      highlight: function(code, lang) {
+        if (typeof hljs !== "undefined" && lang && hljs.getLanguage(lang)) {
+          return hljs.highlight(code, { language: lang }).value;
+        }
+        return code;
+      },
+    });
+    div.innerHTML = marked.parse(markdown);
+  } else {
+    div.innerHTML = `<pre style="white-space:pre-wrap;">${markdown}</pre>`;
+  }
 
-    text = text.replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>');
-    text = text.replace(/`([^`]+)`/g, "<code>$1</code>");
-    text = text.replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>");
-    text = text.replace(/\*([^*\n]+)\*/g, "<em>$1</em>");
-
-    return text;
-  };
-
-  let activeList = null;
-  let activeListType = "";
-
-  usefulLines.forEach((line) => {
-    const trimmed = line.trim();
-    if (!trimmed) {
-      activeList = null;
-      activeListType = "";
-      return;
-    }
-
-    const markdownHeadingMatch = trimmed.match(/^(#{1,6})\s+(.+)$/);
-    if (markdownHeadingMatch) {
-      activeList = null;
-      activeListType = "";
-
-      const headingDepth = Math.min(6, Math.max(3, markdownHeadingMatch[1].length + 1));
-      const headingEl = document.createElement(`h${headingDepth}`);
-      headingEl.className = "analysis-md-heading";
-      headingEl.innerHTML = formatInlineMarkdown(markdownHeadingMatch[2].trim());
-      container.appendChild(headingEl);
-      return;
-    }
-
-    const listMatch = line.match(/^(\s*)([-*+]|\d+\.)\s+(.+)$/);
-
-    if (listMatch) {
-      const listType = /\d+\./.test(listMatch[2]) ? "ol" : "ul";
-      if (!activeList || activeListType !== listType) {
-        activeList = document.createElement(listType);
-        activeList.className = "analysis-md-list";
-        activeListType = listType;
-        container.appendChild(activeList);
-      }
-
-      const indentSpaces = listMatch[1].replace(/\t/g, "  ").length;
-      const indentLevel = Math.min(5, Math.floor(indentSpaces / 2));
-      const li = document.createElement("li");
-      li.style.marginLeft = `${indentLevel * 0.85}rem`;
-      li.innerHTML = formatInlineMarkdown(listMatch[3].trim());
-      activeList.appendChild(li);
-    } else {
-      activeList = null;
-      activeListType = "";
-
-      const p = document.createElement("p");
-      p.innerHTML = formatInlineMarkdown(trimmed);
-      container.appendChild(p);
-    }
+  // Post-process: add target=_blank to links
+  div.querySelectorAll("a").forEach(a => {
+    a.setAttribute("target", "_blank");
+    a.setAttribute("rel", "noopener noreferrer");
   });
+
+  // Highlight code blocks if hljs available
+  if (typeof hljs !== "undefined") {
+    div.querySelectorAll("pre code").forEach(block => {
+      hljs.highlightElement(block);
+    });
+  }
+
+  container.appendChild(div);
 }
 
 function setActiveAnalysisTocItem(sectionId) {
@@ -3007,8 +3035,43 @@ async function loadDashboard() {
       return;
     }
 
-    dashTableBody.innerHTML = "";
-    prompts.forEach(p => {
+    // Store prompts for filtering
+    window._dashPrompts = prompts;
+    renderDashTable(prompts);
+
+    dashStatus.textContent = `Dashboard loaded · ${prompts.length} prompt(s).`;
+  } catch (err) {
+    dashTableBody.innerHTML = `<tr><td colspan="7" class="dash-empty text-danger">Failed to load dashboard: ${err.message}</td></tr>`;
+    dashStatus.textContent = err.message;
+  }
+}
+
+function renderDashTable(prompts) {
+  // Apply filters
+  const statusFilter = (document.getElementById("dashFilterStatus")?.value || "").toLowerCase();
+  const projectFilter = (document.getElementById("dashFilterProject")?.value || "").toLowerCase().trim();
+  const sortOrder = document.getElementById("dashSortOrder")?.value || "desc";
+
+  let filtered = prompts.filter(p => {
+    if (statusFilter && !String(p.status || "").toLowerCase().includes(statusFilter)) return false;
+    if (projectFilter && !String(p.projectName || p.project || "").toLowerCase().includes(projectFilter)) return false;
+    return true;
+  });
+
+  // Sort by created date
+  filtered.sort((a, b) => {
+    const da = new Date(a.createdAt || a.created_at || 0).getTime();
+    const db = new Date(b.createdAt || b.created_at || 0).getTime();
+    return sortOrder === "desc" ? db - da : da - db;
+  });
+
+  if (!filtered.length) {
+    dashTableBody.innerHTML = `<tr><td colspan="7" class="dash-empty">No prompts match the current filters.</td></tr>`;
+    return;
+  }
+
+  dashTableBody.innerHTML = "";
+  filtered.forEach(p => {
       const promptId = p.promptId || p.id || "—";
       const project  = p.projectName || p.project || "—";
       const status   = p.status || "—";
@@ -3017,6 +3080,9 @@ async function loadDashboard() {
       const failureNote = String(p.failureNote || p.errorMessage || "").trim();
       const failureInfoButton = isFailed
         ? `<button class="btn btn-sm btn-outline-danger py-0 px-1 ms-1 dash-view-failure" data-id="${promptId}" data-note="${escapeHtml(failureNote || "No failure details")}" title="View Failure Details" style="font-size:0.75rem;"><i class="bi bi-info-circle"></i></button>`
+        : "";
+      const retryButton = isFailed
+        ? `<button class="btn btn-sm btn-outline-warning py-0 px-1 ms-1 dash-retry" data-id="${promptId}" title="Retry" style="font-size:0.75rem;"><i class="bi bi-arrow-clockwise"></i></button>`
         : "";
       const tc       = p.testCaseCount ?? "—";
       const duration = p.turnaroundMs != null ? formatDuration(p.turnaroundMs) : "—";
@@ -3030,55 +3096,127 @@ async function loadDashboard() {
         <td>${tc}</td>
         <td>${duration}</td>
         <td>${created}</td>
-        <td>
+        <td class="text-start">
           <button class="btn btn-sm btn-outline-primary py-0 px-1 dash-view-analysis" data-id="${promptId}" title="View Analysis" style="font-size:0.75rem;"><i class="bi bi-bar-chart-line"></i></button>
           <button class="btn btn-sm btn-outline-secondary py-0 px-1 ms-1 dash-view-testcases" data-id="${promptId}" title="View Test Cases" style="font-size:0.75rem;"><i class="bi bi-list-check"></i></button>
           <button class="btn btn-sm btn-outline-dark py-0 px-1 ms-1 dash-view-log" data-id="${promptId}" title="View Processing Log" style="font-size:0.75rem;"><i class="bi bi-terminal"></i></button>
           ${failureInfoButton}
+          ${retryButton}
         </td>`;
       dashTableBody.appendChild(tr);
-    });
+  });
 
-    dashTableBody.querySelectorAll(".dash-prompt-link, .dash-view-analysis").forEach(el => {
-      el.addEventListener("click", () => {
-        const id = el.dataset.promptid || el.dataset.id;
-        document.getElementById("analysisPromptIdInput").value = id;
-        analysisDropdown.selectPromptById(id);
-        document.getElementById("test-analysis-tab").click();
-        doLoadAnalysis(id);
-      });
+  dashTableBody.querySelectorAll(".dash-prompt-link, .dash-view-analysis").forEach(el => {
+    el.addEventListener("click", () => {
+      const id = el.dataset.promptid || el.dataset.id;
+      document.getElementById("analysisPromptIdInput").value = id;
+      analysisDropdown.selectPromptById(id);
+      document.getElementById("test-analysis-tab").click();
+      doLoadAnalysis(id);
     });
+  });
 
-    dashTableBody.querySelectorAll(".dash-view-testcases").forEach(el => {
-      el.addEventListener("click", () => {
-        const id = el.dataset.id;
-        document.getElementById("scopePromptIdInput").value = id;
-        scopeDropdown.selectPromptById(id);
-        document.getElementById("test-scope-tab").click();
-        loadTestScope(id);
-      });
+  dashTableBody.querySelectorAll(".dash-view-testcases").forEach(el => {
+    el.addEventListener("click", () => {
+      const id = el.dataset.id;
+      document.getElementById("scopePromptIdInput").value = id;
+      scopeDropdown.selectPromptById(id);
+      document.getElementById("test-scope-tab").click();
+      loadTestScope(id);
     });
+  });
 
-    dashTableBody.querySelectorAll(".dash-view-failure").forEach(el => {
-      el.addEventListener("click", () => {
-        const id = el.dataset.id;
-        const note = el.dataset.note || "No failure details.";
-        openFailedPromptInfo(id, note);
-      });
+  dashTableBody.querySelectorAll(".dash-view-failure").forEach(el => {
+    el.addEventListener("click", () => {
+      const id = el.dataset.id;
+      const note = el.dataset.note || "No failure details.";
+      openFailedPromptInfo(id, note);
     });
+  });
 
-    dashTableBody.querySelectorAll(".dash-view-log").forEach(el => {
-      el.addEventListener("click", () => {
-        openPromptLogModal(el.dataset.id);
-      });
+  dashTableBody.querySelectorAll(".dash-view-log").forEach(el => {
+    el.addEventListener("click", () => {
+      openPromptLogModal(el.dataset.id);
     });
+  });
 
-    dashStatus.textContent = `Dashboard loaded · ${prompts.length} prompt(s).`;
-  } catch (err) {
-    dashTableBody.innerHTML = `<tr><td colspan="7" class="dash-empty text-danger">Failed to load dashboard: ${err.message}</td></tr>`;
-    dashStatus.textContent = err.message;
-  }
+  dashTableBody.querySelectorAll(".dash-retry").forEach(el => {
+    el.addEventListener("click", async () => {
+      const id = el.dataset.id;
+      if (!confirm(`Retry prompt ${id}?`)) return;
+      el.disabled = true;
+      el.innerHTML = `<span class="spinner-border spinner-border-sm"></span>`;
+      try {
+        await apiRequest(`/generate/retry/${encodeURIComponent(id)}`, { method: "POST" });
+        dashStatus.textContent = `Retry started for ${id}. Refresh dashboard to see progress.`;
+        setTimeout(() => loadDashboard(), 3000);
+      } catch (err) {
+        alert(`Retry failed: ${err.message}`);
+        el.disabled = false;
+        el.innerHTML = `<i class="bi bi-arrow-clockwise"></i>`;
+      }
+    });
+  });
 }
+
+// Dashboard filter dropdowns (using same createStaticOptionSelect pattern)
+const DASH_STATUS_OPTIONS = [
+  { value: "", label: "All Status", description: "" },
+  { value: "completed", label: "Completed", description: "" },
+  { value: "failed", label: "Failed", description: "" },
+  { value: "processing", label: "Processing", description: "" },
+  { value: "retrying", label: "Retrying", description: "" },
+];
+
+const DASH_SORT_OPTIONS = [
+  { value: "desc", label: "Newest First", description: "" },
+  { value: "asc", label: "Oldest First", description: "" },
+];
+
+const dashStatusPicker = createStaticOptionSelect({
+  wrapId: "dashStatusSelectWrap",
+  triggerId: "dashStatusTrigger",
+  triggerTextId: "dashStatusTriggerText",
+  dropdownId: "dashStatusDropdown",
+  searchId: "dashStatusSearch",
+  optionsId: "dashStatusOptions",
+  valueId: "dashFilterStatus",
+  options: DASH_STATUS_OPTIONS,
+});
+
+const dashSortPicker = createStaticOptionSelect({
+  wrapId: "dashSortSelectWrap",
+  triggerId: "dashSortTrigger",
+  triggerTextId: "dashSortTriggerText",
+  dropdownId: "dashSortDropdown",
+  searchId: "dashSortSearch",
+  optionsId: "dashSortOptions",
+  valueId: "dashSortOrder",
+  options: DASH_SORT_OPTIONS,
+});
+
+// Filter/sort event listeners — observe hidden input value changes via MutationObserver
+const dashFilterStatusEl = document.getElementById("dashFilterStatus");
+const dashSortOrderEl = document.getElementById("dashSortOrder");
+
+new MutationObserver(() => { if (window._dashPrompts) renderDashTable(window._dashPrompts); })
+  .observe(dashFilterStatusEl, { attributes: true, attributeFilter: ["value"] });
+new MutationObserver(() => { if (window._dashPrompts) renderDashTable(window._dashPrompts); })
+  .observe(dashSortOrderEl, { attributes: true, attributeFilter: ["value"] });
+
+// Also poll value changes since hidden inputs don't fire "change"
+let _lastDashStatusVal = "", _lastDashSortVal = "desc";
+setInterval(() => {
+  const sv = dashFilterStatusEl.value, so = dashSortOrderEl.value;
+  if (sv !== _lastDashStatusVal || so !== _lastDashSortVal) {
+    _lastDashStatusVal = sv; _lastDashSortVal = so;
+    if (window._dashPrompts) renderDashTable(window._dashPrompts);
+  }
+}, 150);
+
+document.getElementById("dashFilterProject")?.addEventListener("input", () => {
+  if (window._dashPrompts) renderDashTable(window._dashPrompts);
+});
 
 dashRefreshBtn.addEventListener("click", () => {
   dashRefreshBtn.classList.add("btn-spin");

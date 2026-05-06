@@ -1,12 +1,12 @@
 const axios = require("axios")
 
 const CLAUDE_API_URL = "https://api.anthropic.com/v1/messages"
-const DEFAULT_MODEL = String(process.env.CLAUDE_MODEL || "claude-sonnet-4-20250514").trim()
+const DEFAULT_MODEL = String(process.env.CLAUDE_MODEL || "claude-sonnet-4-6").trim()
 
 const getApiKey = () => {
-	const apiKey = String(process.env.CLAUDE_API_KEY || process.env.ANTHROPIC_API_KEY || "").trim()
+	const apiKey = String(process.env.CLAUDE_API_KEY || "").trim()
 	if (!apiKey) {
-		const error = new Error("CLAUDE_API_KEY or ANTHROPIC_API_KEY is required for Claude service")
+		const error = new Error("CLAUDE_API_KEY is required for Claude service")
 		error.statusCode = 400
 		throw error
 	}
@@ -23,9 +23,6 @@ const generateFromPrompt = async (prompt, _options = {}) => {
 		error.statusCode = 400
 		throw error
 	}
-
-	console.log("DEBUG:: Claude prompt:", messagePrompt)
-
 
 	const response = await axios.post(
 		CLAUDE_API_URL,
@@ -54,8 +51,6 @@ const generateFromPrompt = async (prompt, _options = {}) => {
 			timeout: 120000,
 		},
 	)
-	console.log("DEBUG:: Claude response text length:", response)
-
 
 	const content = Array.isArray(response?.data?.content) ? response.data.content : []
 	const text = content
@@ -69,8 +64,6 @@ const generateFromPrompt = async (prompt, _options = {}) => {
 		error.statusCode = 502
 		throw error
 	}
-
-	console.log("DEBUG:: Claude response text length:", text.length)
 
 	return text
 }

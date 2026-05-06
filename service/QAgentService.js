@@ -1,6 +1,7 @@
 const { ulid } = require("ulid");
 const fs = require("fs");
 const { PDFParse } = require("pdf-parse");
+const { jsonrepair } = require("jsonrepair");
 const FileReader = require("../utils/FileReader");
 const { createActionLogger } = require("../utils/AppLogger");
 const TestCaseService = require("./TestCaseService");
@@ -90,16 +91,24 @@ const extractJsonPayload = (text = "") => {
 
     try {
         return JSON.parse(content);
-    } catch (error) {
+    } catch (firstError) {
         const start = content.indexOf("{");
         const end = content.lastIndexOf("}");
 
         if (start !== -1 && end !== -1 && end > start) {
             const candidate = content.slice(start, end + 1);
-            return JSON.parse(candidate);
+            try {
+                return JSON.parse(candidate);
+            } catch (_) {
+                // Try repairing the JSON
+                const repaired = jsonrepair(candidate);
+                return JSON.parse(repaired);
+            }
         }
 
-        throw error;
+        // Try repairing the full content as last resort
+        const repaired = jsonrepair(content);
+        return JSON.parse(repaired);
     }
 };
 
@@ -256,16 +265,16 @@ const countTestCases = (data = {}) => {
     }, 0);
 };
 
-const processSubmission = async (payload = {}) => {
+const processSubmission = async (payload = {}, { isRetry = false } = {}) => {
     const promptId = payload.promptId || ulid();
     const logger = createActionLogger({
         service: "QAgentService",
-        action: "processSubmission",
+        action: isRetry ? "retrySubmission" : "processSubmission",
         promptId,
         fileName: `runtime/${promptId}.txt`,
-        resetFile: true,
+        resetFile: !isRetry,
     });
-    logger.start("Submission received", {
+    logger.start(isRetry ? "Retry initiated" : "Submission received", {
         payloadKeys: Object.keys(payload || {}),
     });
 
@@ -306,7 +315,7 @@ const processSubmission = async (payload = {}) => {
                 const agentKeyMap = {
                     gemini: "GEMINI_API_KEY",
                     copilot: "COPILOT_TOKEN",
-                    claude: "CLAUDE_API_KEY or ANTHROPIC_API_KEY",
+                    claude: "CLAUDE_API_KEY",
                 };
                 const requiredKey = agentKeyMap[agent] || `API key for "${agent}"`;
                 const msg = [
@@ -331,32 +340,48 @@ const processSubmission = async (payload = {}) => {
     validatedPayload.documents = await enrichDocumentContents(validatedPayload.documents, logger);
     logger.success("Document enrichment complete");
 
-    appendPromptRecord(createInitialRecord({ promptId, payload: validatedPayload, agent }));
-    logger.success("Prompt record created", { status: "RECEIVED" });
+    if (!isRetry) {
+        appendPromptRecord(createInitialRecord({ promptId, payload: validatedPayload, agent }));
+        logger.success("Prompt record created", { status: "RECEIVED" });
+    }
 
-    updatePromptRecord(promptId, { status: "IN_PROGRESS", startAt: new Date().toISOString() });
-    logger.info("Status updated", { status: "IN_PROGRESS" });
+    updatePromptRecord(promptId, { status: isRetry ? "RETRYING" : "IN_PROGRESS", startAt: new Date().toISOString(), endAt: null, failureNote: null, errorMessage: null });
+    logger.info("Status updated", { status: isRetry ? "RETRYING" : "IN_PROGRESS" });
 
     try {
         updatePromptRecord(promptId, { status: "PROCESSING" });
         logger.info("Status updated", { status: "PROCESSING" });
 
         // --- STEP 1: Analysis ---
-        logger.step("Step 1/3 - Building analysis prompt");
-        const analysisPrompt = await TestCaseService.getTestAnalysisPrompt({
-            ...validatedPayload,
-            promptId,
-            feature: validatedPayload.feature,
-            additionalContext: validatedPayload.additionalContext || validatedPayload.context || "",
-        });
-        logger.success("Step 1/3 - Analysis prompt built", { chars: analysisPrompt.length });
+        let analysisText = "";
 
-        logger.step("Step 1/3 - Sending analysis prompt", { agent });
-        const analysisText = await runSelectedAgent({ prompt: analysisPrompt, payload: validatedPayload, mode: "analysis" });
-        logger.success("Step 1/3 - Analysis received", { chars: analysisText.length });
+        // On retry, try to reuse existing analysis
+        if (isRetry) {
+            try {
+                analysisText = FileReader.readDataFile(`analyze/${promptId}.md`);
+                logger.success("Step 1/3 - Reusing existing analysis (retry)", { chars: analysisText.length });
+            } catch (_) {
+                analysisText = "";
+            }
+        }
 
-        FileReader.writeDataFile(`analyze/${promptId}.md`, analysisText);
-        logger.success("Step 1/3 - Analysis saved", { path: `analyze/${promptId}.md` });
+        if (!analysisText.trim()) {
+            logger.step("Step 1/3 - Building analysis prompt");
+            const analysisPrompt = await TestCaseService.getTestAnalysisPrompt({
+                ...validatedPayload,
+                promptId,
+                feature: validatedPayload.feature,
+                additionalContext: validatedPayload.additionalContext || validatedPayload.context || "",
+            });
+            logger.success("Step 1/3 - Analysis prompt built", { chars: analysisPrompt.length });
+
+            logger.step("Step 1/3 - Sending analysis prompt", { agent });
+            analysisText = await runSelectedAgent({ prompt: analysisPrompt, payload: validatedPayload, mode: "analysis" });
+            logger.success("Step 1/3 - Analysis received", { chars: analysisText.length });
+
+            FileReader.writeDataFile(`analyze/${promptId}.md`, analysisText);
+            logger.success("Step 1/3 - Analysis saved", { path: `analyze/${promptId}.md` });
+        }
 
         // --- STEP 2: Test Case Generation ---
         logger.step("Step 2/3 - Building test case generation prompt");
@@ -417,4 +442,5 @@ module.exports = {
     normalizeAgentName,
     processSubmission,
     sanitizeSubmissionPayload,
+    readPromptData,
 };

@@ -36,4 +36,6 @@ router.post("/ask", upload.fields([
     { name: "figma", maxCount: 1 },
 ]), QAgent.askAi)
 
+router.post("/retry/:promptId", QAgent.retryPrompt)
+
 module.exports = router
