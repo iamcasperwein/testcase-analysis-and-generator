@@ -124,6 +124,320 @@ The service exposes the following routes (mounted in [app.js](app.js)):
 | `GET` | `/testrail/getsections` | [controller/Testrail.js](controller/Testrail.js) | Fetch sections from TestRail |
 | `POST` | `/testrail/posttestcases` | [controller/Testrail.js](controller/Testrail.js) | Post selected prompt test cases to TestRail |
 
+### API Contracts
+
+#### `POST /generate/ask`
+
+Submit artifacts for AI-driven test case generation. Returns immediately with a prompt ID while processing continues in the background.
+
+**Request:** `multipart/form-data`
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `agent` | string | Yes | AI agent: `gemini`, `claude`, or `copilot` |
+| `projectName` | string | Yes | Project/feature name |
+| `feature` | string | No | Feature name (defaults to projectName) |
+| `docType` | string | Yes | Artifact type: `prd`, `rfc`, `figma`, `user-story`, `other` |
+| `context` | string | No | Additional context/instructions for the AI |
+| `rawContent` | string | No | Raw text content (alternative to file upload) |
+| `prd` | file | Yes* | Primary document (PDF, TXT, MD, DOC, DOCX) |
+| `rfc` | file | No | RFC document |
+| `figma` | file | No | Figma export |
+
+*Either `prd` file or `rawContent` is required.
+
+**Response:** `202 Accepted`
+```json
+{
+  "success": true,
+  "message": "Prompt accepted. Processing started in background.",
+  "data": {
+    "promptId": "01KQYKWD1703SG90J8XE5PJZR9",
+    "status": "QUEUED"
+  }
+}
+```
+
+---
+
+#### `GET /dashboard`
+
+**Response:** `200 OK`
+```json
+{
+  "success": true,
+  "data": {
+    "totalPrompts": 10,
+    "completed": 8,
+    "inProgress": 1,
+    "avgTurnaroundMs": 89000,
+    "totalTestCases": 145,
+    "prompts": [
+      {
+        "promptId": "01KQYKWD1703SG90J8XE5PJZR9",
+        "projectName": "Login Flow",
+        "status": "COMPLETED",
+        "testCaseCount": 29,
+        "turnaroundMs": 89273,
+        "createdAt": "2026-05-01T10:00:00.000Z",
+        "failureNote": null
+      }
+    ]
+  }
+}
+```
+
+---
+
+#### `GET /dashboard/prompts`
+
+**Response:** `200 OK`
+```json
+{
+  "success": true,
+  "data": [
+    { "promptId": "01KQYKWD1703SG90J8XE5PJZR9", "projectName": "Login Flow" }
+  ]
+}
+```
+
+---
+
+#### `GET /dashboard/log/:promptId`
+
+**Response:** `200 OK`
+```json
+{
+  "success": true,
+  "data": {
+    "promptId": "01KQYKWD1703SG90J8XE5PJZR9",
+    "log": "[2026-05-01 10:00:01] Starting analysis...\n[2026-05-01 10:00:15] Analysis complete..."
+  }
+}
+```
+
+---
+
+#### `GET /testcase/:promptId`
+
+**Response:** `200 OK`
+```json
+{
+  "success": true,
+  "data": {
+    "feature": "Login Register Page",
+    "testCases": [
+      {
+        "section": "User Registration",
+        "sectionId": null,
+        "suiteId": null,
+        "sectionSource": "ai",
+        "testCases": [
+          {
+            "id": "TC-REG-001",
+            "title": "The user should be able to register successfully when providing valid email and password",
+            "type": "positive",
+            "priority": "high",
+            "preconditions": ["User is on the Registration page"],
+            "steps": [
+              { "content": "Enter a valid email address", "expected": "Email field accepts input" },
+              { "content": "Click the Register button", "expected": "N/A" }
+            ],
+            "expectedResult": "User is registered and redirected to dashboard"
+          }
+        ]
+      }
+    ]
+  }
+}
+```
+
+---
+
+#### `GET /testcase/getAnalyzeResult/:promptId`
+
+**Response:** `200 OK`
+```json
+{
+  "success": true,
+  "data": {
+    "promptId": "01KQYKWD1703SG90J8XE5PJZR9",
+    "analysis": "1. Summary\nThe login/register feature..."
+  }
+}
+```
+
+---
+
+#### `POST /testcase/edit?testcaseId=TC-001&promptID=01KQYKWD...`
+
+**Request:** `application/json`
+```json
+{
+  "id": "TC-REG-001",
+  "promptId": "01KQYKWD1703SG90J8XE5PJZR9",
+  "title": "Updated test title",
+  "section": "User Registration",
+  "sectionId": null,
+  "suiteId": null,
+  "sectionSource": "ai",
+  "preconditions": "User is on the Registration page",
+  "steps": [
+    { "content": "Enter a valid email", "expected": "Email field accepts input" },
+    { "content": "Click Register", "expected": "Form submits" }
+  ],
+  "expected": "User is registered successfully"
+}
+```
+
+**Response:** `200 OK`
+```json
+{
+  "success": true,
+  "message": "Test case updated successfully",
+  "data": { "id": "TC-REG-001", "section": "User Registration" }
+}
+```
+
+---
+
+#### `DELETE /testcase/deleteTestCase/:promptId/:testcaseId`
+
+**Response:** `200 OK`
+```json
+{
+  "success": true,
+  "message": "Test case deleted successfully",
+  "data": { "id": "TC-REG-001" }
+}
+```
+
+---
+
+#### `GET /settings`
+
+**Response:** `200 OK`
+```json
+{
+  "success": true,
+  "data": [
+    { "key": "PORT", "value": "9009" },
+    { "key": "GEMINI_API_KEY", "value": "AIza..." }
+  ]
+}
+```
+
+---
+
+#### `GET /settings/key`
+
+**Response:** `200 OK`
+```json
+{
+  "success": true,
+  "data": [
+    { "key": "PORT", "confidential": false, "isAvailable": true },
+    { "key": "GEMINI_API_KEY", "confidential": true, "isAvailable": false }
+  ]
+}
+```
+
+---
+
+#### `POST /settings`
+
+**Request:** `application/json`
+```json
+{
+  "GEMINI_API_KEY": "AIza...",
+  "PORT": "9009"
+}
+```
+
+**Response:** `201 Created`
+```json
+{
+  "success": true,
+  "message": "Settings saved successfully",
+  "data": { "saved": 2 }
+}
+```
+
+---
+
+#### `PUT /settings/:key`
+
+**Request:** `application/json`
+```json
+{ "value": "new-value" }
+```
+
+**Response:** `200 OK`
+```json
+{
+  "success": true,
+  "message": "Setting updated successfully",
+  "data": { "key": "PORT", "value": "9009" }
+}
+```
+
+---
+
+#### `DELETE /settings/:key`
+
+**Response:** `200 OK`
+```json
+{
+  "success": true,
+  "message": "Setting deleted successfully",
+  "data": { "key": "PORT" }
+}
+```
+
+---
+
+#### `GET /testrail/getsections`
+
+**Response:** `200 OK`
+```json
+{
+  "success": true,
+  "data": {
+    "sections": [
+      { "id": 1, "name": "Login Tests", "suite_id": 1, "depth": 0, "parent_id": null },
+      { "id": 2, "name": "Registration", "suite_id": 1, "depth": 1, "parent_id": 1 }
+    ]
+  }
+}
+```
+
+---
+
+#### `POST /testrail/posttestcases`
+
+**Request:** `application/json`
+```json
+{
+  "promptId": "01KQYKWD1703SG90J8XE5PJZR9",
+  "testcaseIds": ["TC-REG-001", "TC-REG-002", "TC-LOG-001"]
+}
+```
+
+**Response:** `200 OK`
+```json
+{
+  "success": true,
+  "message": "Test cases posted to TestRail",
+  "data": {
+    "totalPosted": 3,
+    "totalFailed": 0,
+    "totalSkipped": 0
+  }
+}
+```
+
+---
+
 ### TestRail Posting Data Contract (file-backed)
 
 When posting test cases to TestRail, section metadata in [data/testcases/](data/testcases/) is updated so future syncs can reuse the right TestRail section:
