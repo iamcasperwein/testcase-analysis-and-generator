@@ -1,0 +1,448 @@
+{
+    "feature": "Revamp Login Register",
+    "testCases": [
+        {
+            "section": "Registration via Email and Password",
+            "testCases": [
+                {
+                    "id": "TC-001",
+                    "title": "The user should be able to register when valid email and password are entered",
+                    "type": "positive",
+                    "priority": "high",
+                    "preconditions": [
+                        "User is on the registration screen"
+                    ],
+                    "steps": [
+                        {
+                            "content": "Enter a valid email address in the email field",
+                            "expected": "Email field accepts input and shows no error"
+                        },
+                        {
+                            "content": "Enter a valid password meeting complexity requirements",
+                            "expected": "Password field accepts input and shows no error"
+                        },
+                        {
+                            "content": "Tap the Register button",
+                            "expected": "Registration request is submitted"
+                        }
+                    ],
+                    "expectedResult": "User account is created successfully and user is redirected to the onboarding or dashboard screen"
+                },
+                {
+                    "id": "TC-002",
+                    "title": "Verify the error message should display invalid email format when user enters email without @ symbol",
+                    "type": "negative",
+                    "priority": "high",
+                    "preconditions": [
+                        "User is on the registration screen"
+                    ],
+                    "steps": [
+                        {
+                            "content": "Enter an invalid email address missing '@' symbol",
+                            "expected": "Email field shows validation error"
+                        },
+                        {
+                            "content": "Enter a valid password",
+                            "expected": "Password field accepts input"
+                        },
+                        {
+                            "content": "Tap the Register button",
+                            "expected": "Registration is blocked and error message is displayed"
+                        }
+                    ],
+                    "expectedResult": "User sees an error message indicating invalid email format and registration is not processed"
+                },
+                {
+                    "id": "TC-003",
+                    "title": "Verify the error message should display password complexity error when password does not meet policy",
+                    "type": "negative",
+                    "priority": "high",
+                    "preconditions": [
+                        "User is on the registration screen"
+                    ],
+                    "steps": [
+                        {
+                            "content": "Enter a valid email address",
+                            "expected": "Email field accepts input"
+                        },
+                        {
+                            "content": "Enter a password that does not meet complexity (e.g., too short or missing special characters)",
+                            "expected": "Password field shows validation error"
+                        },
+                        {
+                            "content": "Tap the Register button",
+                            "expected": "Registration is blocked and error message is displayed"
+                        }
+                    ],
+                    "expectedResult": "User sees an error message indicating password complexity requirements and registration is not processed"
+                },
+                {
+                    "id": "TC-004",
+                    "title": "The user should not be able to register when email is already linked to a social login account",
+                    "type": "negative",
+                    "priority": "medium",
+                    "preconditions": [
+                        "User is on the registration screen",
+                        "Email is already registered via Google SSO"
+                    ],
+                    "steps": [
+                        {
+                            "content": "Enter the email address linked to an existing Google SSO account",
+                            "expected": "Email field accepts input"
+                        },
+                        {
+                            "content": "Enter a valid password",
+                            "expected": "Password field accepts input"
+                        },
+                        {
+                            "content": "Tap the Register button",
+                            "expected": "Registration is blocked and error message is displayed"
+                        }
+                    ],
+                    "expectedResult": "User sees an error message indicating the email is already linked to a social login and cannot register with password"
+                },
+                {
+                    "id": "TC-005",
+                    "title": "The user should be able to register when using borderline valid email formats",
+                    "type": "edge",
+                    "priority": "medium",
+                    "preconditions": [
+                        "User is on the registration screen"
+                    ],
+                    "steps": [
+                        {
+                            "content": "Enter an unusual but valid email address (e.g., user+tag@sub.domain.co.uk)",
+                            "expected": "Email field accepts input and shows no error"
+                        },
+                        {
+                            "content": "Enter a valid password meeting complexity requirements",
+                            "expected": "Password field accepts input and shows no error"
+                        },
+                        {
+                            "content": "Tap the Register button",
+                            "expected": "Registration request is submitted"
+                        }
+                    ],
+                    "expectedResult": "User account is created successfully and user is redirected to the onboarding or dashboard screen"
+                },
+                {
+                    "id": "TC-006",
+                    "title": "The registration process should handle network interruptions gracefully when submitting data",
+                    "type": "edge",
+                    "priority": "medium",
+                    "preconditions": [
+                        "User is on the registration screen",
+                        "Network connectivity is unstable or lost during submission"
+                    ],
+                    "steps": [
+                        {
+                            "content": "Enter a valid email address",
+                            "expected": "Email field accepts input"
+                        },
+                        {
+                            "content": "Enter a valid password",
+                            "expected": "Password field accepts input"
+                        },
+                        {
+                            "content": "Tap the Register button while network is disconnected",
+                            "expected": "System attempts submission and fails due to network error"
+                        }
+                    ],
+                    "expectedResult": "User sees an error message indicating network failure and is able to retry registration"
+                }
+            ]
+        },
+        {
+            "section": "Login via Google Social Single Sign-On (SSO)",
+            "testCases": [
+                {
+                    "id": "TC-007",
+                    "title": "The user should be able to login successfully when valid Google SSO credentials are provided",
+                    "type": "positive",
+                    "priority": "medium",
+                    "preconditions": [
+                        "User is on the login screen",
+                        "User has a valid Google account linked"
+                    ],
+                    "steps": [
+                        {
+                            "content": "Tap the 'Login with Google' button",
+                            "expected": "Google SSO authentication screen appears"
+                        },
+                        {
+                            "content": "Complete Google authentication with valid credentials",
+                            "expected": "User is authenticated and redirected to dashboard"
+                        }
+                    ],
+                    "expectedResult": "User is logged in successfully via Google SSO within 3 seconds"
+                },
+                {
+                    "id": "TC-008",
+                    "title": "Verify the error message should display when Google SSO token is expired or revoked",
+                    "type": "negative",
+                    "priority": "medium",
+                    "preconditions": [
+                        "User is on the login screen",
+                        "Google SSO token is expired or revoked"
+                    ],
+                    "steps": [
+                        {
+                            "content": "Tap the 'Login with Google' button",
+                            "expected": "Google SSO authentication screen appears"
+                        },
+                        {
+                            "content": "Attempt to authenticate with expired/revoked token",
+                            "expected": "Authentication fails"
+                        }
+                    ],
+                    "expectedResult": "User sees an error message indicating Google login failure and is prompted to retry or use alternate login"
+                },
+                {
+                    "id": "TC-009",
+                    "title": "The system should handle Google SSO service latency gracefully when logging in",
+                    "type": "edge",
+                    "priority": "low",
+                    "preconditions": [
+                        "User is on the login screen",
+                        "Google SSO service is slow or delayed"
+                    ],
+                    "steps": [
+                        {
+                            "content": "Tap the 'Login with Google' button",
+                            "expected": "Google SSO authentication screen appears"
+                        },
+                        {
+                            "content": "Wait for Google SSO response with induced latency",
+                            "expected": "System shows loading indicator"
+                        }
+                    ],
+                    "expectedResult": "User is informed of ongoing login process and system does not freeze or crash"
+                }
+            ]
+        },
+        {
+            "section": "Forgot Password Flow via Email",
+            "testCases": [
+                {
+                    "id": "TC-010",
+                    "title": "The user should be able to request password reset when registered email is entered",
+                    "type": "positive",
+                    "priority": "high",
+                    "preconditions": [
+                        "User is on the Forgot Password screen"
+                    ],
+                    "steps": [
+                        {
+                            "content": "Enter a registered email address",
+                            "expected": "Email field accepts input"
+                        },
+                        {
+                            "content": "Tap the Submit button",
+                            "expected": "Password reset request is submitted"
+                        }
+                    ],
+                    "expectedResult": "User receives password reset email and sees confirmation message"
+                },
+                {
+                    "id": "TC-011",
+                    "title": "Verify the error message should display when unregistered email is entered in Forgot Password",
+                    "type": "negative",
+                    "priority": "high",
+                    "preconditions": [
+                        "User is on the Forgot Password screen"
+                    ],
+                    "steps": [
+                        {
+                            "content": "Enter an unregistered email address",
+                            "expected": "Email field accepts input"
+                        },
+                        {
+                            "content": "Tap the Submit button",
+                            "expected": "Password reset request is processed"
+                        }
+                    ],
+                    "expectedResult": "User sees an error message indicating email is not registered and no reset email is sent"
+                },
+                {
+                    "id": "TC-012",
+                    "title": "Verify the error message should display when Forgot Password is requested for a locked account",
+                    "type": "negative",
+                    "priority": "medium",
+                    "preconditions": [
+                        "User is on the Forgot Password screen",
+                        "Account associated with email is locked"
+                    ],
+                    "steps": [
+                        {
+                            "content": "Enter the locked account's email address",
+                            "expected": "Email field accepts input"
+                        },
+                        {
+                            "content": "Tap the Submit button",
+                            "expected": "Password reset request is processed"
+                        }
+                    ],
+                    "expectedResult": "User sees an error message indicating account is locked and instructions to contact support"
+                },
+                {
+                    "id": "TC-013",
+                    "title": "The Forgot Password flow should handle network interruptions gracefully during submission",
+                    "type": "edge",
+                    "priority": "medium",
+                    "preconditions": [
+                        "User is on the Forgot Password screen",
+                        "Network connectivity is lost during submission"
+                    ],
+                    "steps": [
+                        {
+                            "content": "Enter a registered email address",
+                            "expected": "Email field accepts input"
+                        },
+                        {
+                            "content": "Tap the Submit button while network is disconnected",
+                            "expected": "Submission fails due to network error"
+                        }
+                    ],
+                    "expectedResult": "User sees an error message indicating network failure and is able to retry password reset request"
+                }
+            ]
+        },
+        {
+            "section": "Input Validation for Email and Password Fields",
+            "testCases": [
+                {
+                    "id": "TC-014",
+                    "title": "The email field should display an error when left empty on registration",
+                    "type": "negative",
+                    "priority": "high",
+                    "preconditions": [
+                        "User is on the registration screen"
+                    ],
+                    "steps": [
+                        {
+                            "content": "Leave the email field empty",
+                            "expected": "Email field shows validation error"
+                        },
+                        {
+                            "content": "Enter a valid password",
+                            "expected": "Password field accepts input"
+                        },
+                        {
+                            "content": "Tap the Register button",
+                            "expected": "Registration is blocked and error message is displayed"
+                        }
+                    ],
+                    "expectedResult": "User sees an error message indicating email is required"
+                },
+                {
+                    "id": "TC-015",
+                    "title": "The password field should display an error when left empty on registration",
+                    "type": "negative",
+                    "priority": "high",
+                    "preconditions": [
+                        "User is on the registration screen"
+                    ],
+                    "steps": [
+                        {
+                            "content": "Enter a valid email address",
+                            "expected": "Email field accepts input"
+                        },
+                        {
+                            "content": "Leave the password field empty",
+                            "expected": "Password field shows validation error"
+                        },
+                        {
+                            "content": "Tap the Register button",
+                            "expected": "Registration is blocked and error message is displayed"
+                        }
+                    ],
+                    "expectedResult": "User sees an error message indicating password is required"
+                },
+                {
+                    "id": "TC-016",
+                    "title": "The email field should handle case insensitivity when logging in",
+                    "type": "edge",
+                    "priority": "medium",
+                    "preconditions": [
+                        "User is on the login screen",
+                        "User has a registered email with mixed case"
+                    ],
+                    "steps": [
+                        {
+                            "content": "Enter the registered email address with different casing (e.g., User@Example.com vs user@example.com)",
+                            "expected": "Email field accepts input"
+                        },
+                        {
+                            "content": "Enter the correct password",
+                            "expected": "Password field accepts input"
+                        },
+                        {
+                            "content": "Tap the Login button",
+                            "expected": "Login request is submitted"
+                        }
+                    ],
+                    "expectedResult": "User is logged in successfully regardless of email case"
+                }
+            ]
+        },
+        {
+            "section": "Performance and Security",
+            "testCases": [
+                {
+                    "id": "TC-017",
+                    "title": "The login process should complete within 3 seconds under normal conditions",
+                    "type": "positive",
+                    "priority": "high",
+                    "preconditions": [
+                        "User is on the login screen",
+                        "User has valid credentials"
+                    ],
+                    "steps": [
+                        {
+                            "content": "Enter valid email and password",
+                            "expected": "Fields accept input"
+                        },
+                        {
+                            "content": "Tap the Login button",
+                            "expected": "Login request is submitted"
+                        }
+                    ],
+                    "expectedResult": "User is logged in successfully and total login time is under 3 seconds"
+                },
+                {
+                    "id": "TC-018",
+                    "title": "The system should lock the account after multiple rapid failed login attempts",
+                    "type": "negative",
+                    "priority": "medium",
+                    "preconditions": [
+                        "User is on the login screen",
+                        "User has a valid account"
+                    ],
+                    "steps": [
+                        {
+                            "content": "Attempt to login with invalid password 5 times consecutively",
+                            "expected": "Each login attempt is rejected with error"
+                        }
+                    ],
+                    "expectedResult": "User account is locked and subsequent login attempts are blocked with lockout message"
+                },
+                {
+                    "id": "TC-019",
+                    "title": "The user should see clear error messages when account is locked after failed login attempts",
+                    "type": "negative",
+                    "priority": "medium",
+                    "preconditions": [
+                        "User account is locked"
+                    ],
+                    "steps": [
+                        {
+                            "content": "Attempt to login with correct credentials on locked account",
+                            "expected": "Login is blocked"
+                        }
+                    ],
+                    "expectedResult": "User sees an error message indicating account lockout and instructions for recovery"
+                }
+            ]
+        }
+    ]
+}

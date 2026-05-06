@@ -24,6 +24,9 @@ const generateFromPrompt = async (prompt, _options = {}) => {
 		throw error
 	}
 
+	console.log("DEBUG:: Claude prompt:", messagePrompt)
+
+
 	const response = await axios.post(
 		CLAUDE_API_URL,
 		{
@@ -51,6 +54,8 @@ const generateFromPrompt = async (prompt, _options = {}) => {
 			timeout: 120000,
 		},
 	)
+	console.log("DEBUG:: Claude response text length:", response)
+
 
 	const content = Array.isArray(response?.data?.content) ? response.data.content : []
 	const text = content
@@ -64,6 +69,8 @@ const generateFromPrompt = async (prompt, _options = {}) => {
 		error.statusCode = 502
 		throw error
 	}
+
+	console.log("DEBUG:: Claude response text length:", text.length)
 
 	return text
 }

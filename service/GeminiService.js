@@ -3,9 +3,25 @@ const { GoogleAIFileManager } = require("@google/generative-ai/server");
 const fs = require("fs");
 const { buildTestCaseGenerationPrompt } = require("../prompts");
 
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-const fileManager = new GoogleAIFileManager(process.env.GEMINI_API_KEY);
-const model = genAI.getGenerativeModel({ model: "models/gemini-2.5-flash" });
+
+let _genAI = null;
+let _fileManager = null;
+let _model = null;
+
+const getGenAI = () => {
+    if (!_genAI) {
+        const apiKey = String(process.env.GEMINI_API_KEY || "").trim();
+        if (!apiKey) {
+            const error = new Error("GEMINI_API_KEY is not configured. Set it in Settings or .env to use the Gemini agent.");
+            error.statusCode = 400;
+            throw error;
+        }
+        _genAI = new GoogleGenerativeAI(apiKey);
+        _fileManager = new GoogleAIFileManager(apiKey);
+        _model = _genAI.getGenerativeModel({ model: "models/gemini-2.5-flash" });
+    }
+    return { genAI: _genAI, fileManager: _fileManager, model: _model };
+};
 
 /**
  * Upload a file to the Gemini File API and return a fileData part.
@@ -21,6 +37,7 @@ const toFilePart = async (file, label) => {
     if (!uploadPath) return [];
 
     try {
+        const { fileManager } = getGenAI();
         const uploadResult = await fileManager.uploadFile(uploadPath, {
             mimeType,
             displayName: fileName,
@@ -96,6 +113,7 @@ const generateFromPrompt = async (prompt, options = {}) => {
     console.log("[GeminiService] generateFromPrompt :: start");
     const modelInput = await buildGeminiInput(prompt, options);
     console.log("[GeminiService] generateFromPrompt :: calling Gemini API...");
+    const { model } = getGenAI();
     const result = await model.generateContent(modelInput);
     const text = result.response.text();
     console.log(`[GeminiService] generateFromPrompt :: response received (${text.length} chars)`);

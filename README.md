@@ -91,11 +91,11 @@ Routes  →  Controller  →  Service  →  Utils / External APIs / File Store
 |---|---|---|
 | **Layered Architecture** | [routes/](routes/), [controller/](controller/), [service/](service/), [utils/](utils/) | Keeps HTTP concerns out of business logic; each layer is independently testable. |
 | **Strategy Pattern** | `AGENTS` map in [service/QAgentService.js](service/QAgentService.js#L10-L21) | Pluggable AI agents (`claude`, `gemini`, `copilot`) selected at runtime via `normalizeAgentName`. |
-| **Facade** | [service/GeminiService.js](service/GeminiService.js) | Hides complexity of Gemini SDK, file upload, base64 fallback, and prompt building behind `generateFromPrompt`. |
+| **Facade** | [service/GeminiService.js](service/GeminiService.js), [service/ClaudeService.js](service/ClaudeService.js), [service/CopilotService.js](service/CopilotService.js) | Each AI service exposes a unified `generateFromPrompt(prompt, options)` interface, hiding provider-specific SDK details. |
 | **Template Method** | [prompts/index.js](prompts/index.js), [prompts/testCaseGeneration.js](prompts/testCaseGeneration.js) | `buildTestAnalysisPrompt` and `buildTestCaseGenerationPrompt` follow a fixed scaffold filled by inputs. |
 | **Repository (file-backed)** | `readPromptData` / `writePromptData` in [service/QAgentService.js](service/QAgentService.js#L28-L46), [utils/FileReader.js](utils/FileReader.js) | Abstracts storage so the JSON-on-disk layer can later be swapped for a database. |
 | **DTO / Sanitizer** | `sanitizeSubmissionPayload`, `sanitizeUpdatedTestCase` | Normalizes untrusted input into a stable internal contract. |
-| **Singleton** | Gemini `genAI`, `fileManager`, and `model` instances in [service/GeminiService.js](service/GeminiService.js#L6-L9) | Reuses one authenticated client across requests. |
+| **Lazy Singleton** | Gemini `genAI`, `fileManager`, and `model` instances in [service/GeminiService.js](service/GeminiService.js) | Lazy-initialized on first use — avoids errors when `GEMINI_API_KEY` is absent and another agent is selected. |
 | **Factory** | `createInitialRecord` in [service/QAgentService.js](service/QAgentService.js#L113-L131) | Centralizes the construction of a normalized prompt record. |
 | **Async Job / Fire-and-Forget** | [controller/QAgent.js](controller/QAgent.js#L77-L92) | Returns `202 Accepted` and continues processing in the background. |
 | **Validation Error** | `SubmissionValidationError` class | Structured, status-code-aware errors propagated to the controller. |
@@ -601,7 +601,7 @@ sequenceDiagram
 ### Current Strengths
 - **Asynchronous job model**: `POST /generate/ask` returns `202 Accepted` immediately. The expensive AI pipeline runs in the background, freeing the request thread. See [controller/QAgent.js](controller/QAgent.js#L77-L92).
 - **Singleton AI clients**: Gemini SDK clients are constructed once per process and reused, avoiding per-request handshake costs ([service/GeminiService.js](service/GeminiService.js#L6-L9)).
-- **Server-side file uploads to Gemini**: Documents are uploaded to Gemini's File API once and referenced by URI, avoiding repeated base64 transmission. Inline base64 is used only as a fallback ([service/GeminiService.js](service/GeminiService.js#L13-L66)).
+- **Server-side file uploads to AI Model**: Documents are uploaded to Models's File API once and referenced by URI, avoiding repeated base64 transmission. Inline base64 is used only as a fallback ([service/GeminiService.js](service/GeminiService.js#L13-L66)).
 - **Two-stage prompting**: Decoupling analysis from test-case generation makes prompts smaller and improves reliability of JSON parsing.
 - **Upload size limits**: `multer` enforces a 10 MB cap per file ([routes/qagentRouter.js](routes/qagentRouter.js#L29-L31)).
 - **ULID identifiers**: Lexicographically sortable IDs enable efficient time-ordered scans of [data/promptdata.json](data/promptdata.json).
