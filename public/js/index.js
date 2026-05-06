@@ -1,0 +1,3028 @@
+// --- Constants ---
+const AGENTS = Object.freeze([
+  { value: "claude", label: "Claude", description: "Anthropic Claude model" },
+  { value: "gemini", label: "Gemini", description: "Google Gemini model" },
+  { value: "copilot", label: "GitHub Copilot", description: "GitHub Models via Copilot token" },
+]);
+
+const DOC_TYPES = Object.freeze([
+  { value: "prd", label: "PRD", description: "Product Requirements Document" },
+  { value: "rfc", label: "RFC", description: "Request for Comments" },
+  { value: "figma", label: "Figma", description: "Figma design file" },
+  { value: "user-story", label: "User Story", description: "User story format" },
+  { value: "other", label: "Other", description: "Other artifact type" },
+]);
+
+const DEFAULT_AGENT = "claude";
+const DEFAULT_DOC_TYPE = "prd";
+
+// --- Helper: simple fetch wrapper ---
+async function apiRequest(url, options = {}) {
+  const isAbsolute = /^https?:\/\//i.test(url);
+  const normalizedPath = String(url || "").startsWith("/") ? String(url) : `/${String(url || "")}`;
+  const backendPort = "3001";
+
+  const candidates = [];
+  if (isAbsolute) {
+    candidates.push(url);
+  } else {
+    if (window.location.protocol === "file:") {
+      candidates.push(`http://localhost:${backendPort}${normalizedPath}`);
+    } else {
+      candidates.push(normalizedPath);
+
+      const isLocalHost = /^(localhost|127\.0\.0\.1)$/i.test(window.location.hostname);
+      if (isLocalHost && window.location.port !== backendPort) {
+        candidates.push(`http://localhost:${backendPort}${normalizedPath}`);
+      }
+    }
+  }
+
+  let lastError = null;
+
+  for (const requestUrl of candidates) {
+    try {
+      const isFormData = options.body instanceof FormData;
+      const response = await fetch(requestUrl, {
+        headers: isFormData ? {} : {
+          "Content-Type": "application/json",
+          ...(options.headers || {}),
+        },
+        ...options,
+      });
+
+      const rawText = await response.text();
+      const contentType = response.headers.get("content-type") || "";
+      const isJson = contentType.includes("application/json");
+      const parsedBody = isJson && rawText ? JSON.parse(rawText) : (rawText || null);
+
+      if (!response.ok) {
+        const backendMessage =
+          (parsedBody && typeof parsedBody === "object" && (parsedBody.error || parsedBody.message))
+          || (typeof parsedBody === "string" ? parsedBody : "")
+          || response.statusText;
+        throw new Error(`${response.status} ${backendMessage}`.trim());
+      }
+
+      return parsedBody;
+    } catch (err) {
+      lastError = err;
+    }
+  }
+
+  throw new Error(lastError?.message || "Failed to fetch API");
+}
+
+// --- GLOBAL BANNER ---
+const appBanner      = document.getElementById("appBanner");
+const appBannerMsg   = document.getElementById("appBannerMsg");
+const appBannerIcon  = document.getElementById("appBannerIcon");
+const appBannerClose = document.getElementById("appBannerClose");
+let _bannerTimer = null;
+
+function showBanner(message, type = "success") {
+  clearTimeout(_bannerTimer);
+  appBanner.classList.remove("banner-show", "banner-success", "banner-danger");
+  appBannerMsg.textContent = String(message || "");
+  appBannerIcon.className = type === "success"
+    ? "bi bi-check-circle-fill"
+    : "bi bi-exclamation-triangle-fill";
+  void appBanner.offsetWidth; // force reflow for transition
+  appBanner.classList.add("banner-show", type === "success" ? "banner-success" : "banner-danger");
+  _bannerTimer = setTimeout(() => appBanner.classList.remove("banner-show"), 4000);
+}
+
+appBannerClose.addEventListener("click", () => {
+  clearTimeout(_bannerTimer);
+  appBanner.classList.remove("banner-show");
+});
+
+const pageBlockingOverlay = document.getElementById("pageBlockingOverlay");
+const pageBlockingText = document.getElementById("pageBlockingText");
+
+function setPageBlockingOverlay(isOpen, message = "Processing...") {
+  if (!pageBlockingOverlay) return;
+  if (pageBlockingText) {
+    pageBlockingText.textContent = String(message || "Processing...");
+  }
+  pageBlockingOverlay.classList.toggle("open", Boolean(isOpen));
+}
+
+// --- SETTINGS CUSTOM DIALOGS ---
+const settingEditOverlay     = document.getElementById("settingEditOverlay");
+const settingEditKeyBadge    = document.getElementById("settingEditKeyBadge");
+const settingEditInput       = document.getElementById("settingEditInput");
+const settingEditCancelBtn   = document.getElementById("settingEditCancelBtn");
+const settingEditConfirmBtn  = document.getElementById("settingEditConfirmBtn");
+
+const settingDeleteOverlay    = document.getElementById("settingDeleteOverlay");
+const settingDeleteKeyBadge   = document.getElementById("settingDeleteKeyBadge");
+const settingDeleteCancelBtn  = document.getElementById("settingDeleteCancelBtn");
+const settingDeleteConfirmBtn = document.getElementById("settingDeleteConfirmBtn");
+
+function openSettingEditDialog(key, currentValue) {
+  return new Promise((resolve) => {
+    settingEditKeyBadge.textContent = key;
+    settingEditInput.value = currentValue;
+    settingEditOverlay.classList.add("open");
+    setTimeout(() => settingEditInput.focus(), 50);
+
+    const cleanup = () => {
+      settingEditOverlay.classList.remove("open");
+      settingEditConfirmBtn.removeEventListener("click", onConfirm);
+      settingEditCancelBtn.removeEventListener("click", onCancel);
+      settingEditOverlay.removeEventListener("click", onBackdrop);
+      settingEditInput.removeEventListener("keydown", onKeydown);
+    };
+
+    const onConfirm = () => { cleanup(); resolve(settingEditInput.value); };
+    const onCancel  = () => { cleanup(); resolve(null); };
+    const onBackdrop = (e) => { if (e.target === settingEditOverlay) onCancel(); };
+    const onKeydown  = (e) => {
+      if (e.key === "Enter") onConfirm();
+      if (e.key === "Escape") onCancel();
+    };
+
+    settingEditConfirmBtn.addEventListener("click", onConfirm);
+    settingEditCancelBtn.addEventListener("click", onCancel);
+    settingEditOverlay.addEventListener("click", onBackdrop);
+    settingEditInput.addEventListener("keydown", onKeydown);
+  });
+}
+
+function openSettingDeleteDialog(key) {
+  return new Promise((resolve) => {
+    settingDeleteKeyBadge.textContent = key;
+    settingDeleteOverlay.classList.add("open");
+
+    const cleanup = () => {
+      settingDeleteOverlay.classList.remove("open");
+      settingDeleteConfirmBtn.removeEventListener("click", onConfirm);
+      settingDeleteCancelBtn.removeEventListener("click", onCancel);
+      settingDeleteOverlay.removeEventListener("click", onBackdrop);
+      document.removeEventListener("keydown", onKeydown);
+    };
+
+    const onConfirm  = () => { cleanup(); resolve(true); };
+    const onCancel   = () => { cleanup(); resolve(false); };
+    const onBackdrop = (e) => { if (e.target === settingDeleteOverlay) onCancel(); };
+    const onKeydown  = (e) => { if (e.key === "Escape") onCancel(); };
+
+    settingDeleteConfirmBtn.addEventListener("click", onConfirm);
+    settingDeleteCancelBtn.addEventListener("click", onCancel);
+    settingDeleteOverlay.addEventListener("click", onBackdrop);
+    document.addEventListener("keydown", onKeydown);
+  });
+}
+
+const appLayout = document.querySelector(".app-layout");
+const sidebarToggleBtn = document.getElementById("sidebarToggleBtn");
+const sectionPanelToggleBtn = document.getElementById("sectionPanelToggleBtn");
+const testScopeLeftPanel = document.querySelector(".test-scope-left");
+
+function setSidebarCollapsed(isCollapsed) {
+  appLayout.classList.toggle("sidebar-collapsed", isCollapsed);
+  sidebarToggleBtn.setAttribute("aria-label", isCollapsed ? "Expand sidebar" : "Collapse sidebar");
+  sidebarToggleBtn.setAttribute("title", isCollapsed ? "Expand sidebar" : "Collapse sidebar");
+  sidebarToggleBtn.innerHTML = isCollapsed
+    ? '<i class="bi bi-layout-sidebar"></i>'
+    : '<i class="bi bi-layout-sidebar-inset"></i>';
+  localStorage.setItem("qa_sidebar_collapsed", isCollapsed ? "1" : "0");
+}
+
+function setSectionPanelCollapsed(isCollapsed) {
+  if (!testScopeLeftPanel) return;
+  testScopeLeftPanel.classList.toggle("is-collapsed", isCollapsed);
+  sectionPanelToggleBtn.setAttribute("aria-label", isCollapsed ? "Expand sections" : "Collapse sections");
+  sectionPanelToggleBtn.setAttribute("title", isCollapsed ? "Expand sections" : "Collapse sections");
+  sectionPanelToggleBtn.innerHTML = isCollapsed
+    ? '<i class="bi bi-chevron-right"></i>'
+    : '<i class="bi bi-chevron-left"></i>';
+  localStorage.setItem("qa_sections_collapsed", isCollapsed ? "1" : "0");
+}
+
+sidebarToggleBtn.addEventListener("click", () => {
+  setSidebarCollapsed(!appLayout.classList.contains("sidebar-collapsed"));
+});
+
+sectionPanelToggleBtn.addEventListener("click", () => {
+  setSectionPanelCollapsed(!testScopeLeftPanel.classList.contains("is-collapsed"));
+});
+
+setSidebarCollapsed(localStorage.getItem("qa_sidebar_collapsed") === "1");
+setSectionPanelCollapsed(localStorage.getItem("qa_sections_collapsed") === "1");
+
+// --- FORM: Submit to /generate/ask ---
+const qaForm = document.getElementById("qaForm");
+const formStatus = document.getElementById("formStatus");
+const submitFormBtn = document.getElementById("submitFormBtn");
+
+function createStaticOptionSelect({ wrapId, triggerId, triggerTextId, dropdownId, searchId, optionsId, valueId, options = [] }) {
+  const wrapEl = document.getElementById(wrapId);
+  const triggerEl = document.getElementById(triggerId);
+  const triggerTextEl = document.getElementById(triggerTextId);
+  const dropdownEl = document.getElementById(dropdownId);
+  const searchEl = document.getElementById(searchId);
+  const optionsEl = document.getElementById(optionsId);
+  const valueEl = document.getElementById(valueId);
+
+  const safeOptions = Array.isArray(options) ? options : [];
+
+  function closeDropdown() {
+    dropdownEl.classList.remove("open");
+    triggerEl.classList.remove("open");
+  }
+
+  function setSelection(value) {
+    const item = safeOptions.find((option) => option.value === value) || safeOptions[0] || { value: "", label: "" };
+    valueEl.value = item.value;
+    triggerTextEl.textContent = item.label;
+    triggerTextEl.classList.toggle("is-placeholder", !item.label);
+  }
+
+  function renderOptions(filter = "") {
+    const q = String(filter || "").trim().toLowerCase();
+    const filtered = safeOptions.filter((item) => String(item.label || "").toLowerCase().includes(q));
+
+    optionsEl.innerHTML = "";
+    if (!filtered.length) {
+      optionsEl.innerHTML = '<div class="prompt-select-no-results">No models found.</div>';
+      return;
+    }
+
+    filtered.forEach((item) => {
+      const isSelected = valueEl.value === item.value;
+      const optionEl = document.createElement("div");
+      optionEl.className = `prompt-select-option${isSelected ? " selected" : ""}`;
+      optionEl.innerHTML = `
+        <span class="prompt-select-option-id">${item.label}</span>
+        <span class="prompt-select-option-name">${item.description || ""}</span>
+      `;
+
+      optionEl.addEventListener("mousedown", (event) => {
+        event.preventDefault();
+        setSelection(item.value);
+        closeDropdown();
+      });
+
+      optionsEl.appendChild(optionEl);
+    });
+  }
+
+  triggerEl.addEventListener("click", () => {
+    const isOpen = dropdownEl.classList.contains("open");
+    if (isOpen) {
+      closeDropdown();
+      return;
+    }
+
+    dropdownEl.classList.add("open");
+    triggerEl.classList.add("open");
+    searchEl.value = "";
+    renderOptions("");
+    searchEl.focus();
+  });
+
+  triggerEl.addEventListener("keydown", (event) => {
+    if (event.key === "Enter" || event.key === " ") {
+      event.preventDefault();
+      triggerEl.click();
+    }
+  });
+
+  searchEl.addEventListener("input", () => renderOptions(searchEl.value));
+  searchEl.addEventListener("keydown", (event) => {
+    if (event.key === "Escape") {
+      closeDropdown();
+    }
+  });
+
+  document.addEventListener("click", (event) => {
+    if (!wrapEl.contains(event.target)) {
+      closeDropdown();
+    }
+  });
+
+  setSelection(valueEl.value || safeOptions[0]?.value || "");
+  renderOptions("");
+
+  return {
+    getValue() {
+      return String(valueEl.value || "").trim();
+    },
+  };
+}
+
+const agentPicker = createStaticOptionSelect({
+  wrapId: "agentSelectWrap",
+  triggerId: "agentTrigger",
+  triggerTextId: "agentTriggerText",
+  dropdownId: "agentDropdown",
+  searchId: "agentSearch",
+  optionsId: "agentOptions",
+  valueId: "agentValueInput",
+  options: AGENTS,
+});
+
+const docTypePicker = createStaticOptionSelect({
+  wrapId: "docTypeSelectWrap",
+  triggerId: "docTypeTrigger",
+  triggerTextId: "docTypeTriggerText",
+  dropdownId: "docTypeDropdown",
+  searchId: "docTypeSearch",
+  optionsId: "docTypeOptions",
+  valueId: "docTypeSelect",
+  options: DOC_TYPES,
+});
+
+qaForm.addEventListener("submit", async (e) => {
+  e.preventDefault();
+  formStatus.textContent = "";
+  submitFormBtn.disabled = true;
+  submitFormBtn.textContent = "Submitting...";
+
+  const prdFile = document.getElementById("prdUrlInput").files?.[0] || null;
+  const rfcFile = document.getElementById("rfcUrlInput").files?.[0] || null;
+  const figmaFile = document.getElementById("figmaUrlInput").files?.[0] || null;
+  const rawContentEl = document.getElementById("rawContentInput");
+  const manualRawContent = rawContentEl ? rawContentEl.value.trim() : "";
+
+  // PRD is required — either a file or raw content
+  if (!prdFile && !manualRawContent) {
+    formStatus.textContent = "PRD file is required.";
+    formStatus.classList.remove("text-success");
+    formStatus.classList.add("text-danger");
+    submitFormBtn.disabled = false;
+    submitFormBtn.textContent = "Submit";
+    return;
+  }
+
+  // Build multipart FormData — files go as real uploads, server handles extraction
+  const formData = new FormData();
+  formData.append("agent", agentPicker.getValue() || DEFAULT_AGENT);
+  formData.append("projectName", document.getElementById("projectNameInput").value.trim());
+  formData.append("feature", document.getElementById("projectNameInput").value.trim());
+  formData.append("docType", docTypePicker.getValue() || DEFAULT_DOC_TYPE);
+  formData.append("context", document.getElementById("contextInput").value.trim());
+  formData.append("rawContent", manualRawContent);
+
+  if (prdFile)   formData.append("prd",   prdFile);
+  if (rfcFile)   formData.append("rfc",   rfcFile);
+  if (figmaFile) formData.append("figma", figmaFile);
+
+  try {
+    const response = await apiRequest("/generate/ask", {
+      method: "POST",
+      headers: {}, // let browser set multipart boundary automatically
+      body: formData,
+    });
+
+    const generatedPromptId = response?.data?.promptId || "";
+
+    const bannerMsg = generatedPromptId
+      ? `Submitted successfully. Prompt ID: ${generatedPromptId}`
+      : "Submitted successfully.";
+    formStatus.textContent = bannerMsg;
+    formStatus.classList.remove("text-danger");
+    formStatus.classList.add("text-success");
+    showBanner(bannerMsg, "success");
+
+    if (generatedPromptId) {
+      await loadAllPrompts();
+      await loadDashboard();
+    }
+  } catch (err) {
+    formStatus.textContent = "Submission failed: " + err.message;
+    formStatus.classList.remove("text-success");
+    formStatus.classList.add("text-danger");
+    showBanner("Submission failed: " + err.message, "danger");
+  } finally {
+    submitFormBtn.disabled = false;
+    submitFormBtn.textContent = "Submit for Analysis";
+  }
+});
+
+// --- TEST ANALYSIS: /testcase/getAnalyzeResult/{promptID} ---
+const downloadAnalysisBtn = document.getElementById("downloadAnalysisBtn");
+const analysisPromptIdInput = document.getElementById("analysisPromptIdInput");
+const analysisStatus = document.getElementById("analysisStatus");
+const analysisToc = document.getElementById("analysisToc");
+const analysisDoc = document.getElementById("analysisDoc");
+
+let currentAnalysisPromptId = null;
+let currentAnalysisText = "";
+
+async function doLoadAnalysis(promptId) {
+  if (!promptId) {
+    analysisStatus.textContent = "Select a prompt to load analysis.";
+    return;
+  }
+
+  analysisStatus.textContent = "Loading analysis...";
+  downloadAnalysisBtn.disabled = true;
+  currentAnalysisPromptId = promptId;
+  currentAnalysisText = "";
+
+  try {
+    const response = await apiRequest(`/testcase/getAnalyzeResult/${encodeURIComponent(promptId)}`);
+    const payload = response && typeof response === "object" && response.data ? response.data : response;
+    currentAnalysisText = typeof payload?.analysis === "string" ? payload.analysis : "";
+
+    renderAnalysisDocument(currentAnalysisText);
+
+    analysisStatus.textContent = "Analysis loaded.";
+    downloadAnalysisBtn.disabled = !currentAnalysisText.trim();
+  } catch (err) {
+    analysisToc.innerHTML = '<div class="analysis-toc-title">Contents</div><div class="analysis-toc-empty text-danger">Failed to load sections.</div>';
+    analysisDoc.innerHTML = '<div class="analysis-doc-empty text-danger">Failed to load analysis.</div>';
+    analysisStatus.textContent = err.message;
+    downloadAnalysisBtn.disabled = true;
+  }
+}
+
+function parseAnalysisSections(rawText) {
+  const lines = String(rawText || "").replace(/\r\n?/g, "\n").split("\n");
+  const parsedSections = [];
+  let currentSection = null;
+  const introLines = [];
+
+  lines.forEach((line) => {
+    const trimmed = line.trim();
+    const hasLeadingWhitespace = /^\s+/.test(line);
+    const headingMatch = trimmed.match(/^(\d+(?:\.\d+)*)\.?\s+(.+)$/);
+
+    if (headingMatch && !hasLeadingWhitespace) {
+      currentSection = {
+        numbering: headingMatch[1],
+        title: headingMatch[2].trim(),
+        level: headingMatch[1].split(".").length,
+        lines: [],
+      };
+      parsedSections.push(currentSection);
+      return;
+    }
+
+    if (!currentSection) {
+      introLines.push(line);
+      return;
+    }
+
+    currentSection.lines.push(line);
+  });
+
+  const hasIntro = introLines.some((line) => line.trim());
+  if (hasIntro) {
+    parsedSections.unshift({
+      numbering: "",
+      title: "Introduction",
+      level: 1,
+      lines: introLines,
+    });
+  }
+
+  return parsedSections.map((section, index) => ({
+    ...section,
+    id: `analysis-section-${index + 1}`,
+  }));
+}
+
+function buildTocHierarchy(sections) {
+  const root = { children: [] };
+  const stack = [root];
+
+  sections.forEach((section) => {
+    const item = {
+      ...section,
+      children: [],
+    };
+
+    while (stack.length > 1 && stack[stack.length - 1].level >= item.level) {
+      stack.pop();
+    }
+
+    const parent = stack[stack.length - 1];
+    parent.children.push(item);
+    stack.push(item);
+  });
+
+  return root.children;
+}
+
+function renderTocItem(item, tocContainer, depth = 0) {
+  const tocBtn = document.createElement("button");
+  tocBtn.type = "button";
+  tocBtn.className = "analysis-toc-item";
+  if (depth > 0) {
+    tocBtn.classList.add(`analysis-toc-indent-${Math.min(3, depth)}`);
+  }
+  tocBtn.dataset.sectionId = item.id;
+  tocBtn.textContent = `${item.numbering ? `${item.numbering} ` : ""}${item.title}`;
+  tocBtn.addEventListener("click", () => {
+    const target = document.getElementById(item.id);
+    if (target) {
+      target.scrollIntoView({ behavior: "smooth", block: "start" });
+      setActiveAnalysisTocItem(item.id);
+    }
+  });
+  tocContainer.appendChild(tocBtn);
+
+  if (item.children && item.children.length > 0) {
+    item.children.forEach((child) => {
+      renderTocItem(child, tocContainer, depth + 1);
+    });
+  }
+}
+
+function renderAnalysisBodyLines(container, lines) {
+  const usefulLines = Array.isArray(lines) ? lines : [];
+  const hasContent = usefulLines.some((line) => line.trim());
+
+  if (!hasContent) {
+    const emptyP = document.createElement("p");
+    emptyP.className = "text-muted mb-0";
+    emptyP.textContent = "No additional details.";
+    container.appendChild(emptyP);
+    return;
+  }
+
+  const escapeHtml = (value) => String(value || "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/\"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+
+  const formatInlineMarkdown = (value) => {
+    let text = escapeHtml(value);
+
+    text = text.replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>');
+    text = text.replace(/`([^`]+)`/g, "<code>$1</code>");
+    text = text.replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>");
+    text = text.replace(/\*([^*\n]+)\*/g, "<em>$1</em>");
+
+    return text;
+  };
+
+  let activeList = null;
+  let activeListType = "";
+
+  usefulLines.forEach((line) => {
+    const trimmed = line.trim();
+    if (!trimmed) {
+      activeList = null;
+      activeListType = "";
+      return;
+    }
+
+    const markdownHeadingMatch = trimmed.match(/^(#{1,6})\s+(.+)$/);
+    if (markdownHeadingMatch) {
+      activeList = null;
+      activeListType = "";
+
+      const headingDepth = Math.min(6, Math.max(3, markdownHeadingMatch[1].length + 1));
+      const headingEl = document.createElement(`h${headingDepth}`);
+      headingEl.className = "analysis-md-heading";
+      headingEl.innerHTML = formatInlineMarkdown(markdownHeadingMatch[2].trim());
+      container.appendChild(headingEl);
+      return;
+    }
+
+    const listMatch = line.match(/^(\s*)([-*+]|\d+\.)\s+(.+)$/);
+
+    if (listMatch) {
+      const listType = /\d+\./.test(listMatch[2]) ? "ol" : "ul";
+      if (!activeList || activeListType !== listType) {
+        activeList = document.createElement(listType);
+        activeList.className = "analysis-md-list";
+        activeListType = listType;
+        container.appendChild(activeList);
+      }
+
+      const indentSpaces = listMatch[1].replace(/\t/g, "  ").length;
+      const indentLevel = Math.min(5, Math.floor(indentSpaces / 2));
+      const li = document.createElement("li");
+      li.style.marginLeft = `${indentLevel * 0.85}rem`;
+      li.innerHTML = formatInlineMarkdown(listMatch[3].trim());
+      activeList.appendChild(li);
+    } else {
+      activeList = null;
+      activeListType = "";
+
+      const p = document.createElement("p");
+      p.innerHTML = formatInlineMarkdown(trimmed);
+      container.appendChild(p);
+    }
+  });
+}
+
+function setActiveAnalysisTocItem(sectionId) {
+  analysisToc.querySelectorAll(".analysis-toc-item").forEach((item) => {
+    item.classList.toggle("active", item.dataset.sectionId === sectionId);
+  });
+}
+
+function renderAnalysisDocument(rawText) {
+  const sections = parseAnalysisSections(rawText);
+
+  analysisToc.innerHTML = '<div class="analysis-toc-title">Contents</div>';
+  analysisDoc.innerHTML = "";
+
+  if (!sections.length) {
+    const tocEmpty = document.createElement("div");
+    tocEmpty.className = "analysis-toc-empty";
+    tocEmpty.textContent = "No sections found in analysis.";
+    analysisToc.appendChild(tocEmpty);
+
+    const docEmpty = document.createElement("div");
+    docEmpty.className = "analysis-doc-empty";
+    docEmpty.textContent = "No analysis content returned.";
+    analysisDoc.appendChild(docEmpty);
+    return;
+  }
+
+  const hierarchy = buildTocHierarchy(sections);
+
+  hierarchy.forEach((section) => {
+    renderTocItem(section, analysisToc, 0);
+  });
+
+  sections.forEach((section, index) => {
+    const sectionEl = document.createElement("section");
+    sectionEl.className = "analysis-doc-section";
+    sectionEl.id = section.id;
+
+    const headingTag = section.level <= 1 ? "h2" : section.level === 2 ? "h3" : "h4";
+    const headingEl = document.createElement(headingTag);
+    headingEl.textContent = `${section.numbering ? `${section.numbering}. ` : ""}${section.title}`;
+    sectionEl.appendChild(headingEl);
+
+    renderAnalysisBodyLines(sectionEl, section.lines);
+    analysisDoc.appendChild(sectionEl);
+
+    if (index === 0) {
+      setActiveAnalysisTocItem(section.id);
+    }
+  });
+}
+
+downloadAnalysisBtn.addEventListener("click", async () => {
+  if (!currentAnalysisPromptId || !currentAnalysisText.trim()) return;
+
+  downloadAnalysisBtn.disabled = true;
+  downloadAnalysisBtn.textContent = "Downloading...";
+
+  try {
+    const blob = new Blob([currentAnalysisText], { type: "text/markdown;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = `${currentAnalysisPromptId}-analysis.md`;
+    document.body.appendChild(anchor);
+    anchor.click();
+    anchor.remove();
+    URL.revokeObjectURL(url);
+
+    analysisStatus.textContent = "Analysis downloaded.";
+  } catch (err) {
+    analysisStatus.textContent = "Download failed: " + err.message;
+  } finally {
+    downloadAnalysisBtn.disabled = false;
+    downloadAnalysisBtn.textContent = "Download";
+  }
+});
+
+// --- TEST SCOPE: /testcase/{promptID} ---
+const scopePromptIdInput = document.getElementById("scopePromptIdInput");
+const scopeStatus = document.getElementById("scopeStatus");
+const sectionListEl = document.getElementById("sectionList");
+const testCaseTableBody = document.getElementById("testCaseTableBody");
+const scopeTable = document.querySelector(".scope-table");
+const tcTableWrap = document.querySelector(".tc-table-wrap");
+const selectedSectionTitle = document.getElementById("selectedSectionTitle");
+const allViewFilters = document.getElementById("allViewFilters");
+const toggleIdColumn = document.getElementById("toggleIdColumn");
+const focusSectionToggle = document.getElementById("focusSectionToggle");
+
+let allTestCases = []; // raw data from backend
+let sections = [];     // derived sections
+let selectedSection = "all";
+let currentScopePromptId = null;
+let focusSelectedSectionOnly = true;
+let isSelectMode = false;
+let selectedTcIds = new Set();
+let tcSearchQuery = "";
+let testrailSectionsCache = [];
+let isFetchingTestrailSections = false;
+
+toggleIdColumn.addEventListener("change", () => {
+  applyAllViewColumnVisibility();
+});
+
+focusSectionToggle.addEventListener("change", () => {
+  setFocusSelectedSectionOnly(focusSectionToggle.checked);
+});
+
+function setFocusSelectedSectionOnly(isEnabled) {
+  focusSelectedSectionOnly = isEnabled;
+  focusSectionToggle.checked = isEnabled;
+  localStorage.setItem("qa_focus_selected_section_only", isEnabled ? "1" : "0");
+
+  if (!sections.length) return;
+
+  if (selectedSection === "all") {
+    selectedSectionTitle.textContent = "All Test Cases";
+  } else {
+    selectedSectionTitle.textContent = focusSelectedSectionOnly
+      ? `Test Cases · ${selectedSection}`
+      : `All Test Cases · ${selectedSection}`;
+  }
+
+  renderAllTestCases();
+}
+
+function getVisibleColumnsCount() {
+  let visibleColumns = 2; // title + actions
+  if (toggleIdColumn.checked) visibleColumns += 1;
+  if (isSelectMode) visibleColumns += 1; // checkbox col
+  return visibleColumns;
+}
+
+function applyAllViewColumnVisibility() {
+  allViewFilters.style.display = "flex";
+
+  const showId = toggleIdColumn.checked;
+  document.querySelectorAll('.scope-table th[data-col="id"], .scope-table td[data-col="id"]').forEach(el => {
+    el.style.display = showId ? "" : "none";
+  });
+  scopeTable.classList.toggle("id-hidden", !showId);
+
+  document.querySelectorAll(".scope-table .tc-check-col").forEach(el => {
+    el.style.display = isSelectMode ? "" : "none";
+  });
+
+  const colSpan = getVisibleColumnsCount();
+  document.querySelectorAll("tr.scope-section-row td").forEach(cell => {
+    cell.colSpan = colSpan;
+  });
+}
+
+async function loadTestScope(promptId) {
+  scopeStatus.textContent = "Loading test cases...";
+  currentScopePromptId = promptId;
+  allTestCases = [];
+  sections = [];
+  selectedSection = "all";
+  isSelectMode = false;
+  selectedTcIds.clear();
+  tcSearchQuery = "";
+  testrailSectionsCache = [];
+  const _si = document.getElementById("tcSearchInput");
+  if (_si) _si.value = "";
+  const _sb = document.getElementById("tcSelectModeBtn");
+  if (_sb) _sb.classList.remove("active");
+  const _bb = document.getElementById("tcBulkBar");
+  if (_bb) _bb.style.display = "none";
+  sectionListEl.innerHTML = "";
+  testCaseTableBody.innerHTML = `
+    <tr><td colspan="${getVisibleColumnsCount()}" class="text-center text-muted small">
+      Loading...
+    </td></tr>`;
+
+  try {
+    // Expected response example:
+    // {
+    //   testcases: [
+    //     { id: "TC-1", title: "Login with valid credentials", section: "Login", steps: "...", expected: "..." },
+    //     ...
+    //   ]
+    // }
+    const data = await apiRequest(`/testcase/${encodeURIComponent(promptId)}`);
+    const rawSections = Array.isArray(data.data.testCases) ? data.data.testCases : [];
+    allTestCases = rawSections.flatMap(group =>
+      (group.testCases || []).map(tc => ({
+        ...tc,
+        section: group.section || "Uncategorized",
+        sectionId: group.sectionId ?? null,
+        suiteId: group.suiteId ?? null,
+        sectionSource: group.sectionSource || (group.sectionId != null ? "testrail" : "ai"),
+        preconditions: Array.isArray(tc.preconditions)
+          ? tc.preconditions.join("\n")
+          : (tc.preconditions || ""),
+        steps: Array.isArray(tc.steps) ? tc.steps.join("\n") : (tc.steps || ""),
+        expected: tc.expectedResult || tc.expected || "",
+      }))
+    );
+
+    if (!allTestCases.length) {
+      scopeStatus.textContent = "No test cases found for this Prompt ID.";
+      sectionListEl.innerHTML = '<div class="text-muted small">No sections available.</div>';
+      testCaseTableBody.innerHTML = `
+        <tr><td colspan="${getVisibleColumnsCount()}" class="text-center text-muted small">
+          No test cases available.
+        </td></tr>`;
+      selectedSectionTitle.textContent = "All Test Cases";
+      return;
+    }
+
+    // Build sections from test cases
+    const sectionMap = new Map();
+    allTestCases.forEach(tc => {
+      const sec = (tc.section || "Uncategorized").trim();
+      const sectionKey = tc.sectionId != null
+        ? `id:${tc.sectionId}`
+        : `name:${sec.toLowerCase()}`;
+
+      if (!sectionMap.has(sectionKey)) {
+        sectionMap.set(sectionKey, {
+          name: sec,
+          sectionId: tc.sectionId ?? null,
+          suiteId: tc.suiteId ?? null,
+          source: tc.sectionSource || (tc.sectionId != null ? "testrail" : "ai"),
+          testcases: [],
+        });
+      }
+
+      sectionMap.get(sectionKey).testcases.push(tc);
+    });
+
+    sections = Array.from(sectionMap.values());
+
+    renderSections();
+    renderAllTestCases();
+    selectedSectionTitle.textContent = "All Test Cases";
+    applyAllViewColumnVisibility();
+
+    scopeStatus.textContent = `Loaded ${allTestCases.length} test case(s) across ${sections.length} section(s).`;
+  } catch (err) {
+    scopeStatus.textContent = "Failed to load test scope: " + err.message;
+    sectionListEl.innerHTML = '<div class="text-danger small">Error loading sections.</div>';
+    testCaseTableBody.innerHTML = `
+      <tr><td colspan="${getVisibleColumnsCount()}" class="text-center text-danger small">
+        Error loading test cases.
+      </td></tr>`;
+  }
+}
+
+function buildSectionsFromCases() {
+  const sectionMap = new Map();
+  allTestCases.forEach(tc => {
+    const sec = (tc.section || "Uncategorized").trim();
+    const sectionKey = tc.sectionId != null
+      ? `id:${tc.sectionId}`
+      : `name:${sec.toLowerCase()}`;
+
+    if (!sectionMap.has(sectionKey)) {
+      sectionMap.set(sectionKey, {
+        name: sec,
+        sectionId: tc.sectionId ?? null,
+        suiteId: tc.suiteId ?? null,
+        source: tc.sectionSource || (tc.sectionId != null ? "testrail" : "ai"),
+        testcases: [],
+      });
+    }
+    sectionMap.get(sectionKey).testcases.push(tc);
+  });
+
+  sections = Array.from(sectionMap.values());
+}
+
+function renderSections() {
+  sectionListEl.innerHTML = "";
+
+  const allItem = document.createElement("div");
+  allItem.className = `section-item ${selectedSection === "all" ? "active" : ""}`;
+  allItem.textContent = `All Sections (${allTestCases.length})`;
+  allItem.addEventListener("click", () => selectSection("all"));
+  sectionListEl.appendChild(allItem);
+
+  sections.forEach(sec => {
+    const div = document.createElement("div");
+    div.className = "section-item";
+    if (sec.name === selectedSection) {
+      div.classList.add("active");
+    }
+    const normalizedSource = String(sec.source || "ai").toLowerCase();
+    const sectionSource = normalizedSource === "testrail" || normalizedSource === "user" ? normalizedSource : "ai";
+    const sourceLabel = sectionSource === "testrail" ? "TestRail" : sectionSource === "user" ? "User" : "AI";
+    div.innerHTML = `
+      <div class="d-flex align-items-center justify-content-between gap-2">
+        <span class="text-truncate">${escapeHtml(sec.name)} (${sec.testcases.length})</span>
+        <span class="section-origin-pill origin-${sectionSource}">${sourceLabel}</span>
+      </div>
+    `;
+    div.dataset.section = sec.name;
+    div.addEventListener("click", () => {
+      selectSection(sec.name);
+    });
+    sectionListEl.appendChild(div);
+  });
+}
+
+function createActionButtons(tc) {
+  const tdActions = document.createElement("td");
+  tdActions.className = "text-end";
+  tdActions.innerHTML = `
+    <button class="btn btn-sm btn-outline-secondary icon-action-btn" title="See detail" aria-label="See detail">
+      <i class="bi bi-eye"></i>
+    </button>
+    <button class="btn btn-sm btn-outline-primary icon-action-btn" title="Edit" aria-label="Edit">
+      <i class="bi bi-pencil-square"></i>
+    </button>
+    <button class="btn btn-sm btn-outline-danger icon-action-btn" title="Delete" aria-label="Delete">
+      <i class="bi bi-trash"></i>
+    </button>
+  `;
+
+  const [btnView, btnEdit, btnDelete] = tdActions.querySelectorAll("button");
+  btnView.addEventListener("click", () => openViewModal(tc));
+  btnEdit.addEventListener("click", () => openEditModal(tc));
+  btnDelete.addEventListener("click", () => openDeleteModal(tc));
+
+  return tdActions;
+}
+
+function scrollRowBelowStickyHeader(row, behavior = "smooth") {
+  if (!row) return;
+
+  const container = tcTableWrap || row.closest(".tc-table-wrap");
+  if (!container) {
+    row.scrollIntoView({ behavior, block: "start" });
+    return;
+  }
+
+  const stickyHeader = scopeTable?.querySelector("thead");
+  const stickyOffset = stickyHeader ? stickyHeader.getBoundingClientRect().height : 0;
+
+  const containerRect = container.getBoundingClientRect();
+  const rowRect = row.getBoundingClientRect();
+  const targetTop = container.scrollTop + (rowRect.top - containerRect.top) - stickyOffset - 2;
+
+  container.scrollTo({
+    top: Math.max(0, targetTop),
+    behavior,
+  });
+}
+
+function renderAllTestCases() {
+  const emptySpan = getVisibleColumnsCount();
+
+  if (!allTestCases.length) {
+    testCaseTableBody.innerHTML = `<tr><td colspan="${emptySpan}" class="text-center text-muted small py-3">No test cases available.</td></tr>`;
+    updateSelectAllState();
+    return;
+  }
+
+  const sectionsToRender = (focusSelectedSectionOnly && selectedSection !== "all")
+    ? sections.filter(section => section.name === selectedSection)
+    : sections;
+
+  const query = tcSearchQuery.toLowerCase().trim();
+  const filteredSections = sectionsToRender.map(section => ({
+    ...section,
+    testcases: query
+      ? section.testcases.filter(tc =>
+          (tc.id || "").toLowerCase().includes(query) ||
+          (tc.title || "").toLowerCase().includes(query)
+        )
+      : section.testcases,
+  })).filter(s => s.testcases.length > 0);
+
+  if (!filteredSections.length) {
+    const msg = query
+      ? `No results for "<strong>${escapeHtml(query)}</strong>"`
+      : "No test cases available.";
+    testCaseTableBody.innerHTML = `<tr><td colspan="${emptySpan}" class="text-center text-muted small py-3">${msg}</td></tr>`;
+    updateSelectAllState();
+    return;
+  }
+
+  testCaseTableBody.innerHTML = "";
+  filteredSections.forEach(section => {
+    const sectionRow = document.createElement("tr");
+    sectionRow.className = "scope-section-row";
+    sectionRow.dataset.sectionHeader = section.name;
+    const sectionCell = document.createElement("td");
+    sectionCell.colSpan = getVisibleColumnsCount();
+    const normalizedSource = String(section.source || "ai").toLowerCase();
+    const sectionSource = normalizedSource === "testrail" || normalizedSource === "user" ? normalizedSource : "ai";
+    const sourceLabel = sectionSource === "testrail" ? "TestRail" : sectionSource === "user" ? "User" : "AI";
+
+    // Section select-all checkbox (inside the cell, only visible in select mode)
+    const sectionCbWrap = document.createElement("span");
+    sectionCbWrap.className = "section-cb-wrap";
+    sectionCbWrap.style.display = isSelectMode ? "inline-flex" : "none";
+    const sectionCb = document.createElement("input");
+    sectionCb.type = "checkbox";
+    sectionCb.className = "form-check-input section-select-all-cb mb-0";
+    sectionCb.dataset.sectionName = section.name;
+    sectionCb.title = "Select all in this section";
+    const sectionIds = section.testcases.map(tc => tc.id).filter(Boolean);
+    const sCheckedCount = sectionIds.filter(id => selectedTcIds.has(id)).length;
+    sectionCb.checked = sectionIds.length > 0 && sCheckedCount === sectionIds.length;
+    sectionCb.indeterminate = sCheckedCount > 0 && sCheckedCount < sectionIds.length;
+    sectionCb.addEventListener("change", () => {
+      const tcRows = Array.from(testCaseTableBody.querySelectorAll(`.testcase-row[data-section="${CSS.escape(section.name)}"]`));
+      tcRows.forEach(row => {
+        const id = row.dataset.tcId;
+        if (!id) return;
+        if (sectionCb.checked) selectedTcIds.add(id);
+        else selectedTcIds.delete(id);
+        row.classList.toggle("tc-selected", sectionCb.checked);
+        const rowCb = row.querySelector(".tc-row-check");
+        if (rowCb) rowCb.checked = sectionCb.checked;
+      });
+      updateBulkBar();
+      updateSelectAllState();
+    });
+    sectionCbWrap.appendChild(sectionCb);
+
+    const sectionContentDiv = document.createElement("div");
+    sectionContentDiv.className = "d-flex align-items-center justify-content-between gap-2";
+    sectionContentDiv.innerHTML = `
+      <span class="d-flex align-items-center gap-2"></span>
+      <span class="section-origin-pill origin-${sectionSource}">${sourceLabel}</span>
+    `;
+    const sectionNameSpan = sectionContentDiv.querySelector("span.d-flex");
+    sectionNameSpan.prepend(sectionCbWrap);
+    const nameText = document.createTextNode(`${escapeHtml(section.name)} (${section.testcases.length})`);
+    // Use innerHTML for the text portion safely
+    const namePart = document.createElement("span");
+    namePart.textContent = `${section.name} (${section.testcases.length})`;
+    sectionNameSpan.appendChild(namePart);
+
+    sectionCell.appendChild(sectionContentDiv);
+    sectionRow.appendChild(sectionCell);
+    testCaseTableBody.appendChild(sectionRow);
+
+    section.testcases.forEach(tc => {
+      const tr = document.createElement("tr");
+      tr.className = "testcase-row";
+      if (selectedTcIds.has(tc.id)) tr.classList.add("tc-selected");
+      tr.dataset.section = section.name;
+      tr.dataset.tcId = tc.id || "";
+
+      // Checkbox cell
+      const tdCheck = document.createElement("td");
+      tdCheck.className = "tc-check-col";
+      tdCheck.style.display = isSelectMode ? "" : "none";
+      const cb = document.createElement("input");
+      cb.type = "checkbox";
+      cb.className = "form-check-input tc-row-check";
+      cb.checked = selectedTcIds.has(tc.id);
+      cb.addEventListener("change", () => {
+        if (cb.checked) selectedTcIds.add(tc.id);
+        else selectedTcIds.delete(tc.id);
+        tr.classList.toggle("tc-selected", cb.checked);
+        updateBulkBar();
+        updateSelectAllState();
+      });
+      tdCheck.appendChild(cb);
+      tr.appendChild(tdCheck);
+
+      const tdId = document.createElement("td");
+      tdId.dataset.col = "id";
+      const trCaseId = tc.testrailPost?.testrailCaseId;
+      if (trCaseId != null) {
+        tdId.textContent = `C${trCaseId}`;
+        tdId.title = `Local ID: ${tc.id || ""}`;
+      } else {
+        tdId.textContent = tc.id || "";
+      }
+      tr.appendChild(tdId);
+
+      const tdTitle = document.createElement("td");
+      tdTitle.dataset.col = "title";
+      if (tc.testrailPost?.status === "success") {
+        const titleSpan = document.createElement("span");
+        titleSpan.textContent = tc.title || "";
+        const icon = document.createElement("span");
+        icon.className = "tr-posted-badge";
+        const caseId = tc.testrailPost.testrailCaseId ?? "?";
+        const postedDate = tc.testrailPost.lastAttemptAt ? new Date(tc.testrailPost.lastAttemptAt).toLocaleDateString() : null;
+        icon.dataset.tooltip = `TestRail Case #${caseId}${postedDate ? " · Posted " + postedDate : ""}`;
+        icon.innerHTML = '<i class="bi bi-cloud-check-fill"></i>';
+        tdTitle.appendChild(titleSpan);
+        tdTitle.appendChild(icon);
+      } else {
+        tdTitle.textContent = tc.title || "";
+      }
+      tr.appendChild(tdTitle);
+
+      tr.appendChild(createActionButtons(tc));
+      testCaseTableBody.appendChild(tr);
+    });
+  });
+
+  applyAllViewColumnVisibility();
+  updateSelectAllState();
+}
+
+function selectSection(sectionName) {
+  selectedSection = sectionName;
+  renderSections();
+
+  if (focusSelectedSectionOnly) {
+    if (sectionName === "all") {
+      selectedSectionTitle.textContent = "All Test Cases";
+    } else {
+      selectedSectionTitle.textContent = `Test Cases · ${sectionName}`;
+    }
+    renderAllTestCases();
+    return;
+  }
+
+  if (sectionName === "all") {
+    selectedSectionTitle.textContent = "All Test Cases";
+    applyAllViewColumnVisibility();
+    const firstHeader = testCaseTableBody.querySelector("tr.scope-section-row");
+    if (firstHeader) {
+      scrollRowBelowStickyHeader(firstHeader);
+    }
+    return;
+  }
+
+  selectedSectionTitle.textContent = `All Test Cases · ${sectionName}`;
+  applyAllViewColumnVisibility();
+  const target = testCaseTableBody.querySelector(`tr[data-section-header="${CSS.escape(sectionName)}"]`)
+    || testCaseTableBody.querySelector(`tr[data-section="${CSS.escape(sectionName)}"]`);
+
+  if (target) {
+    scrollRowBelowStickyHeader(target);
+    target.classList.add("row-focus");
+    setTimeout(() => target.classList.remove("row-focus"), 1300);
+  }
+}
+
+setFocusSelectedSectionOnly(localStorage.getItem("qa_focus_selected_section_only") !== "0");
+
+// --- Test case search filter ---
+document.getElementById("tcSearchInput").addEventListener("input", (e) => {
+  tcSearchQuery = e.target.value;
+  renderAllTestCases();
+});
+
+// --- Select mode toggle ---
+document.getElementById("tcSelectModeBtn").addEventListener("click", () => {
+  isSelectMode = !isSelectMode;
+  if (!isSelectMode) selectedTcIds.clear();
+  document.getElementById("tcSelectModeBtn").classList.toggle("active", isSelectMode);
+  updateBulkBar();
+  renderAllTestCases();
+});
+
+// --- Select all checkbox ---
+document.getElementById("tcSelectAll").addEventListener("change", (e) => {
+  const rows = Array.from(testCaseTableBody.querySelectorAll(".testcase-row"));
+  rows.forEach(row => {
+    const id = row.dataset.tcId;
+    if (!id) return;
+    if (e.target.checked) selectedTcIds.add(id);
+    else selectedTcIds.delete(id);
+    row.classList.toggle("tc-selected", e.target.checked);
+    const cb = row.querySelector(".tc-row-check");
+    if (cb) cb.checked = e.target.checked;
+  });
+  updateBulkBar();
+});
+
+document.getElementById("tcBulkEditSectionBtn").addEventListener("click", handleBulkEditSection);
+document.getElementById("tcBulkPostTestrailBtn").addEventListener("click", handleBulkPostToTestrail);
+document.getElementById("tcBulkDeleteBtn").addEventListener("click", handleBulkDelete);
+document.getElementById("tcClearSelectionBtn").addEventListener("click", () => {
+  selectedTcIds.clear();
+  isSelectMode = false;
+  document.getElementById("tcSelectModeBtn").classList.remove("active");
+  updateBulkBar();
+  renderAllTestCases();
+});
+
+// --- Modals logic ---
+
+// View
+const viewTestCaseModal = new bootstrap.Modal(document.getElementById("viewTestCaseModal"));
+function renderListItems(raw, ordered = false) {
+  const lines = String(raw || "").split("\n").map(l => l.replace(/^\d+[\.\)]\s*/, "").trim()).filter(Boolean);
+  if (!lines.length) return `<span class="tc-view-empty">—</span>`;
+  const tag = ordered ? "ol" : "ul";
+  const cls = ordered ? "tc-view-steps-list" : "tc-view-bullets-list";
+  const items = lines.map(l => `<li>${escapeHtml(l)}</li>`).join("");
+  return `<${tag} class="${cls}">${items}</${tag}>`;
+}
+
+function openViewModal(tc) {
+  document.getElementById("viewTcId").textContent = tc.id || "";
+  document.getElementById("viewTcTitle").textContent = tc.title || "";
+  document.getElementById("viewTcSection").textContent = tc.section || "";
+  document.getElementById("viewTcPreconditions").innerHTML = renderListItems(tc.preconditions, false);
+  document.getElementById("viewTcSteps").innerHTML = renderListItems(tc.steps, true);
+  document.getElementById("viewTcExpected").textContent = tc.expected || "";
+  viewTestCaseModal.show();
+}
+
+// Edit
+const editTestCaseModal = new bootstrap.Modal(document.getElementById("editTestCaseModal"));
+const editTestCaseForm = document.getElementById("editTestCaseForm");
+
+function normalizeSectionOption(option = {}) {
+  if (typeof option === "string") {
+    const name = String(option || "").trim();
+    return {
+      name,
+      sectionId: null,
+      suiteId: null,
+      source: "ai",
+      depth: 0,
+      parentId: null,
+    };
+  }
+
+  const name = String(option.name || option.section || "").trim();
+  const sectionIdRaw = option.sectionId != null ? option.sectionId : option.id;
+  const suiteIdRaw = option.suiteId != null ? option.suiteId : option.suite_id;
+  const sectionId = sectionIdRaw != null && sectionIdRaw !== "" ? Number(sectionIdRaw) : null;
+  const suiteId = suiteIdRaw != null && suiteIdRaw !== "" ? Number(suiteIdRaw) : null;
+  const sourceHint = String(option.source || option.sectionSource || "").trim().toLowerCase();
+  const source = sourceHint === "testrail" || sourceHint === "ai" || sourceHint === "user"
+    ? sourceHint
+    : (sectionId != null ? "testrail" : "ai");
+
+  return {
+    name,
+    sectionId: Number.isFinite(sectionId) ? sectionId : null,
+    suiteId: Number.isFinite(suiteId) ? suiteId : null,
+    source,
+    depth: Number.isFinite(Number(option.depth)) ? Number(option.depth) : 0,
+    parentId: option.parentId != null ? option.parentId : option.parent_id ?? null,
+  };
+}
+
+function buildSectionOptionKey(option = {}) {
+  const normalized = normalizeSectionOption(option);
+  if (normalized.sectionId != null) {
+    return `id:${normalized.sectionId}`;
+  }
+  return `name:${normalized.name.toLowerCase()}`;
+}
+
+function dedupeSectionOptions(options = []) {
+  const map = new Map();
+  (options || []).forEach((item) => {
+    const normalized = normalizeSectionOption(item);
+    if (!normalized.name) return;
+    const key = buildSectionOptionKey(normalized);
+    if (!map.has(key)) {
+      map.set(key, normalized);
+    }
+  });
+
+  return Array.from(map.values()).sort((a, b) => {
+    const sourceRank = { testrail: 0, user: 1, ai: 2 };
+    if (a.source !== b.source) {
+      return (sourceRank[a.source] ?? 99) - (sourceRank[b.source] ?? 99);
+    }
+    return a.name.localeCompare(b.name);
+  });
+}
+
+function formatSectionTriggerText(selection = {}, isNew = false) {
+  const option = normalizeSectionOption(selection);
+  const text = String(option.name || "").trim();
+  if (!text) {
+    return '<span class="prompt-select-trigger-text is-placeholder">Search or create section...</span>';
+  }
+
+  if (isNew) {
+    return `<span class="section-selected-badge badge-new"><i class="bi bi-plus-lg"></i>New</span><span class="prompt-select-trigger-text">${escapeHtml(text)}</span>`;
+  }
+
+  const sourceLabelMap = {
+    testrail: { css: "testrail", text: "TestRail", icon: "bi-cloud-check" },
+    ai: { css: "ai", text: "AI", icon: "bi-stars" },
+    user: { css: "user", text: "User", icon: "bi-person" },
+  };
+  const sourceMeta = sourceLabelMap[option.source] || sourceLabelMap.ai;
+  const badgeClass = sourceMeta.css === "testrail" ? "badge-testrail" : sourceMeta.css === "user" ? "badge-new" : "badge-ai";
+  const badgeText = sourceMeta.text;
+  const badgeIcon = sourceMeta.icon;
+  return `<span class="section-selected-badge ${badgeClass}"><i class="bi ${badgeIcon}"></i>${badgeText}</span><span class="prompt-select-trigger-text">${escapeHtml(text)}</span>`;
+}
+
+function createSectionPicker({ wrapId, triggerId, triggerTextId, dropdownId, searchId, optionsId, valueId }) {
+  const wrapEl = document.getElementById(wrapId);
+  const triggerEl = document.getElementById(triggerId);
+  const dropdownEl = document.getElementById(dropdownId);
+  const searchEl = document.getElementById(searchId);
+  const optionsEl = document.getElementById(optionsId);
+  const valueEl = document.getElementById(valueId);
+
+  let allOptions = [];
+  let selectedValue = "";
+  let selectedIsNew = false;
+  let selectedOption = normalizeSectionOption({});
+
+  function renderTrigger() {
+    triggerEl.innerHTML = `${formatSectionTriggerText(selectedOption, selectedIsNew)}<i class="bi bi-chevron-down" style="font-size:0.75rem;flex-shrink:0;"></i>`;
+  }
+
+  function renderOptions(filter = "") {
+    const query = String(filter || "").trim().toLowerCase();
+    const filtered = allOptions.filter((option) => option.name.toLowerCase().includes(query));
+    const exactMatch = allOptions.some((option) => option.name.toLowerCase() === query);
+    const testrailById = new Map(
+      allOptions
+        .filter((option) => option.source === "testrail" && option.sectionId != null)
+        .map((option) => [Number(option.sectionId), option])
+    );
+
+    function resolveTestrailPath(option) {
+      if (!option || option.source !== "testrail") {
+        return "";
+      }
+
+      const names = [];
+      const visited = new Set();
+      let cursor = option;
+
+      while (cursor) {
+        const cursorId = cursor.sectionId != null ? Number(cursor.sectionId) : null;
+        if (cursorId != null) {
+          if (visited.has(cursorId)) break;
+          visited.add(cursorId);
+        }
+
+        if (cursor.name) {
+          names.unshift(String(cursor.name).trim());
+        }
+
+        const parentId = cursor.parentId != null ? Number(cursor.parentId) : null;
+        if (parentId == null) break;
+        cursor = testrailById.get(parentId) || null;
+      }
+
+      return names.filter(Boolean).join(":");
+    }
+
+    optionsEl.innerHTML = "";
+
+    filtered.forEach((option) => {
+      const optionKey = buildSectionOptionKey(option);
+      const selectedKey = buildSectionOptionKey(selectedOption);
+      const isSelected = !selectedIsNew && optionKey === selectedKey;
+      const sectionSource = option.source === "testrail" || option.source === "user" ? option.source : "ai";
+      const isTestrail = sectionSource === "testrail";
+      const sourceLabel = sectionSource === "testrail" ? "TestRail" : sectionSource === "user" ? "User" : "AI";
+      const sectionPath = resolveTestrailPath(option);
+      const sectionMeta = isTestrail
+        ? `${sectionPath ? `${escapeHtml(sectionPath)} · ` : ""}TestRail section${option.suiteId != null ? ` · Suite ${escapeHtml(option.suiteId)}` : ""}`
+        : (sectionSource === "user" ? "User-created section" : "AI-created section");
+
+      const optionEl = document.createElement("div");
+      optionEl.className = `prompt-select-option${isSelected ? " selected" : ""}`;
+      optionEl.innerHTML = `
+        <div class="prompt-select-option-meta">
+          <span class="prompt-select-option-id">${escapeHtml(option.name)}</span>
+          <span class="section-origin-pill origin-${sectionSource}">${sourceLabel}</span>
+        </div>
+        <span class="prompt-select-option-desc">${sectionMeta}</span>
+      `;
+      optionEl.addEventListener("click", (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        selectValue(option, false);
+      });
+      optionsEl.appendChild(optionEl);
+    });
+
+    if (query && !exactMatch) {
+      const typed = searchEl.value.trim();
+      const createOptionEl = document.createElement("div");
+      createOptionEl.className = `prompt-select-option section-create-option${selectedValue === searchEl.value.trim() && selectedIsNew ? " selected" : ""}`;
+      createOptionEl.innerHTML = `
+        <span class="prompt-select-option-id"><i class="bi bi-plus-circle me-1"></i>Create "${escapeHtml(typed)}"</span>
+        <span class="prompt-select-option-name">Use this as a new section</span>
+      `;
+      createOptionEl.addEventListener("click", (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        selectValue({ name: typed, source: "user", sectionId: null, suiteId: null }, true);
+      });
+      optionsEl.appendChild(createOptionEl);
+    }
+
+    if (!filtered.length && (!query || exactMatch)) {
+      optionsEl.innerHTML = '<div class="prompt-select-no-results">No matching sections.</div>';
+    }
+  }
+
+  function openDropdown() {
+    dropdownEl.classList.add("open");
+    triggerEl.classList.add("open");
+    searchEl.value = "";
+    searchEl.focus();
+    renderOptions("");
+  }
+
+  function closeDropdown() {
+    dropdownEl.classList.remove("open");
+    triggerEl.classList.remove("open");
+  }
+
+  function selectValue(value, isNew) {
+    const normalized = normalizeSectionOption(value);
+    selectedValue = String(normalized.name || "").trim();
+    selectedOption = {
+      ...normalized,
+      name: selectedValue,
+    };
+    selectedIsNew = Boolean(isNew);
+    valueEl.value = selectedValue;
+    renderTrigger();
+    closeDropdown();
+  }
+
+  triggerEl.addEventListener("click", () => {
+    if (dropdownEl.classList.contains("open")) {
+      closeDropdown();
+      return;
+    }
+    openDropdown();
+  });
+
+  triggerEl.addEventListener("keydown", (event) => {
+    if (event.key === "Enter" || event.key === " ") {
+      event.preventDefault();
+      openDropdown();
+    }
+  });
+
+  searchEl.addEventListener("input", () => renderOptions(searchEl.value));
+  searchEl.addEventListener("keydown", (event) => {
+    if (event.key === "Escape") {
+      closeDropdown();
+    }
+    if (event.key === "Enter") {
+      event.preventDefault();
+      const typedValue = String(searchEl.value || "").trim();
+      if (!typedValue) return;
+      const exactExisting = allOptions.find((option) => option.name.toLowerCase() === typedValue.toLowerCase());
+      selectValue(exactExisting || { name: typedValue, source: "user", sectionId: null, suiteId: null }, !exactExisting);
+    }
+  });
+
+  document.addEventListener("click", (event) => {
+    if (!wrapEl.contains(event.target)) {
+      closeDropdown();
+    }
+  });
+
+  return {
+    setOptions(nextOptions = []) {
+      allOptions = dedupeSectionOptions(nextOptions);
+      renderOptions(searchEl.value);
+    },
+    addOptions(nextOptions = []) {
+      allOptions = dedupeSectionOptions([...(allOptions || []), ...(nextOptions || [])]);
+      renderOptions(searchEl.value);
+    },
+    setValue(nextValue = "", metadata = {}) {
+      const normalizedValue = String(nextValue || "").trim();
+      const desiredSectionId = metadata.sectionId != null ? Number(metadata.sectionId) : null;
+      const existing = allOptions.find((option) => {
+        if (option.name.toLowerCase() !== normalizedValue.toLowerCase()) return false;
+        if (desiredSectionId != null && option.sectionId != null) {
+          return Number(option.sectionId) === desiredSectionId;
+        }
+        return true;
+      });
+
+      const fallbackOption = normalizeSectionOption({
+        name: normalizedValue,
+        sectionId: metadata.sectionId,
+        suiteId: metadata.suiteId,
+        source: metadata.source || metadata.sectionSource || (metadata.sectionId != null ? "testrail" : "ai"),
+      });
+
+      selectedValue = existing ? existing.name : normalizedValue;
+      selectedOption = existing || fallbackOption;
+      selectedIsNew = Boolean(normalizedValue) && !existing;
+      valueEl.value = selectedValue;
+      searchEl.value = "";
+      renderTrigger();
+      renderOptions("");
+    },
+    getValue() {
+      return String(valueEl.value || "").trim();
+    },
+    getSelection() {
+      return {
+        name: String(selectedOption.name || "").trim(),
+        sectionId: selectedOption.sectionId != null ? selectedOption.sectionId : null,
+        suiteId: selectedOption.suiteId != null ? selectedOption.suiteId : null,
+        source: selectedOption.source || "ai",
+        isNew: selectedIsNew,
+      };
+    },
+    focusSearch() {
+      openDropdown();
+    },
+  };
+}
+
+const editSectionPicker = createSectionPicker({
+  wrapId: "editTcSectionPickerWrap",
+  triggerId: "editTcSectionTrigger",
+  triggerTextId: "editTcSectionTriggerText",
+  dropdownId: "editTcSectionDropdown",
+  searchId: "editTcSectionSearch",
+  optionsId: "editTcSectionOptions",
+  valueId: "editTcSectionValue",
+});
+
+const bulkSectionPicker = createSectionPicker({
+  wrapId: "bulkEditSectionPickerWrap",
+  triggerId: "bulkEditSectionTrigger",
+  triggerTextId: "bulkEditSectionTriggerText",
+  dropdownId: "bulkEditSectionDropdown",
+  searchId: "bulkEditSectionSearch",
+  optionsId: "bulkEditSectionOptions",
+  valueId: "bulkEditSectionValue",
+});
+
+function openEditModal(tc) {
+  const sectionOptions = getSectionOptions();
+  const currentSection = String(tc.section || "").trim();
+
+  editSectionPicker.setOptions(sectionOptions);
+  editSectionPicker.setValue(currentSection, {
+    sectionId: tc.sectionId,
+    suiteId: tc.suiteId,
+    source: tc.sectionSource,
+  });
+
+  document.getElementById("editTcId").value = tc.id || "";
+  document.getElementById("editTcPromptId").value = currentScopePromptId || "";
+  document.getElementById("editTcTitle").value = tc.title || "";
+  document.getElementById("editTcPreconditions").value = tc.preconditions || "";
+  document.getElementById("editTcSteps").value = tc.steps || "";
+  document.getElementById("editTcExpected").value = tc.expected || "";
+  editTestCaseModal.show();
+}
+
+editTestCaseForm.addEventListener("submit", async (e) => {
+  e.preventDefault();
+
+  const tcId = document.getElementById("editTcId").value;
+  const promptId = document.getElementById("editTcPromptId").value;
+  const resolvedSection = editSectionPicker.getValue();
+  const resolvedSelection = editSectionPicker.getSelection();
+
+  if (!resolvedSection) {
+    showBanner("Section is required.", "danger");
+    return;
+  }
+
+  const updated = {
+    id: tcId,
+    promptId: promptId,
+    title: document.getElementById("editTcTitle").value.trim(),
+    section: resolvedSection,
+    sectionId: resolvedSelection.sectionId,
+    suiteId: resolvedSelection.suiteId,
+    sectionSource: resolvedSelection.source,
+    preconditions: document.getElementById("editTcPreconditions").value.trim(),
+    steps: document.getElementById("editTcSteps").value.trim(),
+    expected: document.getElementById("editTcExpected").value.trim(),
+  };
+
+  try {
+    await apiRequest(`/testcase/edit?testcaseId=${encodeURIComponent(tcId)}&promptID=${encodeURIComponent(promptId)}`, {
+      method: "POST",
+      body: JSON.stringify(updated),
+    });
+
+    // Update local data to reflect changes
+    allTestCases = allTestCases.map(tc => tc.id === tcId ? { ...tc, ...updated } : tc);
+
+    // Rebuild sections and keep current section focus
+    const prevSection = selectedSection;
+    buildSectionsFromCases();
+    renderSections();
+    renderAllTestCases();
+
+    const sectionNames = sections.map(s => s.name);
+    if (prevSection && prevSection !== "all" && sectionNames.includes(prevSection)) {
+      selectSection(prevSection);
+    } else {
+      selectSection("all");
+    }
+
+    editTestCaseModal.hide();
+    showBanner("Test case updated successfully.", "success");
+  } catch (err) {
+    showBanner("Failed to update test case: " + err.message, "danger");
+  }
+});
+
+// Delete
+const deleteTcOverlay   = document.getElementById("deleteTcOverlay");
+const deleteTcCancelBtn  = document.getElementById("deleteTcCancelBtn");
+const confirmDeleteBtn   = document.getElementById("confirmDeleteBtn");
+
+deleteTcCancelBtn.addEventListener("click", () => { deleteTcOverlay.classList.remove("open"); });
+deleteTcOverlay.addEventListener("click", (e) => { if (e.target === deleteTcOverlay) deleteTcOverlay.classList.remove("open"); });
+
+function openDeleteModal(tc) {
+  document.getElementById("deleteTcId").value = tc.id || "";
+  document.getElementById("deleteTcPromptId").value = currentScopePromptId || "";
+  document.getElementById("deleteTcOverlayBadge").textContent = tc.id ? `${tc.id} — ${tc.title || ""}` : (tc.title || "");
+  deleteTcOverlay.classList.add("open");
+}
+
+confirmDeleteBtn.addEventListener("click", async () => {
+  const tcId = document.getElementById("deleteTcId").value;
+  const promptId = document.getElementById("deleteTcPromptId").value;
+
+  confirmDeleteBtn.disabled = true;
+  confirmDeleteBtn.textContent = "Deleting...";
+
+  try {
+    await apiRequest(`/testcase/deleteTestCase/${encodeURIComponent(promptId)}/${encodeURIComponent(tcId)}`, {
+      method: "DELETE",
+    });
+
+    // Remove from local data
+    allTestCases = allTestCases.filter(tc => tc.id !== tcId);
+
+    // Rebuild sections and keep selection if possible
+    const prevSection = selectedSection;
+    buildSectionsFromCases();
+    renderSections();
+
+    if (allTestCases.length) {
+      renderAllTestCases();
+
+      const sectionNames = sections.map(s => s.name);
+      if (prevSection && prevSection !== "all" && sectionNames.includes(prevSection)) {
+        selectSection(prevSection);
+      } else {
+        selectSection("all");
+      }
+    } else {
+      sectionListEl.innerHTML = '<div class="text-muted small">No sections available.</div>';
+      testCaseTableBody.innerHTML = `
+        <tr><td colspan="3" class="text-center text-muted small">
+          No test cases available.
+        </td></tr>`;
+      selectedSectionTitle.textContent = "All Test Cases";
+    }
+
+    deleteTcOverlay.classList.remove("open");
+    showBanner("Test case deleted successfully.", "success");
+  } catch (err) {
+    showBanner("Failed to delete test case: " + err.message, "danger");
+  } finally {
+    confirmDeleteBtn.disabled = false;
+    confirmDeleteBtn.textContent = "Delete";
+  }
+});
+
+// --- TEST CASE SELECTION HELPERS ---
+function updateBulkBar() {
+  const count = selectedTcIds.size;
+  const bulkBar = document.getElementById("tcBulkBar");
+  const bulkCount = document.getElementById("tcBulkCount");
+  if (bulkCount) bulkCount.textContent = count + " selected";
+  if (bulkBar) bulkBar.style.display = (isSelectMode && count > 0) ? "flex" : "none";
+}
+
+function updateSelectAllState() {
+  const selectAll = document.getElementById("tcSelectAll");
+  if (!selectAll) return;
+  const rows = Array.from(testCaseTableBody.querySelectorAll(".testcase-row"));
+  const ids = rows.map(r => r.dataset.tcId).filter(Boolean);
+  if (!ids.length) { selectAll.checked = false; selectAll.indeterminate = false; }
+  else {
+    const checked = ids.filter(id => selectedTcIds.has(id)).length;
+    selectAll.checked = checked === ids.length;
+    selectAll.indeterminate = checked > 0 && checked < ids.length;
+  }
+
+  // Sync each section's checkbox state and visibility
+  testCaseTableBody.querySelectorAll(".section-select-all-cb").forEach(sectionCb => {
+    const wrap = sectionCb.closest(".section-cb-wrap");
+    if (wrap) wrap.style.display = isSelectMode ? "inline-flex" : "none";
+    const sName = sectionCb.dataset.sectionName;
+    if (!sName) return;
+    const sRows = Array.from(testCaseTableBody.querySelectorAll(`.testcase-row[data-section="${CSS.escape(sName)}"]`));
+    const sIds = sRows.map(r => r.dataset.tcId).filter(Boolean);
+    if (!sIds.length) { sectionCb.checked = false; sectionCb.indeterminate = false; return; }
+    const sChecked = sIds.filter(id => selectedTcIds.has(id)).length;
+    sectionCb.checked = sChecked === sIds.length;
+    sectionCb.indeterminate = sChecked > 0 && sChecked < sIds.length;
+  });
+}
+
+const bulkFetchTestrailBtn = document.getElementById("bulkFetchTestrailBtn");
+const bulkEditSectionStatus = document.getElementById("bulkEditSectionStatus");
+
+function setBulkSectionStatus(message = "", type = "muted") {
+  if (!bulkEditSectionStatus) return;
+  bulkEditSectionStatus.textContent = message;
+  bulkEditSectionStatus.classList.remove("text-muted", "text-danger", "text-success");
+  bulkEditSectionStatus.classList.add(
+    type === "danger" ? "text-danger" : type === "success" ? "text-success" : "text-muted"
+  );
+}
+
+function getSectionOptions() {
+  const fromSections = sections.map((s) => ({
+    name: String(s?.name || "").trim(),
+    sectionId: s?.sectionId ?? null,
+    suiteId: s?.suiteId ?? null,
+    source: s?.source || (s?.sectionId != null ? "testrail" : "ai"),
+  })).filter((item) => item.name);
+
+  const fromCases = allTestCases.map((tc) => ({
+    name: String(tc?.section || "").trim(),
+    sectionId: tc?.sectionId ?? null,
+    suiteId: tc?.suiteId ?? null,
+    source: tc?.sectionSource || (tc?.sectionId != null ? "testrail" : "ai"),
+  })).filter((item) => item.name);
+
+  return dedupeSectionOptions([...(fromSections || []), ...(fromCases || []), ...(testrailSectionsCache || [])]);
+}
+
+async function fetchTestrailSectionsForPicker() {
+  if (isFetchingTestrailSections) return;
+
+  isFetchingTestrailSections = true;
+  bulkFetchTestrailBtn.disabled = true;
+  bulkFetchTestrailBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1" role="status"></span>Fetching...';
+  setBulkSectionStatus("Fetching sections from TestRail...", "muted");
+
+  try {
+    const response = await apiRequest("/testrail/getsections");
+    const payload = response?.data ?? response;
+    const remoteSections = Array.isArray(payload?.sections) ? payload.sections : [];
+
+    testrailSectionsCache = remoteSections
+      .map((section) => normalizeSectionOption({
+        name: section?.name,
+        sectionId: section?.id,
+        suiteId: section?.suite_id,
+        source: "testrail",
+        depth: section?.depth,
+        parentId: section?.parent_id,
+      }))
+      .filter((item) => item.name);
+
+    bulkSectionPicker.setOptions(getSectionOptions());
+    setBulkSectionStatus(`Loaded ${testrailSectionsCache.length} section(s) from TestRail.`, "success");
+  } catch (error) {
+    setBulkSectionStatus(`Failed to fetch TestRail sections: ${error.message}`, "danger");
+  } finally {
+    isFetchingTestrailSections = false;
+    bulkFetchTestrailBtn.disabled = false;
+    bulkFetchTestrailBtn.innerHTML = '<i class="bi bi-cloud-download me-1"></i>Get from TestRail';
+  }
+}
+
+if (bulkFetchTestrailBtn) {
+  bulkFetchTestrailBtn.addEventListener("click", fetchTestrailSectionsForPicker);
+}
+
+function openBulkEditSectionDialog(sectionNames) {
+  return new Promise(function(resolve) {
+    const overlay    = document.getElementById("bulkEditSectionOverlay");
+    const sub        = document.getElementById("bulkEditSectionSub");
+    const confirmBtn = document.getElementById("bulkEditSectionConfirmBtn");
+    const cancelBtn  = document.getElementById("bulkEditSectionCancelBtn");
+
+    sub.textContent = "Move " + selectedTcIds.size + " test case(s) to a section";
+    bulkSectionPicker.setOptions(sectionNames || []);
+    bulkSectionPicker.setValue("");
+setBulkSectionStatus("click \"Get from TestRail\" to sync remote sections.", "muted");
+    overlay.classList.add("open");
+    setTimeout(function(){ bulkSectionPicker.focusSearch(); }, 50);
+
+    function cleanup() {
+      overlay.classList.remove("open");
+      confirmBtn.removeEventListener("click", onConfirm);
+      cancelBtn.removeEventListener("click", onCancel);
+      overlay.removeEventListener("click", onBackdrop);
+      document.removeEventListener("keydown", onKeydown);
+    }
+    function onConfirm()  {
+      const resolved = bulkSectionPicker.getSelection();
+      cleanup();
+      resolve(resolved && resolved.name ? resolved : null);
+    }
+    function onCancel()   { cleanup(); resolve(null); }
+    function onBackdrop(e){ if (e.target === overlay) onCancel(); }
+    function onKeydown(e) {
+      if (e.key === "Escape") onCancel();
+      if (e.key === "Enter" && !document.getElementById("bulkEditSectionDropdown")?.classList.contains("open")) {
+        onConfirm();
+      }
+    }
+    confirmBtn.addEventListener("click", onConfirm);
+    cancelBtn.addEventListener("click", onCancel);
+    overlay.addEventListener("click", onBackdrop);
+    document.addEventListener("keydown", onKeydown);
+  });
+}
+
+function openBulkDeleteConfirmDialog(count) {
+  return new Promise(function(resolve) {
+    const overlay    = document.getElementById("bulkDeleteOverlay");
+    const sub        = document.getElementById("bulkDeleteSub");
+    const confirmBtn = document.getElementById("bulkDeleteConfirmBtn");
+    const cancelBtn  = document.getElementById("bulkDeleteCancelBtn");
+    sub.textContent = "This will permanently delete " + count + " test case(s). This cannot be undone.";
+    overlay.classList.add("open");
+    function cleanup() {
+      overlay.classList.remove("open");
+      confirmBtn.removeEventListener("click", onConfirm);
+      cancelBtn.removeEventListener("click", onCancel);
+      overlay.removeEventListener("click", onBackdrop);
+      document.removeEventListener("keydown", onKeydown);
+    }
+    function onConfirm()  { cleanup(); resolve(true); }
+    function onCancel()   { cleanup(); resolve(false); }
+    function onBackdrop(e){ if (e.target === overlay) onCancel(); }
+    function onKeydown(e) { if (e.key === "Escape") onCancel(); }
+    confirmBtn.addEventListener("click", onConfirm);
+    cancelBtn.addEventListener("click", onCancel);
+    overlay.addEventListener("click", onBackdrop);
+    document.addEventListener("keydown", onKeydown);
+  });
+}
+
+function getSelectedTestCases() {
+  if (!selectedTcIds.size) return [];
+  const selectedIds = new Set(Array.from(selectedTcIds).map((id) => String(id || "").trim()));
+  return allTestCases.filter((tc) => selectedIds.has(String(tc.id || "").trim()));
+}
+
+function summarizeSelectionForTestrailPosting() {
+  const selectedCases = getSelectedTestCases();
+  const eligibleCases = selectedCases.filter((tc) => !(tc.testrailPost?.status === "success" || tc.testrailPost?.testrailCaseId != null));
+  const skippedCases = selectedCases.filter((tc) => tc.testrailPost?.status === "success" || tc.testrailPost?.testrailCaseId != null);
+  const sectionMap = new Map();
+
+  eligibleCases.forEach((tc) => {
+    const sectionName = String(tc.section || "Uncategorized").trim() || "Uncategorized";
+    const key = tc.sectionId != null
+      ? `id:${tc.sectionId}`
+      : `name:${sectionName.toLowerCase()}`;
+
+    if (!sectionMap.has(key)) {
+      const source = String(tc.sectionSource || "").trim().toLowerCase();
+      const isExisting = tc.sectionId != null || source === "testrail";
+
+      sectionMap.set(key, {
+        key,
+        name: sectionName,
+        isExisting,
+      });
+    }
+  });
+
+  const selectedSections = Array.from(sectionMap.values());
+  const existingSections = selectedSections.filter((section) => section.isExisting);
+  const newSections = selectedSections.filter((section) => !section.isExisting);
+
+  return {
+    selectedCases,
+    eligibleCases,
+    skippedCases,
+    selectedSections,
+    existingSections,
+    newSections,
+  };
+}
+
+function openBulkPostToTestrailDialog(summary) {
+  return new Promise(function(resolve) {
+    const overlay = document.getElementById("bulkPostTestrailOverlay");
+    const sub = document.getElementById("bulkPostTestrailSub");
+    const status = document.getElementById("bulkPostTestrailStatus");
+    const confirmBtn = document.getElementById("bulkPostTestrailConfirmBtn");
+    const cancelBtn = document.getElementById("bulkPostTestrailCancelBtn");
+
+    const selectedCountEl = document.getElementById("bulkPostSelectedCount");
+    const sectionCountEl = document.getElementById("bulkPostSectionCount");
+    const existingCountEl = document.getElementById("bulkPostExistingCount");
+    const newCountEl = document.getElementById("bulkPostNewCount");
+
+    if (selectedCountEl) selectedCountEl.textContent = String(summary.eligibleCases.length);
+    if (sectionCountEl) sectionCountEl.textContent = String(summary.selectedSections.length);
+    if (existingCountEl) existingCountEl.textContent = String(summary.existingSections.length);
+    if (newCountEl) newCountEl.textContent = String(summary.newSections.length);
+
+    if (sub) {
+      sub.textContent = summary.skippedCases.length
+        ? `Post ${summary.eligibleCases.length} test case(s) to TestRail. Skip ${summary.skippedCases.length} already posted.`
+        : `Post ${summary.eligibleCases.length} selected test case(s) to TestRail.`;
+    }
+
+    if (status) {
+      const newNames = summary.newSections.map((item) => item.name).slice(0, 4);
+      if (!summary.eligibleCases.length && summary.skippedCases.length) {
+        status.textContent = `All selected test cases are already posted to TestRail and will be skipped.`;
+      } else if (newNames.length) {
+        const overflow = summary.newSections.length > newNames.length ? ` +${summary.newSections.length - newNames.length} more` : "";
+        const skippedText = summary.skippedCases.length ? ` Skipping ${summary.skippedCases.length} already posted case(s).` : "";
+        status.textContent = `New sections: ${newNames.join(", ")}${overflow}.${skippedText}`;
+      } else {
+        status.textContent = summary.skippedCases.length
+          ? `All selected sections already exist in TestRail. Skipping ${summary.skippedCases.length} already posted case(s).`
+          : "All selected sections already exist in TestRail.";
+      }
+    }
+
+    overlay.classList.add("open");
+
+    function cleanup() {
+      overlay.classList.remove("open");
+      confirmBtn.removeEventListener("click", onConfirm);
+      cancelBtn.removeEventListener("click", onCancel);
+      overlay.removeEventListener("click", onBackdrop);
+      document.removeEventListener("keydown", onKeydown);
+    }
+
+    function onConfirm() {
+      cleanup();
+      resolve(true);
+    }
+
+    function onCancel() {
+      cleanup();
+      resolve(false);
+    }
+
+    function onBackdrop(e) {
+      if (e.target === overlay) onCancel();
+    }
+
+    function onKeydown(e) {
+      if (e.key === "Escape") onCancel();
+    }
+
+    confirmBtn.addEventListener("click", onConfirm);
+    cancelBtn.addEventListener("click", onCancel);
+    overlay.addEventListener("click", onBackdrop);
+    document.addEventListener("keydown", onKeydown);
+  });
+}
+
+async function handleBulkPostToTestrail() {
+  if (!selectedTcIds.size) return;
+  if (!currentScopePromptId) {
+    showBanner("Please select a prompt before posting to TestRail.", "danger");
+    return;
+  }
+
+  const summary = summarizeSelectionForTestrailPosting();
+  if (!summary.selectedCases.length) {
+    showBanner("No valid test cases selected for posting.", "danger");
+    return;
+  }
+
+  if (!summary.eligibleCases.length) {
+    showBanner(`Skipped ${summary.skippedCases.length} test case(s): all selected items were already posted to TestRail.`, "success");
+    return;
+  }
+
+  const confirmed = await openBulkPostToTestrailDialog(summary);
+  if (!confirmed) return;
+
+  try {
+    setPageBlockingOverlay(true, "Posting selected test cases to TestRail...");
+    const payload = {
+      promptId: currentScopePromptId,
+      testcaseIds: Array.from(selectedTcIds),
+    };
+
+    const response = await apiRequest("/testrail/posttestcases", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    });
+
+    const result = response?.data || {};
+    await loadTestScope(currentScopePromptId);
+
+    const posted = Number(result?.totalPosted || 0);
+    const failed = Number(result?.totalFailed || 0);
+    const skipped = Number(result?.totalSkipped || 0);
+    if (failed > 0) {
+      const skippedText = skipped > 0 ? `, skipped ${skipped} already posted` : "";
+      showBanner(`Posted ${posted} test case(s), failed ${failed}${skippedText}. See section post status in testcases JSON.`, "danger");
+    } else {
+      const skippedText = skipped > 0 ? ` Skipped ${skipped} already posted test case(s).` : "";
+      showBanner(`Successfully posted ${posted} test case(s) to TestRail.${skippedText}`, "success");
+    }
+  } catch (error) {
+    showBanner("Failed to post to TestRail: " + error.message, "danger");
+  } finally {
+    setPageBlockingOverlay(false);
+  }
+}
+
+function openBlockedMoveDialog(blockedCases, movableCount) {
+  return new Promise(function(resolve) {
+    const overlay    = document.getElementById("blockedMoveOverlay");
+    const list       = document.getElementById("blockedMoveList");
+    const note       = document.getElementById("blockedMoveNote");
+    const confirmBtn = document.getElementById("blockedMoveConfirmBtn");
+    const cancelBtn  = document.getElementById("blockedMoveCancelBtn");
+
+    list.innerHTML = blockedCases.map(tc =>
+      `<li><i class="bi bi-cloud-check-fill" style="color:#0e7490;"></i><span><strong>${escapeHtml(tc.id || "")}</strong> — ${escapeHtml(tc.title || "")}</span></li>`
+    ).join("");
+
+    if (movableCount > 0) {
+      note.textContent = `${movableCount} other test case(s) can still be moved.`;
+      confirmBtn.style.display = "";
+      confirmBtn.textContent = `Move remaining ${movableCount} test case(s)`;
+      confirmBtn.innerHTML = `<i class="bi bi-folder-symlink me-1"></i>Move remaining ${movableCount} test case(s)`;
+    } else {
+      note.textContent = "No remaining test cases can be moved.";
+      confirmBtn.style.display = "none";
+    }
+
+    overlay.classList.add("open");
+
+    function cleanup() {
+      overlay.classList.remove("open");
+      confirmBtn.removeEventListener("click", onConfirm);
+      cancelBtn.removeEventListener("click", onCancel);
+      overlay.removeEventListener("click", onBackdrop);
+      document.removeEventListener("keydown", onKeydown);
+    }
+    function onConfirm()  { cleanup(); resolve(movableCount > 0); }
+    function onCancel()   { cleanup(); resolve(false); }
+    function onBackdrop(e){ if (e.target === overlay) onCancel(); }
+    function onKeydown(e) { if (e.key === "Escape") onCancel(); }
+    confirmBtn.addEventListener("click", onConfirm);
+    cancelBtn.addEventListener("click", onCancel);
+    overlay.addEventListener("click", onBackdrop);
+    document.addEventListener("keydown", onKeydown);
+  });
+}
+
+async function handleBulkEditSection() {
+  if (!selectedTcIds.size) return;
+
+  // Separate posted (blocked) from movable test cases
+  const selectedCases = getSelectedTestCases();
+  const blockedCases  = selectedCases.filter(tc => tc.testrailPost?.status === "success");
+  const movableCases  = selectedCases.filter(tc => tc.testrailPost?.status !== "success");
+
+  if (blockedCases.length > 0) {
+    const proceed = await openBlockedMoveDialog(blockedCases, movableCases.length);
+    if (!proceed) return;
+    // Restrict the selection to only movable cases
+    selectedTcIds.clear();
+    movableCases.forEach(tc => selectedTcIds.add(tc.id));
+    if (!selectedTcIds.size) return;
+  }
+
+  const newSelection = await openBulkEditSectionDialog(getSectionOptions());
+  if (!newSelection) return;
+
+  const newSection = String(newSelection.name || "").trim();
+  const ids = Array.from(selectedTcIds);
+  let ok = 0, fail = 0;
+  for (const tcId of ids) {
+    const tc = allTestCases.find(t => t.id === tcId);
+    if (!tc) continue;
+    try {
+      await apiRequest("/testcase/edit?testcaseId=" + encodeURIComponent(tcId) + "&promptID=" + encodeURIComponent(currentScopePromptId), {
+        method: "POST",
+        body: JSON.stringify(Object.assign({}, tc, {
+          section: newSection,
+          sectionId: newSelection.sectionId,
+          suiteId: newSelection.suiteId,
+          sectionSource: newSelection.source,
+        })),
+      });
+      const idx = allTestCases.findIndex(t => t.id === tcId);
+      if (idx !== -1) {
+        allTestCases[idx] = Object.assign({}, allTestCases[idx], {
+          section: newSection,
+          sectionId: newSelection.sectionId,
+          suiteId: newSelection.suiteId,
+          sectionSource: newSelection.source,
+        });
+      }
+      ok++;
+    } catch(e) { fail++; }
+  }
+  selectedTcIds.clear();
+  buildSectionsFromCases();
+  renderSections();
+  renderAllTestCases();
+  updateBulkBar();
+  if (ok)   showBanner(ok + ' test case(s) moved to "' + newSection + '".', "success");
+  if (fail) showBanner(fail + " test case(s) failed to move.", "danger");
+}
+
+async function handleBulkDelete() {
+  if (!selectedTcIds.size) return;
+  const confirmed = await openBulkDeleteConfirmDialog(selectedTcIds.size);
+  if (!confirmed) return;
+  const ids = Array.from(selectedTcIds);
+  let ok = 0, fail = 0;
+  for (const tcId of ids) {
+    try {
+      await apiRequest("/testcase/deleteTestCase/" + encodeURIComponent(currentScopePromptId) + "/" + encodeURIComponent(tcId), { method: "DELETE" });
+      allTestCases = allTestCases.filter(t => t.id !== tcId);
+      ok++;
+    } catch(e) { fail++; }
+  }
+  selectedTcIds.clear();
+  buildSectionsFromCases();
+  renderSections();
+  renderAllTestCases();
+  updateBulkBar();
+  if (ok)   showBanner(ok + " test case(s) deleted.", "success");
+  if (fail) showBanner(fail + " test case(s) failed to delete.", "danger");
+}
+
+// --- SETTINGS CRUD: /settings ---
+const settingsStatus = document.getElementById("settingsStatus");
+const refreshSettingsBtn = document.getElementById("refreshSettingsBtn");
+const settingsRows = document.getElementById("settingsRows");
+const addSettingRowBtn = document.getElementById("addSettingRowBtn");
+const saveSettingsBtn = document.getElementById("saveSettingsBtn");
+const settingsTableBody = document.getElementById("settingsTableBody");
+
+let availableSettingKeys = [];
+let availableSettingKeyDefinitions = [];
+const settingKeyConfidentialMap = new Map();
+const SENSITIVE_SETTING_KEY_PATTERN = /(pass(word|wd)?|api[-_]?key|secret|token|credential|private[-_]?key|client[-_]?secret|access[-_]?key|auth(entication)?)/i;
+
+function setSettingsStatus(message, variant = "muted") {
+  settingsStatus.textContent = message || "";
+  settingsStatus.classList.remove("text-muted", "text-danger", "text-success");
+  settingsStatus.classList.add(
+    variant === "danger" ? "text-danger" : variant === "success" ? "text-success" : "text-muted"
+  );
+}
+
+function isSensitiveSettingKey(key = "") {
+  const normalizedKey = String(key || "").trim();
+  if (!normalizedKey) return false;
+  if (settingKeyConfidentialMap.has(normalizedKey)) {
+    return Boolean(settingKeyConfidentialMap.get(normalizedKey));
+  }
+  return SENSITIVE_SETTING_KEY_PATTERN.test(normalizedKey);
+}
+
+function maskSettingValue(value = "") {
+  return String(value || "") ? "••••••••" : "";
+}
+
+function updateSettingRowValueVisibility(row, { forceHidden = false } = {}) {
+  const key = String(row.querySelector(".setting-key-value")?.value || "").trim();
+  const valueInput = row.querySelector(".setting-value-input");
+  const toggleBtn = row.querySelector(".setting-value-visibility-btn");
+  const inputGroup = toggleBtn?.closest(".input-group");
+
+  if (!valueInput || !toggleBtn) return;
+
+  if (!isSensitiveSettingKey(key)) {
+    valueInput.type = "text";
+    toggleBtn.style.display = "none";
+    toggleBtn.classList.remove("is-open");
+    if (inputGroup) inputGroup.classList.remove("is-revealed");
+    toggleBtn.dataset.visible = "1";
+    toggleBtn.setAttribute("aria-label", "Show value");
+    toggleBtn.setAttribute("title", "Show value");
+    toggleBtn.innerHTML = '<i class="bi bi-eye"></i>';
+    return;
+  }
+
+  toggleBtn.style.display = "";
+  const shouldShow = forceHidden ? false : toggleBtn.dataset.visible === "1";
+  valueInput.type = shouldShow ? "text" : "password";
+  toggleBtn.dataset.visible = shouldShow ? "1" : "0";
+  toggleBtn.classList.toggle("is-open", shouldShow);
+  if (inputGroup) inputGroup.classList.toggle("is-revealed", shouldShow);
+  toggleBtn.setAttribute("aria-label", shouldShow ? "Hide value" : "Show value");
+  toggleBtn.setAttribute("title", shouldShow ? "Hide value" : "Show value");
+  toggleBtn.innerHTML = `<i class="bi ${shouldShow ? "bi-eye-slash" : "bi-eye"}"></i>`;
+}
+
+function setSettingRowKey(row, key = "") {
+  const hiddenInput = row.querySelector(".setting-key-value");
+  const triggerText = row.querySelector(".setting-key-trigger .prompt-select-trigger-text");
+  const normalizedKey = String(key || "").trim();
+
+  hiddenInput.value = normalizedKey;
+  triggerText.textContent = normalizedKey || "Select key...";
+  triggerText.classList.toggle("is-placeholder", !normalizedKey);
+  updateSettingRowValueVisibility(row, { forceHidden: true });
+}
+
+function renderSettingRowKeyOptions(row, filter = "") {
+  const optionsEl = row.querySelector(".setting-key-options");
+  const searchEl = row.querySelector(".setting-key-search");
+  const currentValue = String(row.querySelector(".setting-key-value")?.value || "").trim();
+  const query = String(filter || "").trim().toLowerCase();
+  const defaultDefinitions = Array.isArray(availableSettingKeyDefinitions)
+    ? availableSettingKeyDefinitions.filter((item) => item?.isAvailable !== false)
+    : [];
+  const hasCurrentInDefaults = defaultDefinitions.some((item) => String(item?.key || "").trim() === currentValue);
+  const mergedDefinitions = currentValue && !hasCurrentInDefaults
+    ? [{ key: currentValue, confidential: isSensitiveSettingKey(currentValue), isAvailable: false }, ...defaultDefinitions]
+    : defaultDefinitions;
+  const filteredDefinitions = mergedDefinitions.filter((item) => String(item?.key || "").toLowerCase().includes(query));
+
+  optionsEl.innerHTML = "";
+
+  if (!filteredDefinitions.length) {
+    optionsEl.innerHTML = '<div class="prompt-select-no-results">No keys found.</div>';
+    return;
+  }
+
+  filteredDefinitions.forEach((item) => {
+    const key = String(item?.key || "").trim();
+    if (!key) return;
+    const isConfidential = Boolean(item?.confidential);
+    const optionEl = document.createElement("div");
+    optionEl.className = `prompt-select-option${currentValue === key ? " selected" : ""}`;
+    optionEl.innerHTML = `
+      <span class="prompt-select-option-id">${escapeHtml(key)}</span>
+      <span class="prompt-select-option-name">${isConfidential ? "Confidential setting key" : "Standard setting key"}</span>
+    `;
+    optionEl.addEventListener("mousedown", (event) => {
+      event.preventDefault();
+      setSettingRowKey(row, key);
+      searchEl.value = "";
+      row.querySelector(".setting-key-dropdown")?.classList.remove("open");
+      row.querySelector(".setting-key-trigger")?.classList.remove("open");
+      renderSettingRowKeyOptions(row, "");
+    });
+    optionsEl.appendChild(optionEl);
+  });
+}
+
+function appendSettingRow(key = "", value = "") {
+  const row = document.createElement("div");
+  row.className = "row g-2 align-items-center setting-row";
+  row.innerHTML = `
+    <div class="col-md-5 setting-key-picker">
+      <div class="prompt-select-wrap">
+        <div class="prompt-select-trigger setting-key-trigger" tabindex="0">
+          <span class="prompt-select-trigger-text is-placeholder">Select key...</span>
+          <i class="bi bi-chevron-down" style="font-size:0.75rem;flex-shrink:0;"></i>
+        </div>
+        <div class="prompt-select-dropdown setting-key-dropdown">
+          <input type="text" class="prompt-select-search setting-key-search" placeholder="Search key..." autocomplete="off" />
+          <div class="prompt-select-options setting-key-options"></div>
+        </div>
+      </div>
+      <input type="hidden" class="setting-key-value" />
+    </div>
+    <div class="col-md-6">
+      <div class="input-group input-group-sm">
+        <input type="text" class="form-control form-control-sm setting-value-input" placeholder="Enter value" value="${escapeHtml(String(value || ""))}" />
+        <button type="button" class="btn btn-outline-secondary setting-value-visibility-btn setting-eye-btn" aria-label="Show value" title="Show value" style="display:none;">
+          <i class="bi bi-eye"></i>
+        </button>
+      </div>
+    </div>
+    <div class="col-md-1 text-end">
+      <button type="button" class="btn btn-sm btn-outline-danger remove-setting-row" title="Remove row">
+        <i class="bi bi-x-lg"></i>
+      </button>
+    </div>
+  `;
+
+  const triggerEl = row.querySelector(".setting-key-trigger");
+  const dropdownEl = row.querySelector(".setting-key-dropdown");
+  const searchEl = row.querySelector(".setting-key-search");
+  const valueVisibilityBtn = row.querySelector(".setting-value-visibility-btn");
+
+  setSettingRowKey(row, key);
+  renderSettingRowKeyOptions(row);
+  updateSettingRowValueVisibility(row, { forceHidden: true });
+
+  valueVisibilityBtn.addEventListener("click", () => {
+    const isCurrentlyVisible = valueVisibilityBtn.dataset.visible === "1";
+    valueVisibilityBtn.dataset.visible = isCurrentlyVisible ? "0" : "1";
+    updateSettingRowValueVisibility(row);
+  });
+
+  triggerEl.addEventListener("click", () => {
+    const isOpen = dropdownEl.classList.contains("open");
+    settingsRows.querySelectorAll(".setting-key-dropdown.open").forEach((el) => el.classList.remove("open"));
+    settingsRows.querySelectorAll(".setting-key-trigger.open").forEach((el) => el.classList.remove("open"));
+
+    if (isOpen) {
+      dropdownEl.classList.remove("open");
+      triggerEl.classList.remove("open");
+      return;
+    }
+
+    dropdownEl.classList.add("open");
+    triggerEl.classList.add("open");
+    searchEl.focus();
+    searchEl.select();
+    renderSettingRowKeyOptions(row, searchEl.value);
+  });
+
+  triggerEl.addEventListener("keydown", (event) => {
+    if (event.key === "Enter" || event.key === " ") {
+      event.preventDefault();
+      triggerEl.click();
+    }
+  });
+
+  searchEl.addEventListener("input", () => {
+    renderSettingRowKeyOptions(row, searchEl.value);
+  });
+
+  searchEl.addEventListener("keydown", (event) => {
+    if (event.key === "Escape") {
+      dropdownEl.classList.remove("open");
+      triggerEl.classList.remove("open");
+    }
+  });
+
+  row.querySelector(".remove-setting-row").addEventListener("click", () => {
+    row.remove();
+    if (!settingsRows.querySelector(".setting-row")) {
+      appendSettingRow();
+    }
+  });
+
+  settingsRows.appendChild(row);
+}
+
+function refreshSettingRowSelectOptions() {
+  settingsRows.querySelectorAll(".setting-row").forEach((row) => {
+    renderSettingRowKeyOptions(row, row.querySelector(".setting-key-search")?.value || "");
+  });
+}
+
+document.addEventListener("click", (event) => {
+  if (event.target.closest(".setting-key-picker .prompt-select-wrap")) {
+    return;
+  }
+
+  settingsRows.querySelectorAll(".setting-key-dropdown.open").forEach((el) => el.classList.remove("open"));
+  settingsRows.querySelectorAll(".setting-key-trigger.open").forEach((el) => el.classList.remove("open"));
+});
+
+async function loadAvailableSettingKeys() {
+  const resp = await apiRequest("/settings/key");
+  const keys = resp?.data ?? resp;
+
+  settingKeyConfidentialMap.clear();
+  availableSettingKeyDefinitions = Array.isArray(keys)
+    ? keys
+        .map((entry) => {
+          if (entry && typeof entry === "object" && !Array.isArray(entry)) {
+            const key = String(entry.key || "").trim();
+            if (!key) return null;
+            const confidential = Boolean(entry.confidential);
+            return {
+              key,
+              confidential,
+              isAvailable: entry.isAvailable !== false,
+            };
+          }
+
+          const key = String(entry || "").trim();
+          if (!key) return null;
+          return { key, confidential: SENSITIVE_SETTING_KEY_PATTERN.test(key), isAvailable: true };
+        })
+        .filter(Boolean)
+    : [];
+
+  availableSettingKeyDefinitions.forEach((item) => {
+    settingKeyConfidentialMap.set(item.key, Boolean(item.confidential));
+  });
+
+  availableSettingKeys = availableSettingKeyDefinitions
+    .filter((item) => item.isAvailable !== false)
+    .map((item) => item.key);
+
+  refreshSettingRowSelectOptions();
+}
+
+function renderSettingsTable(items = []) {
+  const settings = Array.isArray(items) ? items : [];
+
+  if (!settings.length) {
+    settingsTableBody.innerHTML = `
+      <tr>
+        <td colspan="3" class="text-center text-muted small">No settings found in .env.</td>
+      </tr>`;
+    return;
+  }
+
+  settingsTableBody.innerHTML = "";
+  settings.forEach((item) => {
+    const key = String(item?.key || "").trim();
+    const value = String(item?.value || "");
+    const isSensitive = isSensitiveSettingKey(key);
+    const renderedValueCell = isSensitive
+      ? `<div class="setting-secret-wrap">
+          <code class="setting-value-text" data-visible="0" data-raw="${escapeHtml(value)}">${maskSettingValue(value)}</code>
+        </div>`
+      : `<code>${escapeHtml(value)}</code>`;
+
+    const renderedEyeAction = isSensitive
+      ? `<button type="button" class="btn btn-sm btn-outline-secondary me-1 setting-value-toggle-btn setting-eye-btn" data-visible="0" data-raw="${escapeHtml(value)}" aria-label="Show value" title="Show value">
+          <i class="bi bi-eye"></i>
+        </button>`
+      : "";
+
+    const row = document.createElement("tr");
+    row.innerHTML = `
+      <td><span class="badge bg-light text-dark border">${escapeHtml(key)}</span></td>
+      <td>${renderedValueCell}</td>
+      <td class="text-end">
+        ${renderedEyeAction}
+        <button class="btn btn-sm btn-outline-primary me-1 setting-edit-btn" data-key="${escapeHtml(key)}" data-value="${escapeHtml(value)}">
+          <i class="bi bi-pencil-square"></i>
+        </button>
+        <button class="btn btn-sm btn-outline-danger setting-delete-btn" data-key="${escapeHtml(key)}">
+          <i class="bi bi-trash"></i>
+        </button>
+      </td>
+    `;
+    settingsTableBody.appendChild(row);
+  });
+
+  settingsTableBody.querySelectorAll(".setting-value-toggle-btn").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const row = btn.closest("tr");
+      const wrap = row?.querySelector(".setting-secret-wrap");
+      const valueTextEl = row?.querySelector(".setting-value-text");
+      if (!valueTextEl) return;
+
+      const rawValue = String(btn.dataset.raw || valueTextEl.dataset.raw || "");
+      const nextVisible = btn.dataset.visible !== "1";
+
+      btn.dataset.visible = nextVisible ? "1" : "0";
+      btn.classList.toggle("is-open", nextVisible);
+      if (wrap) wrap.classList.toggle("is-revealed", nextVisible);
+      valueTextEl.dataset.visible = btn.dataset.visible;
+      valueTextEl.textContent = nextVisible ? rawValue : maskSettingValue(rawValue);
+      btn.setAttribute("aria-label", nextVisible ? "Hide value" : "Show value");
+      btn.setAttribute("title", nextVisible ? "Hide value" : "Show value");
+      btn.innerHTML = `<i class="bi ${nextVisible ? "bi-eye-slash" : "bi-eye"}"></i>`;
+    });
+  });
+
+  settingsTableBody.querySelectorAll(".setting-edit-btn").forEach((btn) => {
+    btn.addEventListener("click", async () => {
+      const key = btn.dataset.key || "";
+      const currentValue = btn.dataset.value || "";
+      const nextValue = await openSettingEditDialog(key, currentValue);
+
+      if (nextValue == null) return;
+
+      try {
+        await apiRequest(`/settings/${encodeURIComponent(key)}`, {
+          method: "PUT",
+          body: JSON.stringify({ value: nextValue }),
+        });
+        setSettingsStatus(`Setting ${key} updated.`, "success");
+        showBanner(`Setting ${key} updated successfully.`, "success");
+        await loadSettingsPageData();
+      } catch (error) {
+        setSettingsStatus(`Update failed: ${error.message}`, "danger");
+        showBanner(`Update failed: ${error.message}`, "danger");
+      }
+    });
+  });
+
+  settingsTableBody.querySelectorAll(".setting-delete-btn").forEach((btn) => {
+    btn.addEventListener("click", async () => {
+      const key = btn.dataset.key || "";
+      const shouldDelete = await openSettingDeleteDialog(key);
+      if (!shouldDelete) return;
+
+      try {
+        await apiRequest(`/settings/${encodeURIComponent(key)}`, {
+          method: "DELETE",
+        });
+        setSettingsStatus(`Setting ${key} deleted.`, "success");
+        showBanner(`Setting ${key} deleted successfully.`, "success");
+        await loadSettingsPageData();
+      } catch (error) {
+        setSettingsStatus(`Delete failed: ${error.message}`, "danger");
+        showBanner(`Delete failed: ${error.message}`, "danger");
+      }
+    });
+  });
+}
+
+async function loadCurrentSettings() {
+  const resp = await apiRequest("/settings");
+  const list = resp?.data ?? resp;
+  renderSettingsTable(Array.isArray(list) ? list : []);
+}
+
+function collectSettingRowsPayload() {
+  const rows = Array.from(settingsRows.querySelectorAll(".setting-row"));
+  const payload = [];
+
+  rows.forEach((row) => {
+    const key = String(row.querySelector(".setting-key-value")?.value || "").trim();
+    const value = String(row.querySelector(".setting-value-input")?.value ?? "");
+    if (!key) return;
+    payload.push({ key, value });
+  });
+
+  return payload;
+}
+
+function findDuplicateSettingKeys(entries = []) {
+  const seen = new Set();
+  const duplicates = new Set();
+
+  entries.forEach((entry) => {
+    const key = String(entry?.key || "").trim();
+    if (!key) return;
+
+    if (seen.has(key)) {
+      duplicates.add(key);
+      return;
+    }
+
+    seen.add(key);
+  });
+
+  return Array.from(duplicates);
+}
+
+async function loadSettingsPageData() {
+  setSettingsStatus("Loading settings...");
+  await loadAvailableSettingKeys();
+  await loadCurrentSettings();
+
+  if (!settingsRows.querySelector(".setting-row")) {
+    appendSettingRow();
+  }
+
+  setSettingsStatus("Settings loaded.");
+}
+
+addSettingRowBtn.addEventListener("click", () => appendSettingRow());
+
+saveSettingsBtn.addEventListener("click", async () => {
+  const settingsPayload = collectSettingRowsPayload();
+
+  if (!settingsPayload.length) {
+    setSettingsStatus("Please select at least one setting key to save.", "danger");
+    return;
+  }
+
+  const duplicateKeys = findDuplicateSettingKeys(settingsPayload);
+  if (duplicateKeys.length) {
+    const duplicateMessage = `Duplicate key selected: ${duplicateKeys.join(", ")}`;
+    setSettingsStatus(duplicateMessage, "danger");
+    showBanner(duplicateMessage, "danger");
+    return;
+  }
+
+  saveSettingsBtn.disabled = true;
+  saveSettingsBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1" role="status"></span>Saving...';
+
+  try {
+    await apiRequest("/settings", {
+      method: "POST",
+      body: JSON.stringify({ settings: settingsPayload }),
+    });
+
+    settingsRows.innerHTML = "";
+    appendSettingRow();
+
+    await loadSettingsPageData();
+    setSettingsStatus("Settings saved successfully.", "success");
+    showBanner("Settings saved successfully.", "success");
+  } catch (error) {
+    setSettingsStatus(`Save failed: ${error.message}`, "danger");
+    showBanner(`Save failed: ${error.message}`, "danger");
+  } finally {
+    saveSettingsBtn.disabled = false;
+    saveSettingsBtn.innerHTML = '<i class="bi bi-save me-1"></i>Save Settings';
+  }
+});
+
+refreshSettingsBtn.addEventListener("click", () => {
+  refreshSettingsBtn.classList.add("btn-spin");
+  refreshSettingsBtn.disabled = true;
+  loadSettingsPageData().finally(() => {
+    setTimeout(() => {
+      refreshSettingsBtn.classList.remove("btn-spin");
+      refreshSettingsBtn.disabled = false;
+    }, 600);
+  });
+});
+document.getElementById("settings-tab").addEventListener("shown.bs.tab", loadSettingsPageData);
+
+// --- PROMPT DROPDOWN ---
+let allPrompts = []; // [{promptId, projectName}]
+
+function buildPromptDropdown(optionsEl, searchEl, triggerTextEl, triggerEl, dropdownEl, hiddenInput, onChange) {
+  function renderOptions(filter) {
+    const q = (filter || "").toLowerCase();
+    const filtered = allPrompts.filter(p =>
+      p.promptId.toLowerCase().includes(q) ||
+      (p.projectName || "").toLowerCase().includes(q)
+    );
+    optionsEl.innerHTML = "";
+    if (!filtered.length) {
+      optionsEl.innerHTML = `<div class="prompt-select-no-results">No prompts found.</div>`;
+      return;
+    }
+    filtered.forEach(p => {
+      const div = document.createElement("div");
+      div.className = "prompt-select-option" + (hiddenInput.value === p.promptId ? " selected" : "");
+      div.innerHTML = `<span class="prompt-select-option-id">${p.promptId}</span>${p.projectName ? `<span class="prompt-select-option-name">${p.projectName}</span>` : ""}`;
+      div.addEventListener("mousedown", (e) => {
+        e.preventDefault();
+        selectPrompt(p);
+      });
+      optionsEl.appendChild(div);
+    });
+  }
+
+  function selectPrompt(p) {
+    hiddenInput.value = p.promptId;
+    triggerTextEl.textContent = p.projectName ? `${p.promptId} — ${p.projectName}` : p.promptId;
+    triggerTextEl.classList.remove("is-placeholder");
+    closeDropdown();
+    if (onChange) onChange(p.promptId);
+  }
+
+  function openDropdown() {
+    dropdownEl.classList.add("open");
+    triggerEl.classList.add("open");
+    searchEl.value = "";
+    renderOptions("");
+    searchEl.focus();
+  }
+
+  function closeDropdown() {
+    dropdownEl.classList.remove("open");
+    triggerEl.classList.remove("open");
+  }
+
+  triggerEl.addEventListener("click", () => {
+    dropdownEl.classList.contains("open") ? closeDropdown() : openDropdown();
+  });
+
+  triggerEl.addEventListener("keydown", (e) => {
+    if (e.key === "Enter" || e.key === " ") { e.preventDefault(); openDropdown(); }
+  });
+
+  searchEl.addEventListener("input", () => renderOptions(searchEl.value));
+
+  searchEl.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") closeDropdown();
+  });
+
+  document.addEventListener("click", (e) => {
+    if (!triggerEl.contains(e.target) && !dropdownEl.contains(e.target)) closeDropdown();
+  });
+
+  return { renderOptions, selectPromptById: (id) => {
+    const p = allPrompts.find(x => x.promptId === id);
+    if (p) selectPrompt(p);
+  }};
+}
+
+// Build dropdowns (will populate once prompts are loaded)
+const analysisDropdown = buildPromptDropdown(
+  document.getElementById("analysisPromptOptions"),
+  document.getElementById("analysisPromptSearch"),
+  document.getElementById("analysisPromptTriggerText"),
+  document.getElementById("analysisPromptTrigger"),
+  document.getElementById("analysisPromptDropdown"),
+  document.getElementById("analysisPromptIdInput"),
+  (id) => { doLoadAnalysis(id); }
+);
+
+const scopeDropdown = buildPromptDropdown(
+  document.getElementById("scopePromptOptions"),
+  document.getElementById("scopePromptSearch"),
+  document.getElementById("scopePromptTriggerText"),
+  document.getElementById("scopePromptTrigger"),
+  document.getElementById("scopePromptDropdown"),
+  document.getElementById("scopePromptIdInput"),
+  (id) => { loadTestScope(id); }
+);
+
+async function loadAllPrompts() {
+  try {
+    const resp = await apiRequest("/dashboard/prompts");
+    const list = resp?.data ?? resp;
+    allPrompts = Array.isArray(list) ? list : [];
+  } catch (e) {
+    allPrompts = [];
+  }
+}
+
+// Load prompts on startup and refresh dropdowns when tabs are shown
+loadAllPrompts();
+document.getElementById("test-analysis-tab").addEventListener("shown.bs.tab", loadAllPrompts);
+document.getElementById("test-scope-tab").addEventListener("shown.bs.tab", loadAllPrompts);
+
+// --- DASHBOARD ---
+const dashRefreshBtn    = document.getElementById("dashRefreshBtn");
+const dashStatus        = document.getElementById("dashStatus");
+const dashTableBody     = document.getElementById("dashTableBody");
+const dashStatTotal     = document.getElementById("dashStatTotal");
+const dashStatCompleted = document.getElementById("dashStatCompleted");
+const dashStatInProgress= document.getElementById("dashStatInProgress");
+const dashStatAvgTime   = document.getElementById("dashStatAvgTime");
+const dashStatTotalTc   = document.getElementById("dashStatTotalTc");
+const failedPromptInfoModal = new bootstrap.Modal(document.getElementById("failedPromptInfoModal"));
+const failedPromptIdText = document.getElementById("failedPromptIdText");
+const failedPromptNoteText = document.getElementById("failedPromptNoteText");
+
+function formatDashDate(str) {
+  if (!str) return "—";
+  try {
+    return new Date(str).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" });
+  } catch { return str; }
+}
+
+function formatDuration(ms) {
+  if (ms == null || isNaN(ms)) return "—";
+  const s = Math.round(ms / 1000);
+  if (s < 60) return `${s}s`;
+  const m = Math.floor(s / 60), rem = s % 60;
+  return `${m}m ${rem}s`;
+}
+
+function getStatusBadge(status) {
+  const map = {
+    completed:   "bg-success",
+    done:        "bg-success",
+    processing:  "bg-warning text-dark",
+    in_progress: "bg-warning text-dark",
+    failed:      "bg-danger",
+    error:       "bg-danger",
+  };
+  const key = String(status || "").toLowerCase().replace(/ /g, "_");
+  const cls = map[key] || "bg-secondary";
+  return `<span class="badge ${cls}">${status || "unknown"}</span>`;
+}
+
+function escapeHtml(value) {
+  return String(value || "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/\"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+function openFailedPromptInfo(promptId, note) {
+  failedPromptIdText.textContent = promptId || "—";
+  failedPromptNoteText.textContent = String(note || "No failure details.");
+  failedPromptInfoModal.show();
+}
+
+const promptLogModal = new bootstrap.Modal(document.getElementById("promptLogModal"));
+const promptLogContent = document.getElementById("promptLogContent");
+const promptLogModalSub = document.getElementById("promptLogModalSub");
+const promptLogRefreshBtn = document.getElementById("promptLogRefreshBtn");
+
+let _logAutoRefreshTimer = null;
+let _logCurrentPromptId = null;
+
+async function fetchAndRenderLog(promptId) {
+  try {
+    const resp = await apiRequest(`/dashboard/log/${encodeURIComponent(promptId)}`);
+    const log = resp?.data?.log || "";
+    if (!log) {
+      promptLogContent.innerHTML = '<span style="color:#64748b;">No log entries found for this prompt.</span>';
+      return;
+    }
+    // Preserve scroll position if user scrolled up
+    const el = promptLogContent;
+    const isAtBottom = (el.scrollHeight - el.scrollTop - el.clientHeight) < 40;
+    el.innerHTML = formatLogAsTerminal(log);
+    if (isAtBottom) el.scrollTop = el.scrollHeight;
+  } catch (err) {
+    promptLogContent.innerHTML = `<span style="color:#f87171;">✗ Failed to load log: ${escapeHtml(err.message)}</span>`;
+  }
+}
+
+async function openPromptLogModal(promptId) {
+  _logCurrentPromptId = promptId;
+  promptLogModalSub.textContent = promptId || "—";
+  promptLogContent.innerHTML = '<span style="color:#94a3b8;">Loading...</span>';
+  promptLogModal.show();
+
+  await fetchAndRenderLog(promptId);
+
+  // Start auto-refresh every 3s
+  clearInterval(_logAutoRefreshTimer);
+  _logAutoRefreshTimer = setInterval(() => {
+    if (_logCurrentPromptId) fetchAndRenderLog(_logCurrentPromptId);
+  }, 3000);
+}
+
+// Stop auto-refresh when modal closes
+document.getElementById("promptLogModal").addEventListener("hidden.bs.modal", () => {
+  clearInterval(_logAutoRefreshTimer);
+  _logAutoRefreshTimer = null;
+  _logCurrentPromptId = null;
+});
+
+// Manual refresh button
+if (promptLogRefreshBtn) {
+  promptLogRefreshBtn.addEventListener("click", () => {
+    if (!_logCurrentPromptId) return;
+    promptLogRefreshBtn.disabled = true;
+    fetchAndRenderLog(_logCurrentPromptId).finally(() => {
+      setTimeout(() => { promptLogRefreshBtn.disabled = false; }, 300);
+    });
+  });
+}
+
+function formatLogAsTerminal(raw) {
+  const lines = String(raw).split("\n");
+  return lines.map(line => {
+    const escaped = escapeHtml(line);
+    if (/\[FAIL\]/.test(line))    return `<span style="color:#f87171;">${escaped}</span>`;
+    if (/\[WARN\]/.test(line))    return `<span style="color:#fbbf24;">${escaped}</span>`;
+    if (/\[SUCCESS\]/.test(line)) return `<span style="color:#4ade80;">${escaped}</span>`;
+    if (/\[START\]/.test(line))   return `<span style="color:#38bdf8;">${escaped}</span>`;
+    if (/\[STEP\]/.test(line))    return `<span style="color:#a78bfa;">${escaped}</span>`;
+    if (/\[INFO\]/.test(line))    return `<span style="color:#cbd5e1;">${escaped}</span>`;
+    return `<span style="color:#94a3b8;">${escaped}</span>`;
+  }).join("\n");
+}
+
+async function loadDashboard() {
+  dashStatus.textContent = "Loading...";
+  dashTableBody.innerHTML = `<tr><td colspan="7" class="dash-empty"><div class="spinner-border spinner-border-sm text-primary me-2" role="status"></div>Fetching data...</td></tr>`;
+
+  try {
+    const resp = await apiRequest("/dashboard");
+    const data = resp?.data ?? resp;
+
+    const prompts   = Array.isArray(data?.prompts) ? data.prompts :
+                      Array.isArray(data)           ? data         : [];
+
+    const total     = data?.totalPrompts    ?? prompts.length;
+    const completed = data?.completed       ?? prompts.filter(p => /completed|done/i.test(p.status || "")).length;
+    const inProg    = data?.inProgress      ?? prompts.filter(p => /processing|in_progress/i.test(p.status || "")).length;
+    const avgMs     = data?.avgTurnaroundMs ?? null;
+    const totalTc   = data?.totalTestCases  ?? prompts.reduce((acc, p) => acc + (p.testCaseCount ?? 0), 0);
+
+    dashStatTotal.textContent       = total;
+    dashStatCompleted.textContent   = completed;
+    dashStatInProgress.textContent  = inProg;
+    dashStatAvgTime.textContent     = avgMs != null ? formatDuration(avgMs) : "—";
+    dashStatTotalTc.textContent     = totalTc || "—";
+
+    if (!prompts.length) {
+      dashTableBody.innerHTML = `<tr><td colspan="7" class="dash-empty">No prompts found.</td></tr>`;
+      dashStatus.textContent = "Dashboard loaded.";
+      return;
+    }
+
+    dashTableBody.innerHTML = "";
+    prompts.forEach(p => {
+      const promptId = p.promptId || p.id || "—";
+      const project  = p.projectName || p.project || "—";
+      const status   = p.status || "—";
+      const statusKey = String(status || "").toLowerCase().replace(/ /g, "_");
+      const isFailed = statusKey === "failed" || statusKey === "error";
+      const failureNote = String(p.failureNote || p.errorMessage || "").trim();
+      const failureInfoButton = isFailed
+        ? `<button class="btn btn-sm btn-outline-danger py-0 px-1 ms-1 dash-view-failure" data-id="${promptId}" data-note="${escapeHtml(failureNote || "No failure details")}" title="View Failure Details" style="font-size:0.75rem;"><i class="bi bi-info-circle"></i></button>`
+        : "";
+      const tc       = p.testCaseCount ?? "—";
+      const duration = p.turnaroundMs != null ? formatDuration(p.turnaroundMs) : "—";
+      const created  = formatDashDate(p.createdAt || p.created_at);
+
+      const tr = document.createElement("tr");
+      tr.innerHTML = `
+        <td><span class="dash-prompt-link" data-promptid="${promptId}">${promptId}</span></td>
+        <td>${project}</td>
+        <td>${getStatusBadge(status)}</td>
+        <td>${tc}</td>
+        <td>${duration}</td>
+        <td>${created}</td>
+        <td>
+          <button class="btn btn-sm btn-outline-primary py-0 px-1 dash-view-analysis" data-id="${promptId}" title="View Analysis" style="font-size:0.75rem;"><i class="bi bi-bar-chart-line"></i></button>
+          <button class="btn btn-sm btn-outline-secondary py-0 px-1 ms-1 dash-view-testcases" data-id="${promptId}" title="View Test Cases" style="font-size:0.75rem;"><i class="bi bi-list-check"></i></button>
+          <button class="btn btn-sm btn-outline-dark py-0 px-1 ms-1 dash-view-log" data-id="${promptId}" title="View Processing Log" style="font-size:0.75rem;"><i class="bi bi-terminal"></i></button>
+          ${failureInfoButton}
+        </td>`;
+      dashTableBody.appendChild(tr);
+    });
+
+    dashTableBody.querySelectorAll(".dash-prompt-link, .dash-view-analysis").forEach(el => {
+      el.addEventListener("click", () => {
+        const id = el.dataset.promptid || el.dataset.id;
+        document.getElementById("analysisPromptIdInput").value = id;
+        analysisDropdown.selectPromptById(id);
+        document.getElementById("test-analysis-tab").click();
+        doLoadAnalysis(id);
+      });
+    });
+
+    dashTableBody.querySelectorAll(".dash-view-testcases").forEach(el => {
+      el.addEventListener("click", () => {
+        const id = el.dataset.id;
+        document.getElementById("scopePromptIdInput").value = id;
+        scopeDropdown.selectPromptById(id);
+        document.getElementById("test-scope-tab").click();
+        loadTestScope(id);
+      });
+    });
+
+    dashTableBody.querySelectorAll(".dash-view-failure").forEach(el => {
+      el.addEventListener("click", () => {
+        const id = el.dataset.id;
+        const note = el.dataset.note || "No failure details.";
+        openFailedPromptInfo(id, note);
+      });
+    });
+
+    dashTableBody.querySelectorAll(".dash-view-log").forEach(el => {
+      el.addEventListener("click", () => {
+        openPromptLogModal(el.dataset.id);
+      });
+    });
+
+    dashStatus.textContent = `Dashboard loaded · ${prompts.length} prompt(s).`;
+  } catch (err) {
+    dashTableBody.innerHTML = `<tr><td colspan="7" class="dash-empty text-danger">Failed to load dashboard: ${err.message}</td></tr>`;
+    dashStatus.textContent = err.message;
+  }
+}
+
+dashRefreshBtn.addEventListener("click", () => {
+  dashRefreshBtn.classList.add("btn-spin");
+  dashRefreshBtn.disabled = true;
+  loadDashboard().finally(() => {
+    setTimeout(() => {
+      dashRefreshBtn.classList.remove("btn-spin");
+      dashRefreshBtn.disabled = false;
+    }, 200);
+  });
+});
+document.getElementById("dashboard-tab").addEventListener("shown.bs.tab", loadDashboard);
+loadDashboard();
+
+// --- Hash-based section/tab navigation ---
+const hashToTab = {
+  '#dashboard': 'dashboard-tab',
+  '#form': 'form-tab',
+  '#test-analysis': 'test-analysis-tab',
+  '#testcases': 'test-scope-tab',
+  '#test-scope': 'test-scope-tab',
+  '#settings': 'settings-tab'
+};
+const tabToHash = {
+  'dashboard-tab': '#dashboard',
+  'form-tab': '#form',
+  'test-analysis-tab': '#test-analysis',
+  'test-scope-tab': '#testcases',
+  'settings-tab': '#settings'
+};
+
+function activateTabFromHash() {
+  const hash = window.location.hash.toLowerCase();
+  const tabId = hashToTab[hash];
+  if (tabId) {
+    const tabEl = document.getElementById(tabId);
+    if (tabEl) {
+      const bsTab = new bootstrap.Tab(tabEl);
+      bsTab.show();
+    }
+  }
+}
+
+// Update hash on tab change
+document.querySelectorAll('[data-bs-toggle="tab"]').forEach(tabEl => {
+  tabEl.addEventListener('shown.bs.tab', () => {
+    const h = tabToHash[tabEl.id];
+    if (h) {
+      history.replaceState(null, '', h);
+    }
+  });
+});
+
+// Activate tab on hashchange and initial load
+window.addEventListener('hashchange', activateTabFromHash);
+if (window.location.hash) {
+  activateTabFromHash();
+}

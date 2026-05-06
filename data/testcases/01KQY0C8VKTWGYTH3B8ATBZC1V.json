@@ -1,0 +1,495 @@
+{
+    "feature": "Login Register Page",
+    "testCases": [
+        {
+            "section": "Input Validation (Email & Password)",
+            "testCases": [
+                {
+                    "id": "TC-VAL-001",
+                    "title": "Email Validation: Invalid Format (Missing '@')",
+                    "type": "negative",
+                    "priority": "high",
+                    "preconditions": [
+                        "User is on the Registration or Login screen."
+                    ],
+                    "steps": [
+                        "Enter 'testexample.com' in the 'Email' field.",
+                        "Attempt to submit the form or unfocus the field."
+                    ],
+                    "expectedResult": "An inline error message is displayed: 'Please enter a valid email address' or similar. Form submission is prevented."
+                },
+                {
+                    "id": "TC-VAL-002",
+                    "title": "Email Validation: Invalid Format (Missing domain)",
+                    "type": "negative",
+                    "priority": "high",
+                    "preconditions": [
+                        "User is on the Registration or Login screen."
+                    ],
+                    "steps": [
+                        "Enter 'test@example' in the 'Email' field.",
+                        "Attempt to submit the form or unfocus the field."
+                    ],
+                    "expectedResult": "An inline error message is displayed: 'Please enter a valid email address' or similar. Form submission is prevented."
+                },
+                {
+                    "id": "TC-VAL-003",
+                    "title": "Email Validation: Empty Email Field",
+                    "type": "negative",
+                    "priority": "high",
+                    "preconditions": [
+                        "User is on the Registration or Login screen."
+                    ],
+                    "steps": [
+                        "Leave the 'Email' field empty.",
+                        "Attempt to submit the form."
+                    ],
+                    "expectedResult": "An inline error message is displayed: 'Email cannot be empty' or 'Email is required'. Form submission is prevented."
+                },
+                {
+                    "id": "TC-VAL-004",
+                    "title": "Password Complexity: Too Short (assuming min 8 chars)",
+                    "type": "negative",
+                    "priority": "high",
+                    "preconditions": [
+                        "User is on the Registration or Forgot Password (New Password) screen.",
+                        "Password complexity requires a minimum of 8 characters (assumption)."
+                    ],
+                    "steps": [
+                        "Enter 'Pass123' (7 characters) in the 'Password' field.",
+                        "Attempt to submit the form or unfocus the field."
+                    ],
+                    "expectedResult": "An inline error message is displayed: 'Password must be at least 8 characters long' or similar. Form submission is prevented."
+                },
+                {
+                    "id": "TC-VAL-005",
+                    "title": "Password Complexity: Missing Uppercase Character",
+                    "type": "negative",
+                    "priority": "high",
+                    "preconditions": [
+                        "User is on the Registration or Forgot Password (New Password) screen.",
+                        "Password complexity requires at least one uppercase character (assumption)."
+                    ],
+                    "steps": [
+                        "Enter 'password123!' in the 'Password' field.",
+                        "Attempt to submit the form or unfocus the field."
+                    ],
+                    "expectedResult": "An inline error message is displayed: 'Password must contain at least one uppercase letter' or similar. Form submission is prevented."
+                },
+                {
+                    "id": "TC-VAL-006",
+                    "title": "Password Complexity: Missing Number",
+                    "type": "negative",
+                    "priority": "high",
+                    "preconditions": [
+                        "User is on the Registration or Forgot Password (New Password) screen.",
+                        "Password complexity requires at least one number (assumption)."
+                    ],
+                    "steps": [
+                        "Enter 'Password!!' in the 'Password' field.",
+                        "Attempt to submit the form or unfocus the field."
+                    ],
+                    "expectedResult": "An inline error message is displayed: 'Password must contain at least one number' or similar. Form submission is prevented."
+                },
+                {
+                    "id": "TC-VAL-007",
+                    "title": "Password Complexity: Missing Special Character",
+                    "type": "negative",
+                    "priority": "high",
+                    "preconditions": [
+                        "User is on the Registration or Forgot Password (New Password) screen.",
+                        "Password complexity requires at least one special character (assumption)."
+                    ],
+                    "steps": [
+                        "Enter 'Password123' in the 'Password' field.",
+                        "Attempt to submit the form or unfocus the field."
+                    ],
+                    "expectedResult": "An inline error message is displayed: 'Password must contain at least one special character' or similar. Form submission is prevented."
+                }
+            ]
+        },
+        {
+            "section": "User Login (Email/Password)",
+            "testCases": [
+                {
+                    "id": "TC-LOGIN-001",
+                    "title": "Successful Login with Valid Email and Password",
+                    "type": "positive",
+                    "priority": "high",
+                    "preconditions": [
+                        "User has a registered account.",
+                        "User is on the Login screen."
+                    ],
+                    "steps": [
+                        "Enter a registered email address in the 'Email' field.",
+                        "Enter the correct password for the account in the 'Password' field.",
+                        "Tap the 'Login' button."
+                    ],
+                    "expectedResult": "User is successfully logged in and redirected to the dashboard/home page. Average login time is under 3 seconds."
+                },
+                {
+                    "id": "TC-LOGIN-002",
+                    "title": "Attempt Login with Incorrect Password",
+                    "type": "negative",
+                    "priority": "high",
+                    "preconditions": [
+                        "User has a registered account.",
+                        "User is on the Login screen."
+                    ],
+                    "steps": [
+                        "Enter a registered email address in the 'Email' field.",
+                        "Enter an incorrect password in the 'Password' field.",
+                        "Tap the 'Login' button."
+                    ],
+                    "expectedResult": "An error message is displayed: 'Invalid email or password' or 'Incorrect credentials'."
+                },
+                {
+                    "id": "TC-LOGIN-003",
+                    "title": "Attempt Login with Unregistered Email",
+                    "type": "negative",
+                    "priority": "high",
+                    "preconditions": [
+                        "User is on the Login screen."
+                    ],
+                    "steps": [
+                        "Enter an email address that is not registered in the 'Email' field.",
+                        "Enter any password in the 'Password' field.",
+                        "Tap the 'Login' button."
+                    ],
+                    "expectedResult": "An error message is displayed: 'Invalid email or password' or 'Account not found'."
+                },
+                {
+                    "id": "TC-LOGIN-004",
+                    "title": "Multiple Failed Login Attempts Leading to Account Lockout",
+                    "type": "edge",
+                    "priority": "high",
+                    "preconditions": [
+                        "User has a registered account.",
+                        "User is on the Login screen.",
+                        "System has a defined lockout policy (e.g., 3-5 failed attempts)."
+                    ],
+                    "steps": [
+                        "Repeatedly enter a registered email and incorrect password (e.g., 5 times).",
+                        "On the final attempt, enter the correct password."
+                    ],
+                    "expectedResult": "After the threshold of incorrect attempts, the account should be locked. A message indicating account lockout or prompting for 'Forgot Password' is displayed. User cannot log in even with correct credentials until lockout period expires or reset."
+                },
+                {
+                    "id": "TC-LOGIN-005",
+                    "title": "Login with an Admin-Disabled Account",
+                    "type": "edge",
+                    "priority": "medium",
+                    "preconditions": [
+                        "An account exists and has been manually disabled by an administrator.",
+                        "User is on the Login screen."
+                    ],
+                    "steps": [
+                        "Enter the email address of the disabled account.",
+                        "Enter the correct password.",
+                        "Tap the 'Login' button."
+                    ],
+                    "expectedResult": "An error message is displayed: 'Your account has been disabled. Please contact support.' or similar. User is not logged in."
+                },
+                {
+                    "id": "TC-LOGIN-006",
+                    "title": "Network Interruption during Login",
+                    "type": "edge",
+                    "priority": "medium",
+                    "preconditions": [
+                        "User is on the Login screen with valid credentials entered.",
+                        "Device network is active."
+                    ],
+                    "steps": [
+                        "Enter valid email and password.",
+                        "Tap 'Login' button.",
+                        "Immediately disable network (Wi-Fi/mobile data) on the device before the request completes."
+                    ],
+                    "expectedResult": "An error message related to network connectivity is displayed, e.g., 'No internet connection' or 'Network error. Please try again'."
+                }
+            ]
+        },
+        {
+            "section": "User Login (Google SSO)",
+            "testCases": [
+                {
+                    "id": "TC-SSO-001",
+                    "title": "Successful Login via Google SSO (Existing User)",
+                    "type": "positive",
+                    "priority": "medium",
+                    "preconditions": [
+                        "User has an existing account linked to a Google ID.",
+                        "User is on the Login screen."
+                    ],
+                    "steps": [
+                        "Tap the 'Sign in with Google' button.",
+                        "Select the linked Google account from the Google prompt (if multiple accounts).",
+                        "Authorize the application (if not previously authorized)."
+                    ],
+                    "expectedResult": "User is successfully logged in and redirected to the dashboard/home page. Average login time is under 3 seconds."
+                },
+                {
+                    "id": "TC-SSO-002",
+                    "title": "First-time Login via Google SSO (New User - assuming auto-registration)",
+                    "type": "positive",
+                    "priority": "medium",
+                    "preconditions": [
+                        "User does not have an existing account in the application.",
+                        "User has a Google account.",
+                        "User is on the Login/Registration screen."
+                    ],
+                    "steps": [
+                        "Tap the 'Sign in with Google' button.",
+                        "Select a Google account.",
+                        "Authorize the application."
+                    ],
+                    "expectedResult": "A new user account is automatically created using the Google profile information. User is successfully logged in and redirected to the dashboard/home page, potentially with an onboarding flow."
+                },
+                {
+                    "id": "TC-SSO-003",
+                    "title": "User Denies Permissions during Google SSO Flow",
+                    "type": "negative",
+                    "priority": "medium",
+                    "preconditions": [
+                        "User is on the Login screen."
+                    ],
+                    "steps": [
+                        "Tap the 'Sign in with Google' button.",
+                        "When prompted by Google for permissions, select 'Deny' or 'Cancel'."
+                    ],
+                    "expectedResult": "User is returned to the Login screen. A message may be displayed indicating that the login was cancelled or failed due to denied permissions."
+                },
+                {
+                    "id": "TC-SSO-004",
+                    "title": "Google Service Temporarily Unavailable",
+                    "type": "edge",
+                    "priority": "low",
+                    "preconditions": [
+                        "User is on the Login screen.",
+                        "Simulate Google SSO service being unavailable (e.g., through a mock/proxy if possible, or observe if Google services are down)."
+                    ],
+                    "steps": [
+                        "Tap the 'Sign in with Google' button."
+                    ],
+                    "expectedResult": "An error message is displayed indicating that Google login is temporarily unavailable, or a general error occurred. User is returned to the Login screen."
+                },
+                {
+                    "id": "TC-SSO-005",
+                    "title": "Switching Google Accounts during SSO Process",
+                    "type": "edge",
+                    "priority": "low",
+                    "preconditions": [
+                        "User has multiple Google accounts logged into their device.",
+                        "User is on the Login screen."
+                    ],
+                    "steps": [
+                        "Tap the 'Sign in with Google' button.",
+                        "When prompted, select a Google account that is different from the one that would normally be chosen or the one linked to an existing account."
+                    ],
+                    "expectedResult": "If the chosen Google account is linked to an existing app account, the user is logged in. If it's a new Google account, a new app account is created (if auto-registration is enabled). If the Google account is not new and not linked and auto-registration is off, an appropriate error should be shown."
+                }
+            ]
+        },
+        {
+            "section": "Forgot Password Flow",
+            "testCases": [
+                {
+                    "id": "TC-FP-001",
+                    "title": "Successful Forgot Password Flow and Password Reset",
+                    "type": "positive",
+                    "priority": "high",
+                    "preconditions": [
+                        "User has a registered account.",
+                        "User is on the Login screen or Forgot Password initiation screen.",
+                        "Access to the registered email inbox."
+                    ],
+                    "steps": [
+                        "Tap 'Forgot Password?' link.",
+                        "Enter the registered email address in the 'Email' field.",
+                        "Tap 'Send Reset Link' or 'Submit' button.",
+                        "Check email inbox for the password reset link.",
+                        "Tap the password reset link (opens in browser or app).",
+                        "Enter a new strong password (meeting complexity) in the 'New Password' field.",
+                        "Confirm the new password in the 'Confirm New Password' field.",
+                        "Tap 'Reset Password' or 'Submit' button."
+                    ],
+                    "expectedResult": "A confirmation message 'Password reset successful' is displayed. User is redirected to the Login screen. The new password can be used to log in."
+                },
+                {
+                    "id": "TC-FP-002",
+                    "title": "Request Password Reset for Unregistered Email",
+                    "type": "negative",
+                    "priority": "high",
+                    "preconditions": [
+                        "User is on the Forgot Password initiation screen."
+                    ],
+                    "steps": [
+                        "Enter an email address that is not registered in the 'Email' field.",
+                        "Tap 'Send Reset Link' or 'Submit' button."
+                    ],
+                    "expectedResult": "A message is displayed indicating that if the email is registered, a reset link will be sent (to prevent enumeration attacks). The system should NOT confirm if the email exists."
+                },
+                {
+                    "id": "TC-FP-003",
+                    "title": "Using an Expired Password Reset Link",
+                    "type": "edge",
+                    "priority": "high",
+                    "preconditions": [
+                        "A password reset link has been sent to a user.",
+                        "The link has expired (wait for the configured expiry time)."
+                    ],
+                    "steps": [
+                        "Attempt to open the expired password reset link."
+                    ],
+                    "expectedResult": "An error message is displayed: 'Password reset link has expired. Please request a new one.' User is prompted to request a new link."
+                },
+                {
+                    "id": "TC-FP-004",
+                    "title": "Using an Already Used Password Reset Link",
+                    "type": "edge",
+                    "priority": "high",
+                    "preconditions": [
+                        "A password reset link has been sent and successfully used once to reset the password."
+                    ],
+                    "steps": [
+                        "Attempt to open the same password reset link again."
+                    ],
+                    "expectedResult": "An error message is displayed: 'Password reset link has already been used. Please request a new one.' User is prompted to request a new link."
+                },
+                {
+                    "id": "TC-FP-005",
+                    "title": "Setting New Password Not Meeting Complexity Rules During Reset",
+                    "type": "negative",
+                    "priority": "high",
+                    "preconditions": [
+                        "User is on the 'Set New Password' screen via a valid reset link."
+                    ],
+                    "steps": [
+                        "Enter a new password that does not meet complexity requirements (e.g., 'short').",
+                        "Confirm the password.",
+                        "Tap 'Reset Password' or 'Submit' button."
+                    ],
+                    "expectedResult": "An inline error message is displayed detailing the password complexity requirements not met (e.g., 'Password must be at least 8 characters long, contain an uppercase letter, a number, and a special character'). Password is not reset."
+                },
+                {
+                    "id": "TC-FP-006",
+                    "title": "Requesting Multiple Password Resets in Quick Succession",
+                    "type": "edge",
+                    "priority": "medium",
+                    "preconditions": [
+                        "User has a registered account.",
+                        "User is on the Forgot Password initiation screen."
+                    ],
+                    "steps": [
+                        "Enter the registered email address.",
+                        "Tap 'Send Reset Link' repeatedly within a short timeframe (e.g., 5 times in 10 seconds)."
+                    ],
+                    "expectedResult": "The system should apply rate limiting, allowing only one reset link request within a certain period (e.g., 60 seconds). Subsequent requests should yield a message like 'You can only request a password reset once every X minutes' or similar."
+                },
+                {
+                    "id": "TC-FP-007",
+                    "title": "Network Interruption during Password Reset Link Generation",
+                    "type": "edge",
+                    "priority": "medium",
+                    "preconditions": [
+                        "User is on the Forgot Password initiation screen with valid email.",
+                        "Device network is active."
+                    ],
+                    "steps": [
+                        "Enter valid email address.",
+                        "Tap 'Send Reset Link' button.",
+                        "Immediately disable network (Wi-Fi/mobile data) on the device before the request completes."
+                    ],
+                    "expectedResult": "An error message related to network connectivity is displayed, e.g., 'No internet connection' or 'Network error. Please try again'."
+                }
+            ]
+        },
+        {
+            "section": "Register Page",
+            "sectionId": 1049969,
+            "suiteId": 67624,
+            "sectionSource": "testrail",
+            "testCases": [
+                {
+                    "id": "TC-REG-001",
+                    "title": "Successful User Registration with Valid Credentials",
+                    "type": "positive",
+                    "priority": "high",
+                    "preconditions": [
+                        "User is on the Registration screen."
+                    ],
+                    "steps": [
+                        "Enter a unique, valid email address in the 'Email' field.",
+                        "Enter a strong, valid password (meeting complexity requirements) in the 'Password' field.",
+                        "Confirm the password in the 'Confirm Password' field.",
+                        "Tap the 'Register' or 'Sign Up' button."
+                    ],
+                    "expectedResult": "User account is successfully created, and the user is redirected to the dashboard/home page or presented with a 'Registration Successful' message. A confirmation email may be sent."
+                },
+                {
+                    "id": "TC-REG-002",
+                    "title": "Attempt to Register with an Already Existing Email",
+                    "type": "negative",
+                    "priority": "high",
+                    "preconditions": [
+                        "An account with a specific email address already exists."
+                    ],
+                    "steps": [
+                        "Enter an email address that is already registered in the 'Email' field.",
+                        "Enter a valid password.",
+                        "Confirm the password.",
+                        "Tap the 'Register' or 'Sign Up' button."
+                    ],
+                    "expectedResult": "An error message is displayed indicating that the email address is already registered, e.g., 'This email is already in use' or 'Account already exists'."
+                },
+                {
+                    "id": "TC-REG-003",
+                    "title": "Attempt to Register without Confirming Password",
+                    "type": "negative",
+                    "priority": "medium",
+                    "preconditions": [
+                        "User is on the Registration screen."
+                    ],
+                    "steps": [
+                        "Enter a valid email address.",
+                        "Enter a valid password in the 'Password' field.",
+                        "Leave the 'Confirm Password' field empty.",
+                        "Tap the 'Register' or 'Sign Up' button."
+                    ],
+                    "expectedResult": "An error message is displayed, e.g., 'Please confirm your password' or 'Passwords do not match'."
+                },
+                {
+                    "id": "TC-REG-004",
+                    "title": "Attempt to Register with Mismatched Passwords",
+                    "type": "negative",
+                    "priority": "high",
+                    "preconditions": [
+                        "User is on the Registration screen."
+                    ],
+                    "steps": [
+                        "Enter a valid email address.",
+                        "Enter a valid password in the 'Password' field (e.g., 'Password123!').",
+                        "Enter a different password in the 'Confirm Password' field (e.g., 'Password123').",
+                        "Tap the 'Register' or 'Sign Up' button."
+                    ],
+                    "expectedResult": "An error message is displayed indicating that the passwords do not match, e.g., 'Passwords do not match'."
+                },
+                {
+                    "id": "TC-REG-005",
+                    "title": "Network Interruption during Registration",
+                    "type": "edge",
+                    "priority": "medium",
+                    "preconditions": [
+                        "User is on the Registration screen with valid input.",
+                        "Device network is active."
+                    ],
+                    "steps": [
+                        "Enter valid email and password.",
+                        "Tap 'Register' or 'Sign Up' button.",
+                        "Immediately disable network (Wi-Fi/mobile data) on the device before the request completes."
+                    ],
+                    "expectedResult": "An error message related to network connectivity is displayed, e.g., 'No internet connection' or 'Network error. Please try again'."
+                }
+            ]
+        }
+    ]
+}

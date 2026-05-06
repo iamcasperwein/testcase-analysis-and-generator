@@ -22,3 +22,11 @@ After creating a non-login booking, there are several limitations on accessing c
     1. The flight team needs to run regression tests on the OBF and BFF booking forms to confirm that the current booking flow works as well.
   6. Risk
     1. Currently, our system sends a verification code directly to the user's email after they fill out the email field in the contact details. There is a potential risk that a fraudster could repeatedly submit non-SSO emails, causing our backend to send OTPs as often as the email is entered. This could impact system stability and increase email-sending costs (likely very small).`
+[2026-05-05T08:47:54.600Z] [START] [TestrailService] [postTestCases] [promptId=PRD-1234-Login-Flow] Post test cases requested | meta={"promptId":"PRD-1234-Login-Flow","selectedCount":1}
+[2026-05-05T08:47:54.609Z] [INFO] [TestrailService] [postTestCases] [promptId=PRD-1234-Login-Flow] Selected groups resolved | meta={"groups":1,"totalSelectedCases":1}
+[2026-05-05T08:47:56.471Z] [INFO] [TestrailService] [postTestCases] [promptId=PRD-1234-Login-Flow] Initialized TestRail posting context | meta={"projectId":"111","suiteId":"67624","remoteSections":13,"totalSkipped":0,"eligibleGroups":1}
+[2026-05-05T08:47:56.473Z] [STEP] [TestrailService] [postTestCases] [promptId=PRD-1234-Login-Flow] Posting section started | meta={"section":"UI/UX & sasss","selectedCases":1}
+[2026-05-05T08:47:57.230Z] [WARN] [TestrailService] [postTestCases] [promptId=PRD-1234-Login-Flow] Bulk add_cases failed. Falling back to one-by-one with duplicate detection | meta={"section":"UI/UX & sasss","sectionId":1058960,"error":"Unknown method 'add_cases'"}
+[2026-05-05T08:47:57.709Z] [INFO] [TestrailService] [postTestCases] [promptId=PRD-1234-Login-Flow] Duplicate detection cache built | meta={"section":"UI/UX & sasss","sectionId":1058960,"signatures":0}
+[2026-05-05T08:47:58.273Z] [SUCCESS] [TestrailService] [postTestCases] [promptId=PRD-1234-Login-Flow] Section posting completed | meta={"section":"UI/UX & sasss","status":"success","postedCount":1,"failedCount":0,"targetSectionId":1058960}
+[2026-05-05T08:47:58.277Z] [SUCCESS] [TestrailService] [postTestCases] [promptId=PRD-1234-Login-Flow] Posting operation completed | meta={"totalSections":1,"totalSelectedCases":1,"totalEligibleCases":1,"totalSkipped":0,"totalPosted":1,"totalFailed":0}
