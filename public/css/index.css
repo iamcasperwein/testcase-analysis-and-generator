@@ -21,6 +21,9 @@
       min-height: 52px;
       display: flex;
       align-items: center;
+      position: sticky;
+      top: 0;
+      z-index: 1030;
     }
 
     .app-header h1 {
@@ -454,62 +457,97 @@
 
     .analysis-toc {
       border-right: 1px solid #dbe7fb;
-      background: #f4f8ff;
+      background: #f8faff;
       overflow-y: auto;
-      padding: 0.6rem;
+      padding: 0.75rem 0.6rem;
       height: 100%;
     }
 
     .analysis-toc-title {
-      font-size: 0.76rem;
+      font-size: 0.72rem;
       font-weight: 700;
       color: #55719a;
-      letter-spacing: 0.03em;
+      letter-spacing: 0.05em;
       text-transform: uppercase;
-      margin-bottom: 0.5rem;
+      margin-bottom: 0.6rem;
+      padding: 0 0.4rem;
+      position: sticky;
+      top: 0;
+      background: #f8faff;
+      z-index: 1;
+      padding-bottom: 0.4rem;
+      border-bottom: 1px solid #e8f0fc;
     }
 
     .analysis-toc-item {
+      display: flex;
+      align-items: flex-start;
+      gap: 0.4rem;
       width: 100%;
       text-align: left;
-      border: 1px solid transparent;
+      border: none;
       background: transparent;
-      color: #34527f;
-      font-size: 0.84rem;
-      line-height: 1.28;
-      border-radius: 0.45rem;
-      padding: 0.38rem 0.5rem;
-      margin-bottom: 0.2rem;
-      transition: all 0.2s ease;
+      color: #4a6a94;
+      font-size: 0.82rem;
+      line-height: 1.35;
+      border-radius: 0.4rem;
+      padding: 0.4rem 0.55rem;
+      margin-bottom: 0.15rem;
+      transition: all 0.15s ease;
+      cursor: pointer;
+      position: relative;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      border-left: 2.5px solid transparent;
     }
 
     .analysis-toc-item:hover {
-      background: #eaf2ff;
-      border-color: #d4e4ff;
+      background: #edf4ff;
+      color: #2d5088;
+      border-left-color: #b8d4ff;
     }
 
     .analysis-toc-item.active {
-      background: linear-gradient(90deg, #e2eeff 0%, #f1f7ff 100%);
-      border-color: #91b8f6;
-      color: #1f477f;
-      box-shadow: 0 4px 12px rgba(13, 110, 253, 0.12);
+      background: #e8f1ff;
+      border-left-color: #357de8;
+      color: #1a4077;
+      font-weight: 600;
+    }
+
+    .analysis-toc-item .toc-number {
+      color: #8aa4c4;
+      font-size: 0.74rem;
+      font-weight: 600;
+      min-width: 1.1rem;
+      flex-shrink: 0;
+    }
+
+    .analysis-toc-item.active .toc-number {
+      color: #357de8;
+    }
+
+    .analysis-toc-item .toc-label {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
     }
 
     .analysis-toc-item.analysis-toc-indent-1 {
       padding-left: 1.2rem;
-      font-size: 0.81rem;
+      font-size: 0.8rem;
     }
 
     .analysis-toc-item.analysis-toc-indent-2 {
       padding-left: 1.8rem;
-      font-size: 0.79rem;
-      color: #556b8d;
+      font-size: 0.78rem;
+      color: #6a839e;
     }
 
     .analysis-toc-item.analysis-toc-indent-3 {
       padding-left: 2.4rem;
-      font-size: 0.77rem;
-      color: #667b99;
+      font-size: 0.76rem;
+      color: #7a93ad;
     }
 
     .analysis-doc {
@@ -591,27 +629,147 @@
       margin-bottom: 0.24rem;
     }
 
-    .analysis-doc strong {
+    .analysis-doc strong,
+    .analysis-md-rendered strong {
       color: #1f3f6d;
       font-weight: 700;
     }
 
-    .analysis-doc code {
+    .analysis-doc code,
+    .analysis-md-rendered code {
       background: #f1f6ff;
       color: #234f8c;
       border: 1px solid #d6e6ff;
       border-radius: 0.32rem;
-      padding: 0.08rem 0.3rem;
-      font-size: 0.84em;
+      padding: 0.12rem 0.35rem;
+      font-size: 0.82em;
+      font-family: "SF Mono", "Fira Code", "JetBrains Mono", monospace;
     }
 
-    .analysis-doc a {
+    .analysis-md-rendered pre {
+      background: #f6f8fc;
+      border: 1px solid #dde8fb;
+      border-radius: 0.55rem;
+      padding: 0.85rem 1rem;
+      overflow-x: auto;
+      margin: 0.6rem 0 0.8rem;
+    }
+
+    .analysis-md-rendered pre code {
+      background: none;
+      border: none;
+      padding: 0;
+      font-size: 0.82rem;
+      color: #334e77;
+      line-height: 1.55;
+    }
+
+    .analysis-md-rendered p {
+      margin-bottom: 0.5rem;
+      color: #334e77;
+      font-size: 0.9rem;
+      line-height: 1.6;
+    }
+
+    .analysis-md-rendered ul,
+    .analysis-md-rendered ol {
+      margin: 0.3rem 0 0.6rem;
+      padding-left: 1.3rem;
+      color: #334e77;
+      font-size: 0.9rem;
+      line-height: 1.55;
+    }
+
+    .analysis-md-rendered li {
+      margin-bottom: 0.25rem;
+    }
+
+    .analysis-md-rendered li > ul,
+    .analysis-md-rendered li > ol {
+      margin-top: 0.2rem;
+      margin-bottom: 0.1rem;
+    }
+
+    .analysis-md-rendered blockquote {
+      border-left: 3px solid #91b8f6;
+      background: #f4f8ff;
+      margin: 0.5rem 0 0.7rem;
+      padding: 0.5rem 0.85rem;
+      border-radius: 0 0.4rem 0.4rem 0;
+      color: #3a5a8a;
+      font-size: 0.88rem;
+    }
+
+    .analysis-md-rendered blockquote p {
+      margin-bottom: 0.25rem;
+    }
+
+    .analysis-md-rendered table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 0.5rem 0 0.8rem;
+      font-size: 0.85rem;
+      border: 1px solid #dde8fb;
+      border-radius: 0.45rem;
+      overflow: hidden;
+    }
+
+    .analysis-md-rendered thead th {
+      background: #eef4ff;
+      color: #2d4f7f;
+      font-weight: 600;
+      padding: 0.45rem 0.6rem;
+      border-bottom: 2px solid #c8dcf8;
+      text-align: left;
+    }
+
+    .analysis-md-rendered tbody td {
+      padding: 0.4rem 0.6rem;
+      border-bottom: 1px solid #eef4ff;
+      color: #3f5375;
+    }
+
+    .analysis-md-rendered tbody tr:hover td {
+      background: #f8fbff;
+    }
+
+    .analysis-md-rendered hr {
+      border: none;
+      border-top: 1px solid #dde8fb;
+      margin: 1rem 0;
+    }
+
+    .analysis-md-rendered h1,
+    .analysis-md-rendered h2,
+    .analysis-md-rendered h3,
+    .analysis-md-rendered h4,
+    .analysis-md-rendered h5,
+    .analysis-md-rendered h6 {
+      color: #1f4b86;
+      font-weight: 700;
+      margin: 0.8rem 0 0.4rem;
+      line-height: 1.3;
+    }
+
+    .analysis-md-rendered h2 { font-size: 1.05rem; }
+    .analysis-md-rendered h3 { font-size: 0.96rem; }
+    .analysis-md-rendered h4 { font-size: 0.9rem; }
+    .analysis-md-rendered h5 { font-size: 0.86rem; }
+
+    .analysis-md-rendered em {
+      color: #4a6a94;
+      font-style: italic;
+    }
+
+    .analysis-doc a,
+    .analysis-md-rendered a {
       color: #0d6efd;
       text-decoration: none;
       border-bottom: 1px dashed rgba(13, 110, 253, 0.45);
     }
 
-    .analysis-doc a:hover {
+    .analysis-doc a:hover,
+    .analysis-md-rendered a:hover {
       color: #0b5ed7;
       border-bottom-color: rgba(11, 94, 215, 0.75);
     }
@@ -1511,7 +1669,7 @@
     .dash-table tbody tr:hover td { background: #f5f9ff; }
 
     .dash-table-wrap {
-      max-height: calc(100vh - 420px);
+      max-height: calc(100vh - 480px);
       min-height: 120px;
       overflow-y: auto;
       border: 1px solid #dde8fb;
@@ -1527,6 +1685,31 @@
     }
 
     .dash-prompt-link:hover { color: #0a3b8a; text-decoration: underline; }
+
+    .dash-filter-select,
+    .dash-filter-input {
+      background: #fff;
+      border: 1px solid #d8e5f8;
+      border-radius: 0.55rem;
+      padding: 0.35rem 0.65rem;
+      font-size: 0.84rem;
+      color: #3f5375;
+      outline: none;
+      transition: border-color 0.2s, box-shadow 0.2s;
+      min-height: 34px;
+    }
+    .dash-filter-select:hover,
+    .dash-filter-input:hover {
+      border-color: #8ab4ff;
+    }
+    .dash-filter-select:focus,
+    .dash-filter-input:focus {
+      border-color: #5b9aff;
+      box-shadow: 0 0 0 2px rgba(91, 154, 255, 0.13);
+    }
+    .dash-filter-input::placeholder {
+      color: #9bb3d4;
+    }
 
     .dash-empty {
       text-align: center;

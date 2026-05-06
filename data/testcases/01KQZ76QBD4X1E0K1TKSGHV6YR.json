@@ -1,0 +1,795 @@
+{
+    "feature": "Revamp Login & Register",
+    "testCases": [
+        {
+            "section": "FR-01 — Email/Password Registration",
+            "testCases": [
+                {
+                    "id": "TC-001",
+                    "title": "The user should be able to register successfully when valid unique email and compliant password are provided",
+                    "type": "positive",
+                    "priority": "high",
+                    "preconditions": [
+                        "App is installed and launched on a mobile device",
+                        "User is on the Registration screen",
+                        "The email address used is not already registered in the system",
+                        "Password complexity rules have been confirmed by PM/Dev"
+                    ],
+                    "steps": [
+                        {
+                            "content": "Navigate to the Registration screen",
+                            "expected": "Registration screen is displayed with email and password input fields"
+                        },
+                        {
+                            "content": "Enter a valid, unique email address in the email field (e.g., newuser@example.com)",
+                            "expected": "Email is accepted and displayed in the field without inline errors"
+                        },
+                        {
+                            "content": "Enter a compliant password in the password field (e.g., meets all complexity rules)",
+                            "expected": "Password is masked by default and accepted without inline errors"
+                        },
+                        {
+                            "content": "Tap the Register / Submit button",
+                            "expected": "Form is submitted; a loading or processing indicator is shown"
+                        },
+                        {
+                            "content": "Observe the post-registration state",
+                            "expected": "A success state is shown (e.g., confirmation message or onboarding screen); a confirmation email is sent to the registered address"
+                        }
+                    ],
+                    "expectedResult": "A new user account is created successfully. The user sees a post-registration success state and receives a confirmation email."
+                },
+                {
+                    "id": "TC-002",
+                    "title": "The system should prevent registration when an already-registered email address is submitted",
+                    "type": "negative",
+                    "priority": "high",
+                    "preconditions": [
+                        "App is installed and launched on a mobile device",
+                        "User is on the Registration screen",
+                        "The email address used is already registered in the system"
+                    ],
+                    "steps": [
+                        {
+                            "content": "Navigate to the Registration screen",
+                            "expected": "Registration screen is displayed"
+                        },
+                        {
+                            "content": "Enter an email address that already exists in the system",
+                            "expected": "Email is entered in the field"
+                        },
+                        {
+                            "content": "Enter a compliant password in the password field",
+                            "expected": "Password is entered and masked"
+                        },
+                        {
+                            "content": "Tap the Register / Submit button",
+                            "expected": "Form submission is attempted"
+                        },
+                        {
+                            "content": "Observe the system response",
+                            "expected": "An error message is displayed indicating the email is already in use; no duplicate account is created"
+                        }
+                    ],
+                    "expectedResult": "The system rejects the registration attempt and displays an appropriate error. No duplicate account is created in the system."
+                },
+                {
+                    "id": "TC-003",
+                    "title": "The registration form should block submission when required fields are left empty",
+                    "type": "negative",
+                    "priority": "high",
+                    "preconditions": [
+                        "App is installed and launched on a mobile device",
+                        "User is on the Registration screen"
+                    ],
+                    "steps": [
+                        {
+                            "content": "Navigate to the Registration screen",
+                            "expected": "Registration screen is displayed with all required fields empty"
+                        },
+                        {
+                            "content": "Leave both the email and password fields empty",
+                            "expected": "Fields remain empty; no input is entered"
+                        },
+                        {
+                            "content": "Tap the Register / Submit button",
+                            "expected": "Submission is blocked; inline validation errors are displayed for all empty required fields, or the submit button remains disabled"
+                        }
+                    ],
+                    "expectedResult": "The form does not submit. Inline error messages or a disabled submit button indicate that required fields must be filled."
+                },
+                {
+                    "id": "TC-004",
+                    "title": "The system should handle registration gracefully when the network drops mid-submission",
+                    "type": "edge",
+                    "priority": "medium",
+                    "preconditions": [
+                        "App is installed and launched on a mobile device",
+                        "User is on the Registration screen with valid data entered",
+                        "Ability to simulate network interruption during the test"
+                    ],
+                    "steps": [
+                        {
+                            "content": "Navigate to the Registration screen",
+                            "expected": "Registration screen is displayed"
+                        },
+                        {
+                            "content": "Enter a valid unique email and compliant password",
+                            "expected": "Fields are populated without inline errors"
+                        },
+                        {
+                            "content": "Tap the Register / Submit button and immediately disable network connectivity on the device",
+                            "expected": "Form submission is initiated; network is interrupted"
+                        },
+                        {
+                            "content": "Observe the system response after the network drops",
+                            "expected": "A clear error message is displayed (e.g., 'No internet connection. Please try again.'); the app does not crash or hang indefinitely"
+                        },
+                        {
+                            "content": "Restore network connectivity and attempt to submit the form again",
+                            "expected": "The form can be resubmitted; registration completes successfully"
+                        }
+                    ],
+                    "expectedResult": "The app handles the network interruption gracefully with a user-friendly error message. No partial or corrupt account is created. The user can retry successfully once connectivity is restored."
+                },
+                {
+                    "id": "TC-005",
+                    "title": "The system should prevent rapid repeated registration attempts when the same email is submitted multiple times in quick succession",
+                    "type": "edge",
+                    "priority": "medium",
+                    "preconditions": [
+                        "App is installed and launched on a mobile device",
+                        "User is on the Registration screen",
+                        "Rate limiting or debounce is implemented on the backend"
+                    ],
+                    "steps": [
+                        {
+                            "content": "Navigate to the Registration screen",
+                            "expected": "Registration screen is displayed"
+                        },
+                        {
+                            "content": "Enter a valid unique email and compliant password",
+                            "expected": "Fields are populated without inline errors"
+                        },
+                        {
+                            "content": "Tap the Register / Submit button multiple times in rapid succession",
+                            "expected": "Only one submission is processed; subsequent taps are debounced or the button is disabled after the first tap"
+                        },
+                        {
+                            "content": "Observe the system response",
+                            "expected": "Only one account creation request is sent to the server; no duplicate accounts are created; a rate-limit or throttle error is shown if the threshold is exceeded"
+                        }
+                    ],
+                    "expectedResult": "The system prevents duplicate submissions from rapid tapping. Only one registration request is processed per attempt."
+                },
+                {
+                    "id": "TC-006",
+                    "title": "The registration form should sanitize input correctly when special characters or SQL-like strings are entered in the email or password fields",
+                    "type": "edge",
+                    "priority": "medium",
+                    "preconditions": [
+                        "App is installed and launched on a mobile device",
+                        "User is on the Registration screen"
+                    ],
+                    "steps": [
+                        {
+                            "content": "Navigate to the Registration screen",
+                            "expected": "Registration screen is displayed"
+                        },
+                        {
+                            "content": "Enter a SQL injection string in the email field (e.g., `' OR '1'='1`)",
+                            "expected": "Input is accepted in the field as plain text"
+                        },
+                        {
+                            "content": "Enter a script injection string in the password field (e.g., `<script>alert('xss')</script>`)",
+                            "expected": "Input is accepted in the field as plain text and masked"
+                        },
+                        {
+                            "content": "Tap the Register / Submit button",
+                            "expected": "The form either rejects the invalid email format with an inline error or sanitizes the input server-side; no script execution occurs; no database error is exposed to the user"
+                        }
+                    ],
+                    "expectedResult": "The system safely handles malicious input. No SQL injection or XSS vulnerability is triggered. The user sees a validation error for invalid email format, not a system error."
+                }
+            ]
+        },
+        {
+            "section": "FR-02 — Social SSO Login (Google)",
+            "testCases": [
+                {
+                    "id": "TC-007",
+                    "title": "The user should be redirected to Google OAuth when the 'Continue with Google' option is selected",
+                    "type": "positive",
+                    "priority": "high",
+                    "preconditions": [
+                        "App is installed and launched on a mobile device",
+                        "User is on the Login screen",
+                        "Device has an active internet connection",
+                        "Google OAuth test credentials are available"
+                    ],
+                    "steps": [
+                        {
+                            "content": "Navigate to the Login screen",
+                            "expected": "Login screen is displayed with a 'Continue with Google' option"
+                        },
+                        {
+                            "content": "Tap the 'Continue with Google' button",
+                            "expected": "The app initiates the Google OAuth flow; the user is redirected to the Google sign-in screen or a Google account chooser"
+                        }
+                    ],
+                    "expectedResult": "The Google OAuth screen or account chooser is displayed, allowing the user to select or enter their Google credentials."
+                },
+                {
+                    "id": "TC-008",
+                    "title": "The user should be successfully authenticated and logged in when valid Google credentials are provided via SSO",
+                    "type": "positive",
+                    "priority": "high",
+                    "preconditions": [
+                        "App is installed and launched on a mobile device",
+                        "User is on the Login screen",
+                        "Device has an active internet connection",
+                        "Valid Google test account credentials are available"
+                    ],
+                    "steps": [
+                        {
+                            "content": "Navigate to the Login screen",
+                            "expected": "Login screen is displayed"
+                        },
+                        {
+                            "content": "Tap the 'Continue with Google' button",
+                            "expected": "Google OAuth flow is initiated"
+                        },
+                        {
+                            "content": "Select or enter valid Google account credentials and approve the OAuth consent",
+                            "expected": "Google authenticates the user and returns an authorization token to the app"
+                        },
+                        {
+                            "content": "Observe the app state after OAuth completes",
+                            "expected": "The user is logged in and navigated to the main dashboard or home screen within 3 seconds"
+                        }
+                    ],
+                    "expectedResult": "The user is successfully authenticated via Google SSO and lands on the post-login screen. Login completes within the 3-second SLA."
+                },
+                {
+                    "id": "TC-009",
+                    "title": "The system should display an appropriate error when the Google OAuth flow is cancelled by the user",
+                    "type": "negative",
+                    "priority": "high",
+                    "preconditions": [
+                        "App is installed and launched on a mobile device",
+                        "User is on the Login screen",
+                        "Device has an active internet connection"
+                    ],
+                    "steps": [
+                        {
+                            "content": "Navigate to the Login screen",
+                            "expected": "Login screen is displayed"
+                        },
+                        {
+                            "content": "Tap the 'Continue with Google' button",
+                            "expected": "Google OAuth flow is initiated"
+                        },
+                        {
+                            "content": "Cancel or dismiss the Google sign-in screen (e.g., tap Back or Cancel)",
+                            "expected": "The OAuth flow is cancelled"
+                        },
+                        {
+                            "content": "Observe the app state",
+                            "expected": "The user is returned to the Login screen; an appropriate message is displayed (e.g., 'Sign-in was cancelled'); the app does not crash"
+                        }
+                    ],
+                    "expectedResult": "The app handles the OAuth cancellation gracefully. The user is returned to the Login screen with a non-blocking informational message."
+                },
+                {
+                    "id": "TC-010",
+                    "title": "The system should fail gracefully when Google services are unavailable during SSO login",
+                    "type": "edge",
+                    "priority": "medium",
+                    "preconditions": [
+                        "App is installed and launched on a mobile device",
+                        "User is on the Login screen",
+                        "Google services are simulated as unavailable (e.g., via network block or mock)"
+                    ],
+                    "steps": [
+                        {
+                            "content": "Navigate to the Login screen",
+                            "expected": "Login screen is displayed"
+                        },
+                        {
+                            "content": "Tap the 'Continue with Google' button while Google services are unavailable",
+                            "expected": "The OAuth flow is attempted"
+                        },
+                        {
+                            "content": "Observe the system response",
+                            "expected": "A user-friendly error message is displayed (e.g., 'Unable to connect to Google. Please try again later.'); the app does not crash or hang"
+                        }
+                    ],
+                    "expectedResult": "The app handles Google service unavailability gracefully with a clear error message. The user can return to the Login screen and try again."
+                },
+                {
+                    "id": "TC-011",
+                    "title": "The system should handle token refresh correctly when the Google session expires mid-flow",
+                    "type": "edge",
+                    "priority": "medium",
+                    "preconditions": [
+                        "App is installed and launched on a mobile device",
+                        "User has initiated the Google SSO flow",
+                        "Ability to simulate Google session token expiry (e.g., via mock or expired test token)"
+                    ],
+                    "steps": [
+                        {
+                            "content": "Initiate the Google SSO login flow",
+                            "expected": "Google OAuth screen is displayed"
+                        },
+                        {
+                            "content": "Simulate the Google session token expiring before the flow completes",
+                            "expected": "Token expiry is triggered mid-flow"
+                        },
+                        {
+                            "content": "Observe the system response",
+                            "expected": "The system either automatically attempts a token refresh or displays an appropriate error prompting the user to sign in again; the app does not crash"
+                        }
+                    ],
+                    "expectedResult": "The app handles the expired Google token gracefully. Either the token is refreshed transparently or the user is prompted to re-authenticate without data loss or a crash."
+                }
+            ]
+        },
+        {
+            "section": "FR-03 — Forgot Password Flow",
+            "testCases": [
+                {
+                    "id": "TC-012",
+                    "title": "The system should send a password reset email when a registered email address is submitted via the Forgot Password flow",
+                    "type": "positive",
+                    "priority": "high",
+                    "preconditions": [
+                        "App is installed and launched on a mobile device",
+                        "User is on the Login screen",
+                        "The email address used is registered in the system",
+                        "Test email inbox is configured and accessible (e.g., Mailosaur)"
+                    ],
+                    "steps": [
+                        {
+                            "content": "Navigate to the Login screen",
+                            "expected": "Login screen is displayed"
+                        },
+                        {
+                            "content": "Tap the 'Forgot Password' link or button",
+                            "expected": "Forgot Password screen is displayed with an email input field"
+                        },
+                        {
+                            "content": "Enter a valid registered email address in the email field",
+                            "expected": "Email is entered without inline errors"
+                        },
+                        {
+                            "content": "Tap the Submit / Send Reset Email button",
+                            "expected": "A confirmation message is displayed (e.g., 'If this email is registered, a reset link has been sent')"
+                        },
+                        {
+                            "content": "Check the test email inbox for the password reset email",
+                            "expected": "A password reset email is received within an acceptable delivery time; the email contains a valid reset link"
+                        }
+                    ],
+                    "expectedResult": "A password reset email is delivered to the registered email address. The app displays a confirmation message without revealing whether the email is registered."
+                },
+                {
+                    "id": "TC-013",
+                    "title": "The user should be able to set a new password when a valid and unexpired reset link is used",
+                    "type": "positive",
+                    "priority": "high",
+                    "preconditions": [
+                        "A valid, unexpired password reset email has been received",
+                        "The reset link has not been previously used",
+                        "Password complexity rules have been confirmed by PM/Dev"
+                    ],
+                    "steps": [
+                        {
+                            "content": "Open the password reset email and tap the reset link",
+                            "expected": "The app or browser opens the password reset screen with a new password input field"
+                        },
+                        {
+                            "content": "Enter a new compliant password in the new password field",
+                            "expected": "Password is entered and masked; no inline errors are shown"
+                        },
+                        {
+                            "content": "Confirm the new password in the confirm password field (if applicable)",
+                            "expected": "Confirm password field matches the new password"
+                        },
+                        {
+                            "content": "Tap the Submit / Reset Password button",
+                            "expected": "The new password is submitted"
+                        },
+                        {
+                            "content": "Observe the system response",
+                            "expected": "A success message is displayed; the user is redirected to the Login screen or automatically logged in"
+                        },
+                        {
+                            "content": "Attempt to log in using the new password",
+                            "expected": "Login is successful with the new password"
+                        }
+                    ],
+                    "expectedResult": "The user successfully resets their password using a valid reset link and can log in with the new credentials."
+                },
+                {
+                    "id": "TC-014",
+                    "title": "The reset link should be invalid and rejected when accessed after the token expiry window",
+                    "type": "negative",
+                    "priority": "high",
+                    "preconditions": [
+                        "A password reset email has been received",
+                        "The reset token expiry window has elapsed (exact duration to be confirmed with Dev)",
+                        "Test environment supports token expiry simulation"
+                    ],
+                    "steps": [
+                        {
+                            "content": "Wait for the reset token to expire (or simulate expiry in the test environment)",
+                            "expected": "Token expiry window has passed"
+                        },
+                        {
+                            "content": "Open the password reset email and tap the expired reset link",
+                            "expected": "The app or browser attempts to open the reset screen"
+                        },
+                        {
+                            "content": "Observe the system response",
+                            "expected": "An error message is displayed indicating the link has expired (e.g., 'This reset link has expired. Please request a new one.'); the user is not able to set a new password"
+                        }
+                    ],
+                    "expectedResult": "The expired reset link is rejected. The user sees a clear error message and is prompted to request a new reset link."
+                },
+                {
+                    "id": "TC-015",
+                    "title": "The reset link should be invalidated after a single successful use",
+                    "type": "edge",
+                    "priority": "high",
+                    "preconditions": [
+                        "A valid password reset email has been received",
+                        "The user has already successfully used the reset link to set a new password"
+                    ],
+                    "steps": [
+                        {
+                            "content": "Use the reset link to successfully set a new password",
+                            "expected": "Password is reset successfully"
+                        },
+                        {
+                            "content": "Attempt to open the same reset link again",
+                            "expected": "The app or browser attempts to open the reset screen"
+                        },
+                        {
+                            "content": "Observe the system response",
+                            "expected": "An error message is displayed indicating the link has already been used (e.g., 'This reset link is no longer valid.'); the user cannot reset the password again using the same link"
+                        }
+                    ],
+                    "expectedResult": "The reset link is invalidated after one successful use. Reusing the link results in an appropriate error message."
+                },
+                {
+                    "id": "TC-016",
+                    "title": "The system should reject the password reset when the new password does not meet complexity requirements",
+                    "type": "negative",
+                    "priority": "high",
+                    "preconditions": [
+                        "A valid, unexpired password reset link has been opened",
+                        "Password complexity rules have been confirmed by PM/Dev"
+                    ],
+                    "steps": [
+                        {
+                            "content": "Open a valid, unexpired password reset link",
+                            "expected": "Password reset screen is displayed"
+                        },
+                        {
+                            "content": "Enter a non-compliant password (e.g., too short, missing required character types)",
+                            "expected": "Password is entered in the field"
+                        },
+                        {
+                            "content": "Tap the Submit / Reset Password button",
+                            "expected": "Submission is attempted"
+                        },
+                        {
+                            "content": "Observe the system response",
+                            "expected": "An inline error message is displayed describing the password complexity requirements; the password is not reset"
+                        }
+                    ],
+                    "expectedResult": "The system rejects the non-compliant password and displays a clear inline error message. The password is not changed."
+                },
+                {
+                    "id": "TC-017",
+                    "title": "The system should not reveal whether an email is registered when a non-existent email is submitted via Forgot Password",
+                    "type": "edge",
+                    "priority": "high",
+                    "preconditions": [
+                        "App is installed and launched on a mobile device",
+                        "User is on the Forgot Password screen",
+                        "The email address used is NOT registered in the system"
+                    ],
+                    "steps": [
+                        {
+                            "content": "Navigate to the Forgot Password screen",
+                            "expected": "Forgot Password screen is displayed"
+                        },
+                        {
+                            "content": "Enter an email address that is not registered in the system",
+                            "expected": "Email is entered in the field"
+                        },
+                        {
+                            "content": "Tap the Submit / Send Reset Email button",
+                            "expected": "Submission is processed"
+                        },
+                        {
+                            "content": "Observe the system response",
+                            "expected": "The same generic confirmation message is displayed as for a registered email (e.g., 'If this email is registered, a reset link has been sent'); no error indicating the email does not exist is shown"
+                        }
+                    ],
+                    "expectedResult": "The system displays a generic confirmation message regardless of whether the email is registered, preventing user enumeration."
+                },
+                {
+                    "id": "TC-018",
+                    "title": "The system should handle multiple password reset requests gracefully when the same email is submitted in quick succession",
+                    "type": "edge",
+                    "priority": "medium",
+                    "preconditions": [
+                        "App is installed and launched on a mobile device",
+                        "User is on the Forgot Password screen",
+                        "The email address used is registered in the system"
+                    ],
+                    "steps": [
+                        {
+                            "content": "Navigate to the Forgot Password screen",
+                            "expected": "Forgot Password screen is displayed"
+                        },
+                        {
+                            "content": "Enter a registered email address and tap Submit multiple times in quick succession",
+                            "expected": "Multiple submission attempts are made"
+                        },
+                        {
+                            "content": "Observe the system response",
+                            "expected": "The system either throttles the requests and shows a rate-limit message, or only sends one reset email; the app does not crash"
+                        },
+                        {
+                            "content": "Check the test email inbox",
+                            "expected": "Only one or a limited number of reset emails are received; the inbox is not flooded"
+                        }
+                    ],
+                    "expectedResult": "The system handles rapid repeated reset requests gracefully. Rate limiting prevents email flooding, and the user sees appropriate feedback."
+                }
+            ]
+        },
+        {
+            "section": "FR-04 — Input Validation",
+            "testCases": [
+                {
+                    "id": "TC-019",
+                    "title": "The error message should display an invalid email format error when the user enters an email without the '@' symbol",
+                    "type": "negative",
+                    "priority": "high",
+                    "preconditions": [
+                        "App is installed and launched on a mobile device",
+                        "User is on the Registration or Login screen"
+                    ],
+                    "steps": [
+                        {
+                            "content": "Navigate to the Registration or Login screen",
+                            "expected": "Screen is displayed with an email input field"
+                        },
+                        {
+                            "content": "Tap the email input field",
+                            "expected": "Field is focused and keyboard is displayed"
+                        },
+                        {
+                            "content": "Enter an email address without the '@' symbol (e.g., 'invalidemail.com')",
+                            "expected": "Text is entered in the field"
+                        },
+                        {
+                            "content": "Tap outside the field or attempt to submit the form",
+                            "expected": "An inline error message is displayed indicating the email format is invalid (e.g., 'Please enter a valid email address')"
+                        }
+                    ],
+                    "expectedResult": "An inline validation error is displayed for the email field. The form does not submit with an invalid email format."
+                },
+                {
+                    "id": "TC-020",
+                    "title": "The error message should display an invalid email format error when the user enters an email without a domain extension",
+                    "type": "negative",
+                    "priority": "high",
+                    "preconditions": [
+                        "App is installed and launched on a mobile device",
+                        "User is on the Registration or Login screen"
+                    ],
+                    "steps": [
+                        {
+                            "content": "Navigate to the Registration or Login screen",
+                            "expected": "Screen is displayed with an email input field"
+                        },
+                        {
+                            "content": "Enter an email address missing a domain extension (e.g., 'user@domain')",
+                            "expected": "Text is entered in the field"
+                        },
+                        {
+                            "content": "Tap outside the field or attempt to submit the form",
+                            "expected": "An inline error message is displayed indicating the email format is invalid"
+                        }
+                    ],
+                    "expectedResult": "An inline validation error is displayed for the email field. The form does not submit."
+                },
+                {
+                    "id": "TC-021",
+                    "title": "The form should display a password complexity error when the password does not meet the defined complexity rules",
+                    "type": "negative",
+                    "priority": "high",
+                    "preconditions": [
+                        "App is installed and launched on a mobile device",
+                        "User is on the Registration screen",
+                        "Password complexity rules have been confirmed by PM/Dev"
+                    ],
+                    "steps": [
+                        {
+                            "content": "Navigate to the Registration screen",
+                            "expected": "Registration screen is displayed"
+                        },
+                        {
+                            "content": "Enter a valid email address in the email field",
+                            "expected": "Email is accepted without errors"
+                        },
+                        {
+                            "content": "Enter a non-compliant password in the password field (e.g., too short or missing required character types)",
+                            "expected": "Password is entered and masked"
+                        },
+                        {
+                            "content": "Tap outside the password field or attempt to submit the form",
+                            "expected": "An inline error message is displayed describing the unmet password complexity requirements"
+                        }
+                    ],
+                    "expectedResult": "An inline password complexity error is displayed. The form does not submit until the password meets all complexity requirements."
+                },
+                {
+                    "id": "TC-022",
+                    "title": "The submit button should remain disabled or block submission when required fields are empty on the Login screen",
+                    "type": "negative",
+                    "priority": "high",
+                    "preconditions": [
+                        "App is installed and launched on a mobile device",
+                        "User is on the Login screen"
+                    ],
+                    "steps": [
+                        {
+                            "content": "Navigate to the Login screen",
+                            "expected": "Login screen is displayed with email and password fields empty"
+                        },
+                        {
+                            "content": "Leave both the email and password fields empty",
+                            "expected": "No input is entered in either field"
+                        },
+                        {
+                            "content": "Observe the state of the Login / Submit button",
+                            "expected": "The button is visually disabled, or tapping it triggers inline validation errors for empty required fields"
+                        },
+                        {
+                            "content": "Tap the Login / Submit button",
+                            "expected": "Form submission is blocked; no API call is made; inline errors are shown for empty fields"
+                        }
+                    ],
+                    "expectedResult": "The form does not submit when required fields are empty. The submit button is disabled or inline errors are shown."
+                },
+                {
+                    "id": "TC-023",
+                    "title": "The password field should mask input by default and toggle visibility correctly when the show/hide icon is tapped",
+                    "type": "positive",
+                    "priority": "medium",
+                    "preconditions": [
+                        "App is installed and launched on a mobile device",
+                        "User is on the Registration or Login screen",
+                        "A show/hide password toggle icon is present on the password field"
+                    ],
+                    "steps": [
+                        {
+                            "content": "Navigate to the Registration or Login screen",
+                            "expected": "Screen is displayed with a password input field"
+                        },
+                        {
+                            "content": "Tap the password field and enter a password",
+                            "expected": "Password characters are masked (displayed as dots or asterisks) by default"
+                        },
+                        {
+                            "content": "Tap the show/hide password toggle icon",
+                            "expected": "Password characters are revealed in plain text"
+                        },
+                        {
+                            "content": "Tap the show/hide password toggle icon again",
+                            "expected": "Password characters are masked again"
+                        }
+                    ],
+                    "expectedResult": "The password field masks input by default. The show/hide toggle correctly reveals and re-masks the password on each tap."
+                },
+                {
+                    "id": "TC-024",
+                    "title": "The email field should display a validation error when input exceeds the maximum character length",
+                    "type": "edge",
+                    "priority": "medium",
+                    "preconditions": [
+                        "App is installed and launched on a mobile device",
+                        "User is on the Registration or Login screen",
+                        "Maximum email character length is confirmed with Dev"
+                    ],
+                    "steps": [
+                        {
+                            "content": "Navigate to the Registration or Login screen",
+                            "expected": "Screen is displayed with an email input field"
+                        },
+                        {
+                            "content": "Enter an email address that exceeds the maximum allowed character length",
+                            "expected": "Input is either truncated at the max length or the full string is entered"
+                        },
+                        {
+                            "content": "Attempt to submit the form or tap outside the field",
+                            "expected": "An inline error message is displayed indicating the email is too long, or the field prevents input beyond the maximum length"
+                        }
+                    ],
+                    "expectedResult": "The email field enforces a maximum character length. An appropriate error or input restriction is applied."
+                },
+                {
+                    "id": "TC-025",
+                    "title": "The form should behave correctly when autofill populates fields with mismatched data types",
+                    "type": "edge",
+                    "priority": "low",
+                    "preconditions": [
+                        "App is installed and launched on a mobile device",
+                        "Device autofill is enabled and has saved credentials",
+                        "User is on the Login or Registration screen"
+                    ],
+                    "steps": [
+                        {
+                            "content": "Navigate to the Login or Registration screen",
+                            "expected": "Screen is displayed with email and password fields"
+                        },
+                        {
+                            "content": "Allow device autofill to populate the email field with a non-email value (e.g., a phone number or name)",
+                            "expected": "Autofill populates the field with mismatched data"
+                        },
+                        {
+                            "content": "Attempt to submit the form",
+                            "expected": "Inline validation detects the invalid email format and displays an error; the form does not submit"
+                        }
+                    ],
+                    "expectedResult": "The form correctly validates autofill-populated data. Mismatched data types trigger appropriate inline validation errors."
+                }
+            ]
+        },
+        {
+            "section": "Login — Core Flow & Security",
+            "testCases": [
+                {
+                    "id": "TC-026",
+                    "title": "The user should be successfully logged in when valid registered email and correct password are entered",
+                    "type": "positive",
+                    "priority": "high",
+                    "preconditions": [
+                        "App is installed and launched on a mobile device",
+                        "User is on the Login screen",
+                        "A registered account exists with known credentials",
+                        "Device has an active internet connection"
+                    ],
+                    "steps": [
+                        {
+                            "content": "Navigate to the Login screen",
+                            "expected": "Login screen is displayed with email and password fields"
+                        },
+                        {
+                            "content": "Enter the registered email address in the email field",
+                            "expected": "Email is entered without inline errors"
+                        },
+                        {
+                            "content": "Enter the correct password in the password field",
+                            "expected": "Password is entered and masked"
+                        },
+                        {
+                            "content": "Tap the Login / Submit button",
+                            "expected": "Form is submitted; a loading indicator is shown"
+                        },
+                        {
+                            "content": "Observe the post-login state and measure the time taken",
+                            "expected": "The user is navigated to the main dashboard or home screen; login completes within 3 seconds"
+                        }
+                    ]
+                }
+            ]
+        }
+    ]
+}

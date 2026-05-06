@@ -104,6 +104,73 @@ const askAi = async (req, res) => {
 };
 
 
+const retryPrompt = async (req, res) => {
+  try {
+    const { promptId } = req.params;
+    if (!promptId) {
+      return res.status(400).json({ success: false, error: "promptId is required" });
+    }
+
+    // Lookup existing record to rebuild payload
+    const records = QAgentService.readPromptData();
+    const record = records.find((r) => String(r.promptId || "") === String(promptId));
+    if (!record) {
+      return res.status(404).json({ success: false, error: `Prompt not found: ${promptId}` });
+    }
+    if (!/FAILED|ERROR/i.test(record.status || "")) {
+      return res.status(400).json({ success: false, error: `Prompt is not failed (status: ${record.status})` });
+    }
+
+    // Rebuild payload from existing record
+    const payload = {
+      promptId,
+      projectName: record.projectName || "",
+      feature: record.projectName || "",
+      agent: record.agent || "claude",
+      documents: {
+        prd: { name: record.prdUrl || "", path: "", content: "" },
+        rfc: { name: record.rfcUrl || "", path: "", content: "" },
+        figma: { name: record.figmaUrl || "", path: "", content: "" },
+      },
+      prdUrl: record.prdUrl || "",
+      rfcUrl: record.rfcUrl || "",
+      figmaUrl: record.figmaUrl || "",
+    };
+
+    // Attach uploaded file paths if they exist
+    const path = require("path");
+    const fs = require("fs");
+    const uploadsDir = path.join(__dirname, "../data/uploads");
+    for (const docType of ["prd", "rfc", "figma"]) {
+      const pattern = `${promptId}_${docType.toUpperCase()}`;
+      try {
+        const files = fs.readdirSync(uploadsDir).filter(f => f.startsWith(pattern));
+        if (files.length > 0) {
+          payload.documents[docType].path = path.join(uploadsDir, files[0]);
+        }
+      } catch (_) { /* ignore */ }
+    }
+
+    // Reuse existing processSubmission with isRetry flag
+    QAgentService.processSubmission(payload, { isRetry: true })
+      .then((result) => {
+        console.log(`[QAgentController] Retry completed: promptId=${result.promptId}, status=${result.status}, testCaseCount=${result.testCaseCount}`);
+      })
+      .catch((error) => {
+        console.error(`[QAgentController] Retry failed: promptId=${promptId}, error=${error.message}`);
+      });
+
+    res.status(202).json({
+      success: true,
+      message: "Retry accepted. Processing started in background.",
+      data: { promptId, status: "RETRYING" },
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+};
+
 module.exports = {
-  askAi
+  askAi,
+  retryPrompt,
 };

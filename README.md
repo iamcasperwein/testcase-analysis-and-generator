@@ -74,7 +74,6 @@ The **QE Test Case Generator** is a Node.js / Express backend that ingests produ
 - **Google Gemini API** — `models/gemini-2.5-flash` for analysis & generation
 - **Anthropic Claude API** — Claude chat completion endpoint for analysis & generation
 - **GitHub Models API** — GitHub Copilot-compatible model inference (`/chat/completions`)
-- **Google AI File Manager** — Server-side upload of binary PRD/RFC artifacts
 - **TestRail API** — Sections + Cases sync (`get_sections`, `add_section`, `add_cases` / `add_case` fallback)
 
 ---
@@ -91,11 +90,9 @@ Routes  →  Controller  →  Service  →  Utils / External APIs / File Store
 |---|---|---|
 | **Layered Architecture** | [routes/](routes/), [controller/](controller/), [service/](service/), [utils/](utils/) | Keeps HTTP concerns out of business logic; each layer is independently testable. |
 | **Strategy Pattern** | `AGENTS` map in [service/QAgentService.js](service/QAgentService.js#L10-L21) | Pluggable AI agents (`claude`, `gemini`, `copilot`) selected at runtime via `normalizeAgentName`. |
-| **Facade** | [service/GeminiService.js](service/GeminiService.js), [service/ClaudeService.js](service/ClaudeService.js), [service/CopilotService.js](service/CopilotService.js) | Each AI service exposes a unified `generateFromPrompt(prompt, options)` interface, hiding provider-specific SDK details. |
 | **Template Method** | [prompts/index.js](prompts/index.js), [prompts/testCaseGeneration.js](prompts/testCaseGeneration.js) | `buildTestAnalysisPrompt` and `buildTestCaseGenerationPrompt` follow a fixed scaffold filled by inputs. |
 | **Repository (file-backed)** | `readPromptData` / `writePromptData` in [service/QAgentService.js](service/QAgentService.js#L28-L46), [utils/FileReader.js](utils/FileReader.js) | Abstracts storage so the JSON-on-disk layer can later be swapped for a database. |
 | **DTO / Sanitizer** | `sanitizeSubmissionPayload`, `sanitizeUpdatedTestCase` | Normalizes untrusted input into a stable internal contract. |
-| **Lazy Singleton** | Gemini `genAI`, `fileManager`, and `model` instances in [service/GeminiService.js](service/GeminiService.js) | Lazy-initialized on first use — avoids errors when `GEMINI_API_KEY` is absent and another agent is selected. |
 | **Factory** | `createInitialRecord` in [service/QAgentService.js](service/QAgentService.js#L113-L131) | Centralizes the construction of a normalized prompt record. |
 | **Async Job / Fire-and-Forget** | [controller/QAgent.js](controller/QAgent.js#L77-L92) | Returns `202 Accepted` and continues processing in the background. |
 | **Validation Error** | `SubmissionValidationError` class | Structured, status-code-aware errors propagated to the controller. |
@@ -161,7 +158,6 @@ When posting each case to TestRail, the service uses this payload shape:
     - `content`: step action text
     - `expected`: expected result for that specific step (or "N/A" if not applicable)
 
-> **Note:** Test case steps in the generated JSON are stored as `[{"content": "...", "expected": "..."}]` objects. Each step has its own expected result, enabling per-step validation in TestRail.
 
 ### Duplicate-Safe Retry Behavior
 

@@ -19,6 +19,8 @@ const DEFAULT_SETTING_KEYS = [
 	{ key: "TESTRAIL_SUITE_ID", confidential: false },
 	{ key: "OPENAI_API_KEY", confidential: true },
 	{ key: "NODE_ENV", confidential: false },
+	{ key: "CLAUDE_API_KEY", confidential: true },
+	// { key: "ANTHROPIC_API_KEY", confidential: false }
 ]
 
 const createValidationError = (message, statusCode = 400) => {
