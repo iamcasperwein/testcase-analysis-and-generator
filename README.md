@@ -126,317 +126,7 @@ The service exposes the following routes (mounted in [app.js](app.js)):
 
 ### API Contracts
 
-#### `POST /generate/ask`
-
-Submit artifacts for AI-driven test case generation. Returns immediately with a prompt ID while processing continues in the background.
-
-**Request:** `multipart/form-data`
-
-| Field | Type | Required | Description |
-|-------|------|----------|-------------|
-| `agent` | string | Yes | AI agent: `gemini`, `claude`, or `copilot` |
-| `projectName` | string | Yes | Project/feature name |
-| `feature` | string | No | Feature name (defaults to projectName) |
-| `docType` | string | Yes | Artifact type: `prd`, `rfc`, `figma`, `user-story`, `other` |
-| `context` | string | No | Additional context/instructions for the AI |
-| `rawContent` | string | No | Raw text content (alternative to file upload) |
-| `prd` | file | Yes* | Primary document (PDF, TXT, MD, DOC, DOCX) |
-| `rfc` | file | No | RFC document |
-| `figma` | file | No | Figma export |
-
-*Either `prd` file or `rawContent` is required.
-
-**Response:** `202 Accepted`
-```json
-{
-  "success": true,
-  "message": "Prompt accepted. Processing started in background.",
-  "data": {
-    "promptId": "01KQYKWD1703SG90J8XE5PJZR9",
-    "status": "QUEUED"
-  }
-}
-```
-
----
-
-#### `GET /dashboard`
-
-**Response:** `200 OK`
-```json
-{
-  "success": true,
-  "data": {
-    "totalPrompts": 10,
-    "completed": 8,
-    "inProgress": 1,
-    "avgTurnaroundMs": 89000,
-    "totalTestCases": 145,
-    "prompts": [
-      {
-        "promptId": "01KQYKWD1703SG90J8XE5PJZR9",
-        "projectName": "Login Flow",
-        "status": "COMPLETED",
-        "testCaseCount": 29,
-        "turnaroundMs": 89273,
-        "createdAt": "2026-05-01T10:00:00.000Z",
-        "failureNote": null
-      }
-    ]
-  }
-}
-```
-
----
-
-#### `GET /dashboard/prompts`
-
-**Response:** `200 OK`
-```json
-{
-  "success": true,
-  "data": [
-    { "promptId": "01KQYKWD1703SG90J8XE5PJZR9", "projectName": "Login Flow" }
-  ]
-}
-```
-
----
-
-#### `GET /dashboard/log/:promptId`
-
-**Response:** `200 OK`
-```json
-{
-  "success": true,
-  "data": {
-    "promptId": "01KQYKWD1703SG90J8XE5PJZR9",
-    "log": "[2026-05-01 10:00:01] Starting analysis...\n[2026-05-01 10:00:15] Analysis complete..."
-  }
-}
-```
-
----
-
-#### `GET /testcase/:promptId`
-
-**Response:** `200 OK`
-```json
-{
-  "success": true,
-  "data": {
-    "feature": "Login Register Page",
-    "testCases": [
-      {
-        "section": "User Registration",
-        "sectionId": null,
-        "suiteId": null,
-        "sectionSource": "ai",
-        "testCases": [
-          {
-            "id": "TC-REG-001",
-            "title": "The user should be able to register successfully when providing valid email and password",
-            "type": "positive",
-            "priority": "high",
-            "preconditions": ["User is on the Registration page"],
-            "steps": [
-              { "content": "Enter a valid email address", "expected": "Email field accepts input" },
-              { "content": "Click the Register button", "expected": "N/A" }
-            ],
-            "expectedResult": "User is registered and redirected to dashboard"
-          }
-        ]
-      }
-    ]
-  }
-}
-```
-
----
-
-#### `GET /testcase/getAnalyzeResult/:promptId`
-
-**Response:** `200 OK`
-```json
-{
-  "success": true,
-  "data": {
-    "promptId": "01KQYKWD1703SG90J8XE5PJZR9",
-    "analysis": "1. Summary\nThe login/register feature..."
-  }
-}
-```
-
----
-
-#### `POST /testcase/edit?testcaseId=TC-001&promptID=01KQYKWD...`
-
-**Request:** `application/json`
-```json
-{
-  "id": "TC-REG-001",
-  "promptId": "01KQYKWD1703SG90J8XE5PJZR9",
-  "title": "Updated test title",
-  "section": "User Registration",
-  "sectionId": null,
-  "suiteId": null,
-  "sectionSource": "ai",
-  "preconditions": "User is on the Registration page",
-  "steps": [
-    { "content": "Enter a valid email", "expected": "Email field accepts input" },
-    { "content": "Click Register", "expected": "Form submits" }
-  ],
-  "expected": "User is registered successfully"
-}
-```
-
-**Response:** `200 OK`
-```json
-{
-  "success": true,
-  "message": "Test case updated successfully",
-  "data": { "id": "TC-REG-001", "section": "User Registration" }
-}
-```
-
----
-
-#### `DELETE /testcase/deleteTestCase/:promptId/:testcaseId`
-
-**Response:** `200 OK`
-```json
-{
-  "success": true,
-  "message": "Test case deleted successfully",
-  "data": { "id": "TC-REG-001" }
-}
-```
-
----
-
-#### `GET /settings`
-
-**Response:** `200 OK`
-```json
-{
-  "success": true,
-  "data": [
-    { "key": "PORT", "value": "9009" },
-    { "key": "GEMINI_API_KEY", "value": "AIza..." }
-  ]
-}
-```
-
----
-
-#### `GET /settings/key`
-
-**Response:** `200 OK`
-```json
-{
-  "success": true,
-  "data": [
-    { "key": "PORT", "confidential": false, "isAvailable": true },
-    { "key": "GEMINI_API_KEY", "confidential": true, "isAvailable": false }
-  ]
-}
-```
-
----
-
-#### `POST /settings`
-
-**Request:** `application/json`
-```json
-{
-  "GEMINI_API_KEY": "AIza...",
-  "PORT": "9009"
-}
-```
-
-**Response:** `201 Created`
-```json
-{
-  "success": true,
-  "message": "Settings saved successfully",
-  "data": { "saved": 2 }
-}
-```
-
----
-
-#### `PUT /settings/:key`
-
-**Request:** `application/json`
-```json
-{ "value": "new-value" }
-```
-
-**Response:** `200 OK`
-```json
-{
-  "success": true,
-  "message": "Setting updated successfully",
-  "data": { "key": "PORT", "value": "9009" }
-}
-```
-
----
-
-#### `DELETE /settings/:key`
-
-**Response:** `200 OK`
-```json
-{
-  "success": true,
-  "message": "Setting deleted successfully",
-  "data": { "key": "PORT" }
-}
-```
-
----
-
-#### `GET /testrail/getsections`
-
-**Response:** `200 OK`
-```json
-{
-  "success": true,
-  "data": {
-    "sections": [
-      { "id": 1, "name": "Login Tests", "suite_id": 1, "depth": 0, "parent_id": null },
-      { "id": 2, "name": "Registration", "suite_id": 1, "depth": 1, "parent_id": 1 }
-    ]
-  }
-}
-```
-
----
-
-#### `POST /testrail/posttestcases`
-
-**Request:** `application/json`
-```json
-{
-  "promptId": "01KQYKWD1703SG90J8XE5PJZR9",
-  "testcaseIds": ["TC-REG-001", "TC-REG-002", "TC-LOG-001"]
-}
-```
-
-**Response:** `200 OK`
-```json
-{
-  "success": true,
-  "message": "Test cases posted to TestRail",
-  "data": {
-    "totalPosted": 3,
-    "totalFailed": 0,
-    "totalSkipped": 0
-  }
-}
-```
-
----
+See [API_CONTRACT.md](API_CONTRACT.md) for full request/response documentation of all endpoints.
 
 ### TestRail Posting Data Contract (file-backed)
 
@@ -498,11 +188,11 @@ sequenceDiagram
     participant Ctrl as QAgent.askAi
     participant Svc as QAgentService
     participant TC as TestCaseService
-    participant Gem as GeminiService
-    participant API as Google Gemini API
+    participant AI as AIService<br/>(Gemini / Claude / Copilot)
+    participant API as AI Provider API
     participant FS as File Store (data/)
 
-    Client->>Router: POST /generate/ask (multipart: prd, rfc, figma)
+    Client->>Router: POST /generate/ask (multipart: prd, rfc, figma, agent)
     Router->>Multer: Stream files to data/uploads/
     Multer-->>Ctrl: req.files (saved paths)
     Ctrl->>Ctrl: Generate ULID promptId & rename files to {promptId}_{TYPE}.{ext}
@@ -511,22 +201,23 @@ sequenceDiagram
     Note over Ctrl,Svc: Background processing (fire-and-forget)
     Ctrl->>Svc: processSubmission(payload)
     Svc->>Svc: sanitizeSubmissionPayload + enrichDocumentContents (PDF parse)
+    Svc->>Svc: resolveAgent(payload.agent) → AIService
     Svc->>FS: appendPromptRecord (status=RECEIVED → IN_PROGRESS → PROCESSING)
 
     Svc->>TC: getTestAnalysisPrompt(payload)
     TC-->>Svc: analysis prompt (string)
-    Svc->>Gem: generateFromPrompt(prompt, files)
-    Gem->>API: Upload files + generateContent
-    API-->>Gem: analysis text
-    Gem-->>Svc: analysisText
+    Svc->>AI: generateFromPrompt(prompt, files)
+    AI->>API: Send prompt + context to provider
+    API-->>AI: analysis text
+    AI-->>Svc: analysisText
     Svc->>FS: write analyze/{promptId}.md
 
     Svc->>TC: getTestCaseGenerationPrompt(payload + analysisContext)
     TC-->>Svc: testcase prompt
-    Svc->>Gem: generateFromPrompt(prompt, files)
-    Gem->>API: generateContent
-    API-->>Gem: JSON-encoded test cases
-    Gem-->>Svc: generatedText
+    Svc->>AI: generateFromPrompt(prompt, files)
+    AI->>API: Send prompt to provider
+    API-->>AI: JSON-encoded test cases
+    AI-->>Svc: generatedText
     Svc->>Svc: extractJsonPayload + normalizeGeneratedTestCases
     Svc->>FS: write testcases/{promptId}.json
     Svc->>FS: updatePromptRecord(status=COMPLETED, testCaseCount)
@@ -739,11 +430,6 @@ sequenceDiagram
         "key": "GEMINI_API_KEY",
         "confidential": true,
         "isAvailable": true
-    },
-    {
-        "key": "PORT",
-        "confidential": false,
-        "isAvailable": false
     }
 ]
 ```
@@ -1006,28 +692,6 @@ echo "PORT=9009" >> .env
 npm start
 # → http://localhost:9009
 ```
-
-### CI/CD (Recommended Pipeline)
-
-A typical pipeline for this service should include the following stages. (Adjust to your CI provider — GitHub Actions, GitLab CI, CircleCI, etc.)
-
-| Stage | Action |
-|---|---|
-| **Lint** | `eslint .` (add as a dev dependency) |
-| **Test** | `npm test` (unit tests for services & utils) |
-| **Build** | Containerize with a `Dockerfile` based on `node:20-alpine` |
-| **Scan** | `npm audit --audit-level=high`, container image scan (Trivy) |
-| **Publish** | Push image to registry (GHCR / ECR / GCR) tagged with the Git SHA |
-| **Deploy** | Roll out to target environment (Kubernetes / Cloud Run / ECS) |
-| **Smoke** | Hit `GET /` and `GET /dashboard/` to verify liveness |
-
-### Deployment Considerations
-
-- Mount [data/](data/) on persistent storage (volume / EFS / GCS Fuse) — currently all artifacts live on the local filesystem.
-- Inject env vars from the platform's secret manager rather than committing `.env`.
-- Configure the platform's request timeout to be larger than the LLM round-trip (≥ 60s) when using synchronous endpoints; the async submission endpoint is unaffected.
-
----
 
 ## Project Structure
 
