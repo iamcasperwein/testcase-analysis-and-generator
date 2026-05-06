@@ -1,6 +1,6 @@
 const axios = require("axios")
 
-const COPILOT_API_URL = String(process.env.GITHUB_MODELS_API_URL || "https://models.inference.ai.azure.com/chat/completions").trim()
+const COPILOT_API_URL = String(process.env.GITHUB_MODELS_API_URL || "https://models.github.ai/inference/chat/completions").trim()
 const DEFAULT_MODEL = String(process.env.GITHUB_MODEL || "gpt-4.1-mini").trim()
 
 const getApiKey = () => {
@@ -47,27 +47,37 @@ const generateFromPrompt = async (prompt, _options = {}) => {
 		throw error
 	}
 
-	const response = await axios.post(
-		COPILOT_API_URL,
-		{
-			model: DEFAULT_MODEL,
-			temperature: 0.2,
-			max_tokens: 8192,
-			messages: [
-				{
-					role: "user",
-					content: messagePrompt,
-				},
-			],
-		},
-		{
-			headers: {
-				"Content-Type": "application/json",
-				Authorization: `Bearer ${apiKey}`,
+	let response
+	try {
+		response = await axios.post(
+			COPILOT_API_URL,
+			{
+				model: DEFAULT_MODEL,
+				temperature: 0.2,
+				max_tokens: 8192,
+				messages: [
+					{
+						role: "user",
+						content: messagePrompt,
+					},
+				],
 			},
-			timeout: 120000,
-		},
-	)
+			{
+				headers: {
+					"Content-Type": "application/json",
+					Authorization: `Bearer ${apiKey}`,
+				},
+				timeout: 120000,
+			},
+		)
+	} catch (err) {
+		const status = err.response?.status || "unknown"
+		const detail = err.response?.data?.error?.message || err.response?.data?.message || JSON.stringify(err.response?.data || err.message)
+		console.error(`[CopilotService] API error (${status}): model=${DEFAULT_MODEL}, detail=${detail}`)
+		const error = new Error(`GitHub Models API error (${status}): ${detail}`)
+		error.statusCode = err.response?.status || 502
+		throw error
+	}
 
 	const text = extractResponseText(response?.data)
 	if (!text) {

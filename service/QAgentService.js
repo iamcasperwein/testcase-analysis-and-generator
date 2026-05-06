@@ -237,6 +237,7 @@ const sanitizeSubmissionPayload = (payload = {}) => {
 
     return {
         ...payload,
+        agent: String(payload.agent || payload.agentName || "claude").trim().toLowerCase(),
         projectName,
         feature: String(payload.feature || projectName).trim(),
         documents: normalizedDocuments,
@@ -261,7 +262,7 @@ const processSubmission = async (payload = {}) => {
         service: "QAgentService",
         action: "processSubmission",
         promptId,
-        fileName: `analyze/${promptId}.txt`,
+        fileName: `runtime/${promptId}.txt`,
         resetFile: true,
     });
     logger.start("Submission received", {
@@ -284,25 +285,44 @@ const processSubmission = async (payload = {}) => {
     });
 
     const agent = normalizeAgentName(validatedPayload.agent || validatedPayload.agentName);
-    logger.info("Agent selected", { promptId, agent });
+    logger.info("Agent selected", { promptId, agent, rawAgentValue: payload.agent });
 
     const runSelectedAgent = async ({ prompt, payload, mode }) => {
-        const handler = AGENTS[agent] || AGENTS.claude;
+        const handler = AGENTS[agent];
+        if (!handler) {
+            throw new Error(`Unknown agent "${agent}". Available agents: ${Object.keys(AGENTS).join(", ")}`);
+        }
+
         try {
             return await handler({ prompt, payload, promptId, mode });
         } catch (error) {
-            if (agent === "claude") {
-                throw error;
+            const errorMsg = String(error.message || "");
+
+            // Check if this is an auth/key issue vs a transient/service error
+            const isAuthError = /api.key.*(invalid|not valid|missing|required|unauthorized)|401|403|authentication/i.test(errorMsg);
+            const isConfigError = /not configured|is required/i.test(errorMsg);
+
+            if (isAuthError || isConfigError) {
+                const agentKeyMap = {
+                    gemini: "GEMINI_API_KEY",
+                    copilot: "COPILOT_TOKEN",
+                    claude: "CLAUDE_API_KEY or ANTHROPIC_API_KEY",
+                };
+                const requiredKey = agentKeyMap[agent] || `API key for "${agent}"`;
+                const msg = [
+                    `Agent "${agent}" failed: ${errorMsg}`,
+                    ``,
+                    `To fix this, go to Settings and configure:`,
+                    `  • ${requiredKey} — required for ${agent}`,
+                ].join("\n");
+                logger.fail(new Error(msg), { agent, mode });
+                throw new Error(msg);
             }
 
-            logger.warn("Primary agent failed. Falling back to Claude.", {
-                primaryAgent: agent,
-                fallbackAgent: "claude",
-                mode,
-                error: error.message,
-            });
-
-            return AGENTS.claude({ prompt, payload, promptId, mode });
+            // For non-auth errors (rate limit, service unavailable, etc.), pass through as-is
+            const msg = `Agent "${agent}" failed: ${errorMsg}`;
+            logger.fail(new Error(msg), { agent, mode });
+            throw new Error(msg);
         }
     };
 

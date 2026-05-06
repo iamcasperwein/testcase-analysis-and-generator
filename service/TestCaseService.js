@@ -81,6 +81,36 @@ const normalizeMultilineField = (value) => {
     return [String(value).trim()].filter(Boolean);
 };
 
+const normalizeStepsField = (value) => {
+    if (Array.isArray(value)) {
+        // Array of {content, expected} objects
+        if (value.length && typeof value[0] === "object" && value[0] !== null) {
+            return value.map((step) => ({
+                content: String(step.content || "").trim(),
+                expected: String(step.expected || "N/A").trim(),
+            })).filter((s) => s.content);
+        }
+        // Legacy: array of strings
+        return value.map((item) => ({
+            content: String(item).trim(),
+            expected: "N/A",
+        })).filter((s) => s.content);
+    }
+
+    if (typeof value === "string") {
+        return value
+            .split(/\r?\n/)
+            .map((line) => line.trim())
+            .filter(Boolean)
+            .map((line) => ({
+                content: line,
+                expected: "N/A",
+            }));
+    }
+
+    return [];
+};
+
 const normalizeSectionName = (value) => {
     const section = String(value || "").trim();
     return section || "Uncategorized";
@@ -137,7 +167,7 @@ const sanitizeUpdatedTestCase = (payload = {}, fallbackId) => {
     }
 
     if (Object.prototype.hasOwnProperty.call(payload, "steps")) {
-        updatedTestCase.steps = normalizeMultilineField(payload.steps);
+        updatedTestCase.steps = normalizeStepsField(payload.steps);
     }
 
     if (Object.prototype.hasOwnProperty.call(payload, "expectedResult") || Object.prototype.hasOwnProperty.call(payload, "expected")) {

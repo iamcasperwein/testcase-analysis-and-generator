@@ -91,11 +91,11 @@ Routes  →  Controller  →  Service  →  Utils / External APIs / File Store
 |---|---|---|
 | **Layered Architecture** | [routes/](routes/), [controller/](controller/), [service/](service/), [utils/](utils/) | Keeps HTTP concerns out of business logic; each layer is independently testable. |
 | **Strategy Pattern** | `AGENTS` map in [service/QAgentService.js](service/QAgentService.js#L10-L21) | Pluggable AI agents (`claude`, `gemini`, `copilot`) selected at runtime via `normalizeAgentName`. |
-| **Facade** | [service/GeminiService.js](service/GeminiService.js) | Hides complexity of Gemini SDK, file upload, base64 fallback, and prompt building behind `generateFromPrompt`. |
+| **Facade** | [service/GeminiService.js](service/GeminiService.js), [service/ClaudeService.js](service/ClaudeService.js), [service/CopilotService.js](service/CopilotService.js) | Each AI service exposes a unified `generateFromPrompt(prompt, options)` interface, hiding provider-specific SDK details. |
 | **Template Method** | [prompts/index.js](prompts/index.js), [prompts/testCaseGeneration.js](prompts/testCaseGeneration.js) | `buildTestAnalysisPrompt` and `buildTestCaseGenerationPrompt` follow a fixed scaffold filled by inputs. |
 | **Repository (file-backed)** | `readPromptData` / `writePromptData` in [service/QAgentService.js](service/QAgentService.js#L28-L46), [utils/FileReader.js](utils/FileReader.js) | Abstracts storage so the JSON-on-disk layer can later be swapped for a database. |
 | **DTO / Sanitizer** | `sanitizeSubmissionPayload`, `sanitizeUpdatedTestCase` | Normalizes untrusted input into a stable internal contract. |
-| **Singleton** | Gemini `genAI`, `fileManager`, and `model` instances in [service/GeminiService.js](service/GeminiService.js#L6-L9) | Reuses one authenticated client across requests. |
+| **Lazy Singleton** | Gemini `genAI`, `fileManager`, and `model` instances in [service/GeminiService.js](service/GeminiService.js) | Lazy-initialized on first use — avoids errors when `GEMINI_API_KEY` is absent and another agent is selected. |
 | **Factory** | `createInitialRecord` in [service/QAgentService.js](service/QAgentService.js#L113-L131) | Centralizes the construction of a normalized prompt record. |
 | **Async Job / Fire-and-Forget** | [controller/QAgent.js](controller/QAgent.js#L77-L92) | Returns `202 Accepted` and continues processing in the background. |
 | **Validation Error** | `SubmissionValidationError` class | Structured, status-code-aware errors propagated to the controller. |
@@ -115,6 +115,7 @@ The service exposes the following routes (mounted in [app.js](app.js)):
 | `DELETE` | `/testcase/deleteTestCase/:promptId/:testcaseId` | [controller/TestCase.js](controller/TestCase.js) | Delete a test case |
 | `GET` | `/dashboard/` | [controller/Dashboard.js](controller/Dashboard.js) | Aggregate metrics |
 | `GET` | `/dashboard/prompts` | [controller/Dashboard.js](controller/Dashboard.js) | List prompts (id + project) |
+| `GET` | `/dashboard/log/:promptId` | [controller/Dashboard.js](controller/Dashboard.js) | Get processing log for a prompt |
 | `GET` | `/settings/` | [controller/Settings.js](controller/Settings.js) | List `.env` entries |
 | `GET` | `/settings/key` | [controller/Settings.js](controller/Settings.js) | List default key metadata (`key`, `confidential`, `isAvailable`) |
 | `POST` | `/settings/` | [controller/Settings.js](controller/Settings.js) | Create new settings |
@@ -122,6 +123,10 @@ The service exposes the following routes (mounted in [app.js](app.js)):
 | `DELETE` | `/settings/:key` | [controller/Settings.js](controller/Settings.js) | Delete a setting |
 | `GET` | `/testrail/getsections` | [controller/Testrail.js](controller/Testrail.js) | Fetch sections from TestRail |
 | `POST` | `/testrail/posttestcases` | [controller/Testrail.js](controller/Testrail.js) | Post selected prompt test cases to TestRail |
+
+### API Contracts
+
+See [API_CONTRACT.md](API_CONTRACT.md) for full request/response documentation of all endpoints.
 
 ### TestRail Posting Data Contract (file-backed)
 
@@ -153,8 +158,10 @@ When posting each case to TestRail, the service uses this payload shape:
     - `custom_automation_types: [5]`
 - `custom_preconds`: normalized preconditions
 - `custom_steps_separated`: each step is mapped as:
-    - `content`: step text
-    - `expected`: expected result text
+    - `content`: step action text
+    - `expected`: expected result for that specific step (or "N/A" if not applicable)
+
+> **Note:** Test case steps in the generated JSON are stored as `[{"content": "...", "expected": "..."}]` objects. Each step has its own expected result, enabling per-step validation in TestRail.
 
 ### Duplicate-Safe Retry Behavior
 
@@ -181,11 +188,11 @@ sequenceDiagram
     participant Ctrl as QAgent.askAi
     participant Svc as QAgentService
     participant TC as TestCaseService
-    participant Gem as GeminiService
-    participant API as Google Gemini API
+    participant AI as AIService<br/>(Gemini / Claude / Copilot)
+    participant API as AI Provider API
     participant FS as File Store (data/)
 
-    Client->>Router: POST /generate/ask (multipart: prd, rfc, figma)
+    Client->>Router: POST /generate/ask (multipart: prd, rfc, figma, agent)
     Router->>Multer: Stream files to data/uploads/
     Multer-->>Ctrl: req.files (saved paths)
     Ctrl->>Ctrl: Generate ULID promptId & rename files to {promptId}_{TYPE}.{ext}
@@ -194,22 +201,23 @@ sequenceDiagram
     Note over Ctrl,Svc: Background processing (fire-and-forget)
     Ctrl->>Svc: processSubmission(payload)
     Svc->>Svc: sanitizeSubmissionPayload + enrichDocumentContents (PDF parse)
+    Svc->>Svc: resolveAgent(payload.agent) → AIService
     Svc->>FS: appendPromptRecord (status=RECEIVED → IN_PROGRESS → PROCESSING)
 
     Svc->>TC: getTestAnalysisPrompt(payload)
     TC-->>Svc: analysis prompt (string)
-    Svc->>Gem: generateFromPrompt(prompt, files)
-    Gem->>API: Upload files + generateContent
-    API-->>Gem: analysis text
-    Gem-->>Svc: analysisText
+    Svc->>AI: generateFromPrompt(prompt, files)
+    AI->>API: Send prompt + context to provider
+    API-->>AI: analysis text
+    AI-->>Svc: analysisText
     Svc->>FS: write analyze/{promptId}.md
 
     Svc->>TC: getTestCaseGenerationPrompt(payload + analysisContext)
     TC-->>Svc: testcase prompt
-    Svc->>Gem: generateFromPrompt(prompt, files)
-    Gem->>API: generateContent
-    API-->>Gem: JSON-encoded test cases
-    Gem-->>Svc: generatedText
+    Svc->>AI: generateFromPrompt(prompt, files)
+    AI->>API: Send prompt to provider
+    API-->>AI: JSON-encoded test cases
+    AI-->>Svc: generatedText
     Svc->>Svc: extractJsonPayload + normalizeGeneratedTestCases
     Svc->>FS: write testcases/{promptId}.json
     Svc->>FS: updatePromptRecord(status=COMPLETED, testCaseCount)
@@ -422,11 +430,6 @@ sequenceDiagram
         "key": "GEMINI_API_KEY",
         "confidential": true,
         "isAvailable": true
-    },
-    {
-        "key": "PORT",
-        "confidential": false,
-        "isAvailable": false
     }
 ]
 ```
@@ -598,7 +601,7 @@ sequenceDiagram
 ### Current Strengths
 - **Asynchronous job model**: `POST /generate/ask` returns `202 Accepted` immediately. The expensive AI pipeline runs in the background, freeing the request thread. See [controller/QAgent.js](controller/QAgent.js#L77-L92).
 - **Singleton AI clients**: Gemini SDK clients are constructed once per process and reused, avoiding per-request handshake costs ([service/GeminiService.js](service/GeminiService.js#L6-L9)).
-- **Server-side file uploads to Gemini**: Documents are uploaded to Gemini's File API once and referenced by URI, avoiding repeated base64 transmission. Inline base64 is used only as a fallback ([service/GeminiService.js](service/GeminiService.js#L13-L66)).
+- **Server-side file uploads to AI Model**: Documents are uploaded to Models's File API once and referenced by URI, avoiding repeated base64 transmission. Inline base64 is used only as a fallback ([service/GeminiService.js](service/GeminiService.js#L13-L66)).
 - **Two-stage prompting**: Decoupling analysis from test-case generation makes prompts smaller and improves reliability of JSON parsing.
 - **Upload size limits**: `multer` enforces a 10 MB cap per file ([routes/qagentRouter.js](routes/qagentRouter.js#L29-L31)).
 - **ULID identifiers**: Lexicographically sortable IDs enable efficient time-ordered scans of [data/promptdata.json](data/promptdata.json).
@@ -689,28 +692,6 @@ echo "PORT=9009" >> .env
 npm start
 # → http://localhost:9009
 ```
-
-### CI/CD (Recommended Pipeline)
-
-A typical pipeline for this service should include the following stages. (Adjust to your CI provider — GitHub Actions, GitLab CI, CircleCI, etc.)
-
-| Stage | Action |
-|---|---|
-| **Lint** | `eslint .` (add as a dev dependency) |
-| **Test** | `npm test` (unit tests for services & utils) |
-| **Build** | Containerize with a `Dockerfile` based on `node:20-alpine` |
-| **Scan** | `npm audit --audit-level=high`, container image scan (Trivy) |
-| **Publish** | Push image to registry (GHCR / ECR / GCR) tagged with the Git SHA |
-| **Deploy** | Roll out to target environment (Kubernetes / Cloud Run / ECS) |
-| **Smoke** | Hit `GET /` and `GET /dashboard/` to verify liveness |
-
-### Deployment Considerations
-
-- Mount [data/](data/) on persistent storage (volume / EFS / GCS Fuse) — currently all artifacts live on the local filesystem.
-- Inject env vars from the platform's secret manager rather than committing `.env`.
-- Configure the platform's request timeout to be larger than the LLM round-trip (≥ 60s) when using synchronous endpoints; the async submission endpoint is unaffected.
-
----
 
 ## Project Structure
 

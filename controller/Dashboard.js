@@ -1,4 +1,6 @@
 const DashboardService = require("../service/DashboardService");
+const path = require("path");
+const fs = require("fs");
 
 const getDashboard = async (req, res) => {
     try {
@@ -54,7 +56,27 @@ const getPrompts = async (req, res) => {
     }
 };
 
+const getPromptLog = async (req, res) => {
+    try {
+        const { promptId } = req.params;
+        if (!promptId) {
+            return res.status(400).json({ success: false, error: "promptId is required" });
+        }
+
+        const logPath = path.join(__dirname, "../data/runtime", `${promptId}.txt`);
+        if (!fs.existsSync(logPath)) {
+            return res.status(404).json({ success: false, error: "Log file not found for this prompt." });
+        }
+
+        const content = fs.readFileSync(logPath, "utf8");
+        res.status(200).json({ success: true, data: { promptId, log: content } });
+    } catch (error) {
+        res.status(500).json({ success: false, error: error.message });
+    }
+};
+
 module.exports = {
     getDashboard,
     getPrompts,
+    getPromptLog,
 };

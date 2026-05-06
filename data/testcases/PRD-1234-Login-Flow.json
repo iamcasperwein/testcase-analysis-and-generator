@@ -22,27 +22,6 @@
             ]
         },
         {
-            "section": "Social Login (Android/iOS Specific)",
-            "testCases": [
-                {
-                    "id": "TC-SOC-001",
-                    "title": "Successful Login/Registration with Google Account (First Time)",
-                    "type": "positive",
-                    "priority": "high",
-                    "preconditions": [
-                        "App is on login/registration screen (Android/iOS).",
-                        "User has an active Google account on the device not yet linked to the app."
-                    ],
-                    "steps": [
-                        "Tap the 'Continue with Google' button.",
-                        "Select the desired Google account (if prompted).",
-                        "Grant necessary permissions (if prompted)."
-                    ],
-                    "expectedResult": "User is successfully logged in or registered via Google. The app redirects to the main dashboard. A new account is created or linked seamlessly without requiring manual input for email/password. Recognizable Google UI is used for the authentication flow."
-                }
-            ]
-        },
-        {
             "section": "Forgot Password / Account Recovery",
             "testCases": [
                 {
@@ -142,9 +121,30 @@
                         "If on Sign In, tap the 'Sign Up' link/button.",
                         "If on Sign Up, tap the 'Sign In' link/button."
                     ],
-                    "expectedResult": "Smooth and clear animations transition between the Sign In and Sign Up forms. The user remains oriented and the shift is aesthetically pleasing, without abrupt changes or visual glitches."
+                    "expectedResult": "Smooth and clear animations transition between the Sign In and Sign Up forms. The user remains oriented and the shift is aesthetically pleasing, without abrupt changes or visual glitches.",
+                    "testrailPost": {
+                        "status": "success",
+                        "lastAttemptAt": "2026-05-05T08:47:56.472Z",
+                        "message": "Posted to TestRail",
+                        "sectionId": 1058960,
+                        "testrailCaseId": 5359224
+                    }
                 }
-            ]
+            ],
+            "sectionId": 1058960,
+            "suiteId": 67624,
+            "sectionSource": "testrail",
+            "testrailPost": {
+                "status": "success",
+                "lastAttemptAt": "2026-05-05T08:47:56.472Z",
+                "lastPostedAt": "2026-05-05T08:47:56.472Z",
+                "message": "Posted 1 test case(s) to TestRail",
+                "targetSectionId": 1058960,
+                "targetSectionName": "UI/UX & sasss",
+                "sectionMode": "new",
+                "postedCount": 1,
+                "failedCount": 0
+            }
         },
         {
             "section": "test",
@@ -607,6 +607,30 @@
                         "Tap on various input fields to bring up the keyboard."
                     ],
                     "expectedResult": "The virtual keyboard appears without overlapping critical input fields or primary action buttons. The UI adjusts appropriately (e.g., scrolls, resizes) to ensure all active elements are visible and accessible."
+                }
+            ]
+        },
+        {
+            "section": "AI generated",
+            "sectionId": 1058329,
+            "suiteId": 67624,
+            "sectionSource": "testrail",
+            "testCases": [
+                {
+                    "id": "TC-SOC-001",
+                    "title": "Successful Login/Registration with Google Account (First Time)",
+                    "type": "positive",
+                    "priority": "high",
+                    "preconditions": [
+                        "App is on login/registration screen (Android/iOS).",
+                        "User has an active Google account on the device not yet linked to the app."
+                    ],
+                    "steps": [
+                        "Tap the 'Continue with Google' button.",
+                        "Select the desired Google account (if prompted).",
+                        "Grant necessary permissions (if prompted)."
+                    ],
+                    "expectedResult": "User is successfully logged in or registered via Google. The app redirects to the main dashboard. A new account is created or linked seamlessly without requiring manual input for email/password. Recognizable Google UI is used for the authentication flow."
                 }
             ]
         }

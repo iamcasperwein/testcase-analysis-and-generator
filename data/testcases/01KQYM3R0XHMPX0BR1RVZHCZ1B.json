@@ -1,0 +1,700 @@
+{
+    "feature": "Login Register Page",
+    "testCases": [
+        {
+            "section": "User Registration (Email/Password)",
+            "testCases": [
+                {
+                    "id": "TC-001",
+                    "title": "The user should be able to register successfully when providing a valid and unique email and strong password",
+                    "type": "positive",
+                    "priority": "high",
+                    "preconditions": [
+                        "User is on the Registration screen",
+                        "No account exists with the provided email"
+                    ],
+                    "steps": [
+                        {
+                            "content": "Enter a unique valid email address in the 'Email' field (e.g., 'newuser@example.com')",
+                            "expected": "The email field accepts the input"
+                        },
+                        {
+                            "content": "Enter a strong password in the 'Password' field (e.g., 'SecureP@ss123!') meeting complexity requirements",
+                            "expected": "The password field accepts the input and meets complexity indicators"
+                        },
+                        {
+                            "content": "Click the 'Register' or 'Sign Up' button",
+                            "expected": "The 'Register' button is clickable"
+                        }
+                    ],
+                    "expectedResult": "The user should be successfully registered, redirected to the dashboard/home screen, and a confirmation message (if applicable) should be displayed."
+                },
+                {
+                    "id": "TC-002",
+                    "title": "The system should display an error message when a user attempts to register with an already existing email address",
+                    "type": "negative",
+                    "priority": "high",
+                    "preconditions": [
+                        "User is on the Registration screen",
+                        "An account already exists with 'existing@example.com'"
+                    ],
+                    "steps": [
+                        {
+                            "content": "Enter an already registered email address (e.g., 'existing@example.com')",
+                            "expected": "The email field accepts the input"
+                        },
+                        {
+                            "content": "Enter a strong password (e.g., 'ValidP@ss123!')",
+                            "expected": "The password field accepts the input"
+                        },
+                        {
+                            "content": "Click the 'Register' or 'Sign Up' button",
+                            "expected": "The 'Register' button is clickable"
+                        }
+                    ],
+                    "expectedResult": "An error message indicating that the email is already registered should be displayed, and the user should remain on the registration screen."
+                },
+                {
+                    "id": "TC-003",
+                    "title": "The system should display an error message when registration fails due to server-side issues",
+                    "type": "negative",
+                    "priority": "high",
+                    "preconditions": [
+                        "User is on the Registration screen",
+                        "Simulate a server error (e.g., HTTP 500) during registration request"
+                    ],
+                    "steps": [
+                        {
+                            "content": "Enter a unique valid email address (e.g., 'servererror@example.com')",
+                            "expected": "The email field accepts the input"
+                        },
+                        {
+                            "content": "Enter a strong password (e.g., 'TestP@ss123!')",
+                            "expected": "The password field accepts the input"
+                        },
+                        {
+                            "content": "Click the 'Register' or 'Sign Up' button",
+                            "expected": "The 'Register' button is clickable"
+                        }
+                    ],
+                    "expectedResult": "A generic error message indicating registration failed or a server issue occurred should be displayed (e.g., 'Registration failed, please try again later'). The user should remain on the registration screen."
+                }
+            ]
+        },
+        {
+            "section": "User Login (Email/Password)",
+            "testCases": [
+                {
+                    "id": "TC-004",
+                    "title": "The user should be able to log in successfully when providing valid email and password",
+                    "type": "positive",
+                    "priority": "high",
+                    "preconditions": [
+                        "User is on the Login screen",
+                        "An account 'user@example.com' with password 'Password123!' exists"
+                    ],
+                    "steps": [
+                        {
+                            "content": "Enter a valid registered email address (e.g., 'user@example.com')",
+                            "expected": "The email field accepts the input"
+                        },
+                        {
+                            "content": "Enter the correct password (e.g., 'Password123!')",
+                            "expected": "The password field accepts the input"
+                        },
+                        {
+                            "content": "Click the 'Login' button",
+                            "expected": "The 'Login' button is clickable"
+                        }
+                    ],
+                    "expectedResult": "The user should be successfully logged in and redirected to the dashboard/home screen within the average login time (under 3 seconds)."
+                },
+                {
+                    "id": "TC-005",
+                    "title": "The system should display an error message when the user attempts to log in with an incorrect password",
+                    "type": "negative",
+                    "priority": "high",
+                    "preconditions": [
+                        "User is on the Login screen",
+                        "An account 'user@example.com' with password 'Password123!' exists"
+                    ],
+                    "steps": [
+                        {
+                            "content": "Enter a valid registered email address (e.g., 'user@example.com')",
+                            "expected": "The email field accepts the input"
+                        },
+                        {
+                            "content": "Enter an incorrect password (e.g., 'WrongP@ssword')",
+                            "expected": "The password field accepts the input"
+                        },
+                        {
+                            "content": "Click the 'Login' button",
+                            "expected": "The 'Login' button is clickable"
+                        }
+                    ],
+                    "expectedResult": "An error message indicating invalid credentials (e.g., 'Incorrect email or password') should be displayed, and the user should remain on the login screen."
+                },
+                {
+                    "id": "TC-006",
+                    "title": "The system should display an error message when the user attempts to log in with an unregistered email",
+                    "type": "negative",
+                    "priority": "high",
+                    "preconditions": [
+                        "User is on the Login screen",
+                        "No account exists with 'unknown@example.com'"
+                    ],
+                    "steps": [
+                        {
+                            "content": "Enter an unregistered email address (e.g., 'unknown@example.com')",
+                            "expected": "The email field accepts the input"
+                        },
+                        {
+                            "content": "Enter any password (e.g., 'AnyP@ssword')",
+                            "expected": "The password field accepts the input"
+                        },
+                        {
+                            "content": "Click the 'Login' button",
+                            "expected": "The 'Login' button is clickable"
+                        }
+                    ],
+                    "expectedResult": "An error message indicating invalid credentials (e.g., 'Incorrect email or password' or 'Account not found') should be displayed, and the user should remain on the login screen."
+                },
+                {
+                    "id": "TC-007",
+                    "title": "The user account should be locked (if applicable) after multiple failed login attempts",
+                    "type": "edge",
+                    "priority": "high",
+                    "preconditions": [
+                        "User is on the Login screen",
+                        "An account 'user@example.com' with password 'Password123!' exists",
+                        "System has a defined threshold for failed login attempts leading to account lock (e.g., 5 attempts)"
+                    ],
+                    "steps": [
+                        {
+                            "content": "Enter a valid registered email address (e.g., 'user@example.com')",
+                            "expected": "The email field accepts the input"
+                        },
+                        {
+                            "content": "Enter an incorrect password",
+                            "expected": "The password field accepts the input"
+                        },
+                        {
+                            "content": "Click the 'Login' button and repeat this process until the account lock threshold is reached",
+                            "expected": "After each incorrect attempt, an 'Incorrect password' error is displayed"
+                        }
+                    ],
+                    "expectedResult": "After exceeding the failed login attempts threshold, an error message indicating the account is locked (and possibly instructions to unlock) should be displayed, and the user should be prevented from logging in."
+                }
+            ]
+        },
+        {
+            "section": "Social SSO Login (Google)",
+            "testCases": [
+                {
+                    "id": "TC-008",
+                    "title": "The user should be able to log in successfully when authenticating via an existing linked Google account",
+                    "type": "positive",
+                    "priority": "medium",
+                    "preconditions": [
+                        "User is on the Login screen",
+                        "A user account is already linked to a Google account (e.g., 'googleuser@gmail.com')",
+                        "User is signed into Google on the mobile device"
+                    ],
+                    "steps": [
+                        {
+                            "content": "Click the 'Sign in with Google' button",
+                            "expected": "The Google authentication prompt or list of accounts should appear"
+                        },
+                        {
+                            "content": "Select the existing linked Google account (e.g., 'googleuser@gmail.com')",
+                            "expected": "Google successfully authenticates the user"
+                        }
+                    ],
+                    "expectedResult": "The user should be successfully logged in and redirected to the dashboard/home screen within the average login time (under 3 seconds)."
+                },
+                {
+                    "id": "TC-009",
+                    "title": "The user should be able to register successfully when authenticating via a new, unlinked Google account",
+                    "type": "positive",
+                    "priority": "medium",
+                    "preconditions": [
+                        "User is on the Login screen",
+                        "A Google account (e.g., 'newgoogle@gmail.com') exists but is not yet linked to any platform account",
+                        "User is signed into Google on the mobile device"
+                    ],
+                    "steps": [
+                        {
+                            "content": "Click the 'Sign in with Google' button",
+                            "expected": "The Google authentication prompt or list of accounts should appear"
+                        },
+                        {
+                            "content": "Select the unlinked Google account (e.g., 'newgoogle@gmail.com')",
+                            "expected": "Google successfully authenticates the user and prompts for account creation or confirmation"
+                        }
+                    ],
+                    "expectedResult": "A new account should be successfully created and linked to the Google account, and the user should be redirected to the dashboard/home screen. A confirmation message (if applicable) should be displayed."
+                },
+                {
+                    "id": "TC-010",
+                    "title": "The system should display an error message when Google SSO authentication fails (e.g., revoked permissions)",
+                    "type": "negative",
+                    "priority": "medium",
+                    "preconditions": [
+                        "User is on the Login screen",
+                        "Simulate a Google SSO authentication failure (e.g., user denies permissions, network issue with Google services)"
+                    ],
+                    "steps": [
+                        {
+                            "content": "Click the 'Sign in with Google' button",
+                            "expected": "The Google authentication prompt should appear"
+                        },
+                        {
+                            "content": "Initiate a failure scenario (e.g., explicitly deny permissions, or simulate network timeout)",
+                            "expected": "Google fails to authenticate or returns an error"
+                        }
+                    ],
+                    "expectedResult": "An error message indicating that Google SSO authentication failed should be displayed, and the user should remain on the login screen."
+                },
+                {
+                    "id": "TC-011",
+                    "title": "The user should experience correct flow when multiple Google accounts are present on the device",
+                    "type": "edge",
+                    "priority": "medium",
+                    "preconditions": [
+                        "User is on the Login screen",
+                        "Multiple Google accounts are signed in on the mobile device (e.g., 'account1@gmail.com', 'account2@gmail.com')"
+                    ],
+                    "steps": [
+                        {
+                            "content": "Click the 'Sign in with Google' button",
+                            "expected": "A prompt should appear allowing the user to choose which Google account to use"
+                        },
+                        {
+                            "content": "Select one of the Google accounts",
+                            "expected": "The selected Google account is used for authentication"
+                        }
+                    ],
+                    "expectedResult": "The selected Google account should be used for login/registration, and the flow should proceed as expected (either login for linked account or registration for unlinked account)."
+                }
+            ]
+        },
+        {
+            "section": "Forgot Password Flow",
+            "testCases": [
+                {
+                    "id": "TC-012",
+                    "title": "The user should be able to successfully initiate a password reset when providing a registered email address",
+                    "type": "positive",
+                    "priority": "high",
+                    "preconditions": [
+                        "User is on the 'Forgot Password' screen",
+                        "An account 'user@example.com' exists"
+                    ],
+                    "steps": [
+                        {
+                            "content": "Enter a valid registered email address (e.g., 'user@example.com')",
+                            "expected": "The email field accepts the input"
+                        },
+                        {
+                            "content": "Click the 'Reset Password' or 'Send Link' button",
+                            "expected": "The button is clickable"
+                        }
+                    ],
+                    "expectedResult": "A success message confirming that a password reset link/code has been sent to the email should be displayed. The user should be prompted to check their email."
+                },
+                {
+                    "id": "TC-013",
+                    "title": "The user should receive a password reset link/code via email when the request is successful",
+                    "type": "positive",
+                    "priority": "high",
+                    "preconditions": [
+                        "User has initiated a password reset for 'user@example.com' (from TC-012)"
+                    ],
+                    "steps": [
+                        {
+                            "content": "Check the inbox of 'user@example.com'",
+                            "expected": "An email containing a password reset link or code should be received from the system."
+                        },
+                        {
+                            "content": "Verify the reset link/code is present and looks valid (e.g., not expired immediately)",
+                            "expected": "The link/code format is correct and actionable."
+                        }
+                    ],
+                    "expectedResult": "The user should receive a valid password reset email with an active link/code to proceed with password reset."
+                },
+                {
+                    "id": "TC-014",
+                    "title": "The system should allow the user to set a new password when using a valid, non-expired reset link/code",
+                    "type": "positive",
+                    "priority": "high",
+                    "preconditions": [
+                        "User has received a valid, non-expired password reset link/code for 'user@example.com'",
+                        "User has navigated to the password reset page using the link/code"
+                    ],
+                    "steps": [
+                        {
+                            "content": "Enter a new strong password in the 'New Password' field (e.g., 'BrandNewP@ss123!') meeting complexity requirements",
+                            "expected": "The password field accepts the input"
+                        },
+                        {
+                            "content": "Enter the same new password in the 'Confirm New Password' field",
+                            "expected": "The confirm password field accepts the input"
+                        },
+                        {
+                            "content": "Click the 'Set New Password' or 'Update Password' button",
+                            "expected": "The button is clickable"
+                        }
+                    ],
+                    "expectedResult": "The password should be successfully reset, a confirmation message should be displayed, and the user should be redirected to the login screen or directly logged in."
+                },
+                {
+                    "id": "TC-015",
+                    "title": "The system should display an error message when a password reset is attempted for an unregistered email address",
+                    "type": "negative",
+                    "priority": "high",
+                    "preconditions": [
+                        "User is on the 'Forgot Password' screen",
+                        "No account exists with 'unregistered@example.com'"
+                    ],
+                    "steps": [
+                        {
+                            "content": "Enter an unregistered email address (e.g., 'unregistered@example.com')",
+                            "expected": "The email field accepts the input"
+                        },
+                        {
+                            "content": "Click the 'Reset Password' or 'Send Link' button",
+                            "expected": "The button is clickable"
+                        }
+                    ],
+                    "expectedResult": "An error message indicating that the email is not registered should be displayed (or a generic 'if registered, a link has been sent' message to prevent enumeration attacks). The user should remain on the 'Forgot Password' screen."
+                },
+                {
+                    "id": "TC-016",
+                    "title": "The system should display an error message when an invalid or expired reset link/code is used",
+                    "type": "negative",
+                    "priority": "high",
+                    "preconditions": [
+                        "User attempts to navigate to a password reset page using an invalid or expired link/code"
+                    ],
+                    "steps": [
+                        {
+                            "content": "Access the password reset page with an expired or manually manipulated/invalid reset token/link",
+                            "expected": "The system recognizes the link/code as invalid or expired"
+                        }
+                    ],
+                    "expectedResult": "An error message indicating that the reset link is invalid or expired should be displayed, preventing the user from setting a new password. The user should be prompted to request a new link."
+                },
+                {
+                    "id": "TC-017",
+                    "title": "The system should prevent the user from reusing their old password as the new password during a reset",
+                    "type": "edge",
+                    "priority": "medium",
+                    "preconditions": [
+                        "User is on the password reset page with a valid link for 'user@example.com'",
+                        "The old password for 'user@example.com' was 'OldP@ss123!'"
+                    ],
+                    "steps": [
+                        {
+                            "content": "Enter the previously used password (e.g., 'OldP@ss123!') in the 'New Password' field",
+                            "expected": "The password field accepts the input"
+                        },
+                        {
+                            "content": "Enter the same password in the 'Confirm New Password' field",
+                            "expected": "The confirm password field accepts the input"
+                        },
+                        {
+                            "content": "Click the 'Set New Password' or 'Update Password' button",
+                            "expected": "The button is clickable"
+                        }
+                    ],
+                    "expectedResult": "An error message should be displayed indicating that the new password cannot be the same as the old password, and the password should not be updated."
+                }
+            ]
+        },
+        {
+            "section": "Input Validation (Email Format & Password Complexity)",
+            "testCases": [
+                {
+                    "id": "TC-019",
+                    "title": "The system should prevent form submission and display an error message when the email format is invalid (missing domain)",
+                    "type": "negative",
+                    "priority": "high",
+                    "preconditions": [
+                        "User is on Registration, Login, or Forgot Password screen"
+                    ],
+                    "steps": [
+                        {
+                            "content": "Enter an email address with a missing domain (e.g., 'user@.com') in the email field",
+                            "expected": "The email field accepts the input"
+                        },
+                        {
+                            "content": "Attempt to submit the form",
+                            "expected": "The form submission is prevented or the button is disabled"
+                        }
+                    ],
+                    "expectedResult": "An error message 'Invalid email format' (or similar) should be displayed below the email field, and the form should not submit."
+                },
+                {
+                    "id": "TC-020",
+                    "title": "The system should prevent form submission and display an error message when the password does not meet minimum length requirements",
+                    "type": "negative",
+                    "priority": "high",
+                    "preconditions": [
+                        "User is on Registration or Password Reset screen",
+                        "Assume minimum password length is 8 characters"
+                    ],
+                    "steps": [
+                        {
+                            "content": "Enter an email address (e.g., 'test@example.com')",
+                            "expected": "N/A"
+                        },
+                        {
+                            "content": "Enter a password shorter than the minimum requirement (e.g., 'short')",
+                            "expected": "The password field accepts the input"
+                        },
+                        {
+                            "content": "Attempt to submit the form",
+                            "expected": "The form submission is prevented or the button is disabled"
+                        }
+                    ],
+                    "expectedResult": "An error message 'Password must be at least 8 characters long' (or similar) should be displayed, and the form should not submit."
+                },
+                {
+                    "id": "TC-021",
+                    "title": "The system should prevent form submission and display an error message when the password lacks required character types",
+                    "type": "negative",
+                    "priority": "high",
+                    "preconditions": [
+                        "User is on Registration or Password Reset screen",
+                        "Assume password complexity requires uppercase, lowercase, number, and special character"
+                    ],
+                    "steps": [
+                        {
+                            "content": "Enter an email address (e.g., 'test@example.com')",
+                            "expected": "N/A"
+                        },
+                        {
+                            "content": "Enter a password that meets length but lacks a required character type (e.g., 'onlylowercase')",
+                            "expected": "The password field accepts the input"
+                        },
+                        {
+                            "content": "Attempt to submit the form",
+                            "expected": "The form submission is prevented or the button is disabled"
+                        }
+                    ],
+                    "expectedResult": "An error message 'Password must include uppercase, lowercase, number, and special character' (or similar) should be displayed, and the form should not submit."
+                },
+                {
+                    "id": "TC-022",
+                    "title": "The system should provide real-time feedback for password complexity during registration",
+                    "type": "positive",
+                    "priority": "medium",
+                    "preconditions": [
+                        "User is on the Registration screen"
+                    ],
+                    "steps": [
+                        {
+                            "content": "Start typing a password into the 'Password' field (e.g., 'abc')",
+                            "expected": "Indicators (e.g., color change, text) show 'weak password'"
+                        },
+                        {
+                            "content": "Continue typing to meet length requirement (e.g., 'abcdefgh')",
+                            "expected": "Indicators show 'medium password' or reflect length met"
+                        },
+                        {
+                            "content": "Add different character types (e.g., 'Abcdefgh1!')",
+                            "expected": "Indicators show 'strong password' and all complexity requirements met"
+                        }
+                    ],
+                    "expectedResult": "The UI should provide dynamic, real-time visual feedback on password strength and complexity requirements as the user types."
+                },
+                {
+                    "id": "TC-023",
+                    "title": "The system should handle empty mandatory fields gracefully",
+                    "type": "negative",
+                    "priority": "high",
+                    "preconditions": [
+                        "User is on any form (Registration, Login, Forgot Password)"
+                    ],
+                    "steps": [
+                        {
+                            "content": "Leave the email field empty",
+                            "expected": "N/A"
+                        },
+                        {
+                            "content": "Leave the password field empty (if applicable)",
+                            "expected": "N/A"
+                        },
+                        {
+                            "content": "Attempt to submit the form",
+                            "expected": "The form submission is prevented or the button is disabled"
+                        }
+                    ],
+                    "expectedResult": "An error message 'Email is required' or 'Password is required' should be displayed for each empty mandatory field, and the form should not submit."
+                },
+                {
+                    "id": "TC-024",
+                    "title": "The system should strip leading/trailing spaces from inputs for email addresses",
+                    "type": "edge",
+                    "priority": "medium",
+                    "preconditions": [
+                        "User is on Registration, Login, or Forgot Password screen"
+                    ],
+                    "steps": [
+                        {
+                            "content": "Enter an email address with leading and trailing spaces (e.g., '  user@example.com  ')",
+                            "expected": "The email field accepts the input"
+                        },
+                        {
+                            "content": "Attempt to submit the form (e.g., 'Login')",
+                            "expected": "The form attempts to submit with 'user@example.com' (spaces stripped)"
+                        }
+                    ],
+                    "expectedResult": "The system should process the email address correctly by stripping leading/trailing spaces, leading to successful login/registration if the canonical email is valid, or a corresponding error if it's not."
+                },
+                {
+                    "id": "TC-018",
+                    "title": "The system should prevent form submission and display an error message when the email format is invalid (missing @ symbol)",
+                    "type": "negative",
+                    "priority": "high",
+                    "preconditions": [
+                        "User is on Registration, Login, or Forgot Password screen"
+                    ],
+                    "steps": [
+                        {
+                            "content": "Enter an email address without an '@' symbol (e.g., 'invalidemail.com') in the email field",
+                            "expected": "The email field accepts the input"
+                        }
+                    ],
+                    "expectedResult": "An error message 'Invalid email format' (or similar) should be displayed below the email field, and the form should not submit."
+                }
+            ],
+            "sectionId": null,
+            "suiteId": null,
+            "sectionSource": "ai"
+        },
+        {
+            "section": "General Mobile & Performance",
+            "testCases": [
+                {
+                    "id": "TC-026",
+                    "title": "The system should handle network interruptions gracefully during a submission process",
+                    "type": "edge",
+                    "priority": "medium",
+                    "preconditions": [
+                        "User is on Registration or Login screen",
+                        "Valid credentials are entered, ready for submission"
+                    ],
+                    "steps": [
+                        {
+                            "content": "Enter all required valid information in a form",
+                            "expected": "N/A"
+                        },
+                        {
+                            "content": "Turn off Wi-Fi/mobile data or simulate network loss",
+                            "expected": "N/A"
+                        },
+                        {
+                            "content": "Click the 'Submit' button (e.g., 'Register' or 'Login')",
+                            "expected": "The app attempts to send the request"
+                        }
+                    ],
+                    "expectedResult": "An appropriate error message indicating 'No network connection' or 'Please check your internet connection' should be displayed, and the app should not crash. The user should be able to retry once network is restored."
+                },
+                {
+                    "id": "TC-027",
+                    "title": "The system should adapt correctly to device orientation changes (portrait/landscape) on all login/register screens",
+                    "type": "edge",
+                    "priority": "low",
+                    "preconditions": [
+                        "User is on any Login, Register, or Forgot Password screen"
+                    ],
+                    "steps": [
+                        {
+                            "content": "Rotate the mobile device from portrait to landscape orientation",
+                            "expected": "The UI elements rearrange and scale appropriately for landscape mode, without overlapping or truncation"
+                        },
+                        {
+                            "content": "Rotate the mobile device back to portrait orientation",
+                            "expected": "The UI elements revert to portrait layout correctly"
+                        }
+                    ],
+                    "expectedResult": "The UI layout of the Login, Register, and Forgot Password screens should adapt smoothly and correctly to both portrait and landscape orientations without visual defects or loss of functionality."
+                },
+                {
+                    "id": "TC-028",
+                    "title": "The system should ensure keyboard interaction (e.g., 'Next', 'Done' buttons) works as expected for form navigation and submission",
+                    "type": "edge",
+                    "priority": "medium",
+                    "preconditions": [
+                        "User is on Registration or Login screen"
+                    ],
+                    "steps": [
+                        {
+                            "content": "Tap on the first input field to bring up the keyboard",
+                            "expected": "The keyboard appears"
+                        },
+                        {
+                            "content": "Enter text and then tap the 'Next' button on the keyboard",
+                            "expected": "The focus should move to the subsequent input field"
+                        },
+                        {
+                            "content": "After filling all fields, tap the 'Done' or 'Go' button on the keyboard (if available and applicable to submit)",
+                            "expected": "The form should attempt to submit, similar to tapping the main submit button"
+                        }
+                    ],
+                    "expectedResult": "Keyboard navigation between fields using 'Next' should be seamless, and the 'Done' or 'Go' button should correctly submit the form if all fields are filled, or indicate validation errors if not."
+                },
+                {
+                    "id": "TC-029",
+                    "title": "The system should ensure average login time is under 3 seconds",
+                    "type": "positive",
+                    "priority": "high",
+                    "preconditions": [
+                        "User is on the Login screen",
+                        "An account 'user@example.com' with password 'Password123!' exists",
+                        "Stable network conditions"
+                    ],
+                    "steps": [
+                        {
+                            "content": "Enter valid email and password",
+                            "expected": "N/A"
+                        },
+                        {
+                            "content": "test",
+                            "expected": "test"
+                        }
+                    ],
+                    "expectedResult": "The measured login time should be consistently under 3 seconds."
+                },
+                {
+                    "id": "TC-025",
+                    "title": "The system should maintain state correctly when the app is backgrounded and foregrounded during a flow",
+                    "type": "edge",
+                    "priority": "medium",
+                    "preconditions": [
+                        "User is in the middle of a form (e.g., Registration, partially filled out)"
+                    ],
+                    "steps": [
+                        {
+                            "content": "Fill out some fields on the form (e.g., email and part of password)",
+                            "expected": "The fields retain their input"
+                        },
+                        {
+                            "content": "Background the app (e.g., switch to another app, go to home screen)",
+                            "expected": "N/a"
+                        },
+                        {
+                            "content": "test",
+                            "expected": "test"
+                        }
+                    ],
+                    "expectedResult": "All entered data and the current state of the form should be preserved, allowing the user to continue from where they left off without data loss."
+                }
+            ],
+            "sectionId": null,
+            "suiteId": null,
+            "sectionSource": "ai"
+        }
+    ]
+}

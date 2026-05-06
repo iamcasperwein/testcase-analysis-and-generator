@@ -23,7 +23,12 @@ const TEST_CASE_OUTPUT_SCHEMA = `{
                     "type": "positive|negative|edge",
                     "priority": "high|medium|low",
                     "preconditions": ["string"],
-                    "steps": ["string"],
+                    "steps": [
+                        {
+                            "content": "Step description (the action to perform)",
+                            "expected": "Expected result for this step (use N/A if unknown)"
+                        }
+                    ],
                     "expectedResult": "string"
                 }
             ]
@@ -279,7 +284,22 @@ const buildTestCaseGenerationPrompt = (input = {}) => {
         "- If RFC or Figma is missing, do not invent those details.",
         "- If documents conflict, prioritize PRD for scope, then use RFC for implementation detail, then Figma for UI behavior.",
         "- Use concise but complete steps and expected results.",
-        "- Prefer stable section names that group related scenarios."
+        "- Each step in the 'steps' array MUST be an object with 'content' (the action) and 'expected' (the expected result for that step).",
+        "- If the expected result for a specific step is unknown or not applicable, use 'N/A' as the value.",
+        "- Steps must be sequential and each represent exactly one user action or system interaction.",
+        "- Prefer stable section names that group related scenarios.",
+        "",
+        "Test Case Title Convention:",
+        "- Every test case title MUST follow the pattern: Object + Expectation + Condition",
+        "- Format: '[Object] should [expectation] when [condition]' or 'Verify [object] should [expectation] when [condition]'",
+        "- Object: The subject being tested (e.g., 'the user', 'the submit button', 'the error message')",
+        "- Expectation: What should happen (e.g., 'be able to login', 'be disabled', 'display an error')",
+        "- Condition: The context or trigger (e.g., 'when valid credentials are entered', 'when required fields are empty')",
+        "- Examples:",
+        "  - 'The user should be able to click the submit button when all required fields are filled'",
+        "  - 'Verify the error message should display invalid email format when user enters email without @ symbol'",
+        "  - 'The login button should be disabled when email or password field is empty'",
+        "- Do NOT use vague titles like 'Test login' or 'Check validation'"
     );
 
     return lines.join("\n");
@@ -321,6 +341,7 @@ const buildTestAnalysisPrompt = (input = {}) => {
         "- Do not return JSON.",
         "- Keep it concise and actionable.",
         "- If RFC/Figma is missing, explicitly mention assumptions and avoid invented details.",
+        "- When listing test scenarios or cases in the analysis, use the naming pattern: Object + Expectation + Condition (e.g., 'The user should be able to submit the form when all fields are valid').",
     ].join("\n");
 };
 
