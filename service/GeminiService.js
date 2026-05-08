@@ -80,18 +80,28 @@ const toFilePart = async (file, label) => {
 const buildGeminiInput = async (prompt, options = {}) => {
     console.log("[GeminiService] buildGeminiInput :: start");
     const uploadedFiles = options.uploadedFiles || {};
+    const additionalDocs = Array.isArray(uploadedFiles.additionalDocs) ? uploadedFiles.additionalDocs : [];
 
-    const hasFiles = uploadedFiles.prd || uploadedFiles.rfc || uploadedFiles.figma;
+    const hasFiles = uploadedFiles.prd || uploadedFiles.rfc || uploadedFiles.figma || additionalDocs.length > 0;
     if (!hasFiles) {
         console.log("[GeminiService] buildGeminiInput :: no uploaded files, using text-only prompt");
     } else {
-        console.log(`[GeminiService] buildGeminiInput :: uploading files — prd=${!!uploadedFiles.prd} rfc=${!!uploadedFiles.rfc} figma=${!!uploadedFiles.figma}`);
+        console.log(`[GeminiService] buildGeminiInput :: uploading files — prd=${!!uploadedFiles.prd} rfc=${!!uploadedFiles.rfc} figma=${!!uploadedFiles.figma} additional=${additionalDocs.length}`);
+    }
+
+    const additionalParts = [];
+    for (let i = 0; i < additionalDocs.length; i += 1) {
+        const fileInfo = additionalDocs[i];
+        const label = `Additional doc ${i + 1}: ${fileInfo?.originalName || fileInfo?.filename || "document"}`;
+        const parts = await toFilePart(fileInfo, label);
+        additionalParts.push(...parts);
     }
 
     const fileParts = [
         ...await toFilePart(uploadedFiles.prd, "PRD file"),
         ...await toFilePart(uploadedFiles.rfc, "RFC file"),
         ...await toFilePart(uploadedFiles.figma, "Figma file"),
+        ...additionalParts,
     ];
 
     const parts = [

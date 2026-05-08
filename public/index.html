@@ -214,6 +214,7 @@
                     <th>Prompt ID</th>
                     <th>Project</th>
                     <th>Status</th>
+                    <th>Model</th>
                     <th>Test Cases</th>
                     <th>Turnaround</th>
                     <th>Created At</th>
@@ -221,7 +222,7 @@
                   </tr>
                 </thead>
                 <tbody id="dashTableBody">
-                  <tr><td colspan="7" class="dash-empty">Loading...</td></tr>
+                  <tr><td colspan="8" class="dash-empty">Loading...</td></tr>
                 </tbody>
               </table>
             </div>
@@ -307,47 +308,33 @@
                 <span>Artifact Sources</span>
               </div>
 
-              <!-- Artifact Files -->
+              <!-- PRD (required) -->
               <div class="col-12">
-                <label for="prdUrlInput" class="form-label">PRD / Specs File</label>
+                <label for="prdUrlInput" class="form-label">PRD / Specs File <span class="text-danger">*</span></label>
                 <div class="input-group">
                   <span class="input-group-text"><i class="bi bi-file-earmark-text"></i></span>
                   <input
                     type="file"
                     class="form-control"
                     id="prdUrlInput"
-                    name="prdUrl"
+                    name="prd"
                     accept=".txt,.md,.pdf,.doc,.docx,.json"
                   />
                 </div>
               </div>
 
+              <!-- Additional documents -->
               <div class="col-12">
-                <label for="rfcUrlInput" class="form-label">RFC File (optional)</label>
-                <div class="input-group">
-                  <span class="input-group-text"><i class="bi bi-diagram-3"></i></span>
-                  <input
-                    type="file"
-                    class="form-control"
-                    id="rfcUrlInput"
-                    name="rfcUrl"
-                    accept=".txt,.md,.pdf,.doc,.docx,.json"
-                  />
+                <div class="d-flex align-items-center justify-content-between mb-2">
+                  <label class="form-label mb-0">Additional Documents <span class="text-muted" style="font-size:0.8rem;font-weight:400;">(optional)</span></label>
+                  <button type="button" class="btn btn-sm btn-outline-primary add-doc-cta" id="addDocBtn" style="font-size:0.8rem;">
+                    <i class="bi bi-plus-lg me-1"></i>Add Document
+                  </button>
                 </div>
-              </div>
-
-              <div class="col-12">
-                <label for="figmaUrlInput" class="form-label">Figma Export File (optional)</label>
-                <div class="input-group">
-                  <span class="input-group-text"><i class="bi bi-palette"></i></span>
-                  <input
-                    type="file"
-                    class="form-control"
-                    id="figmaUrlInput"
-                    name="figmaUrl"
-                    accept=".txt,.md,.json,.csv,.pdf,.png,.jpg,.jpeg"
-                  />
+                <div class="additional-doc-helper" id="additionalDocHelper">
+                  Add RFC, Figma, API Contract, or any supporting artifact to improve generation quality.
                 </div>
+                <div id="additionalDocsList" class="d-flex flex-column gap-2"></div>
               </div>
 
               <div class="col-12 form-section-title mt-1">
@@ -758,6 +745,25 @@
       <div class="settings-dialog-actions">
         <button type="button" class="btn btn-outline-secondary" id="deleteTcCancelBtn">Cancel</button>
         <button type="button" class="btn btn-danger" id="confirmDeleteBtn"><i class="bi bi-trash3 me-1"></i>Delete</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Retry Prompt Dialog -->
+  <div id="retryPromptOverlay" class="settings-dialog-overlay" role="dialog" aria-modal="true" aria-labelledby="retryPromptTitle">
+    <div class="settings-dialog retry-dialog">
+      <div class="settings-dialog-icon icon-retry"><i class="bi bi-arrow-clockwise"></i></div>
+      <div class="settings-dialog-title" id="retryPromptTitle">Retry Prompt Processing</div>
+      <div class="settings-dialog-sub">We'll re-run analysis and test case generation for the selected prompt.</div>
+      <div class="settings-dialog-key-badge" id="retryPromptIdBadge">—</div>
+      <ul class="retry-dialog-list">
+        <li><i class="bi bi-check2-circle"></i> Keeps the same prompt ID for tracking</li>
+        <li><i class="bi bi-check2-circle"></i> Reuses available uploaded artifacts</li>
+        <li><i class="bi bi-check2-circle"></i> Updates status to <strong>Retrying</strong> immediately</li>
+      </ul>
+      <div class="settings-dialog-actions">
+        <button type="button" class="btn btn-outline-secondary" id="retryPromptCancelBtn">Cancel</button>
+        <button type="button" class="btn btn-primary" id="retryPromptConfirmBtn"><i class="bi bi-arrow-repeat me-1"></i>Retry Now</button>
       </div>
     </div>
   </div>

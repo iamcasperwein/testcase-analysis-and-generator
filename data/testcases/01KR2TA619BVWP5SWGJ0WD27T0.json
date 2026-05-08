@@ -1,0 +1,486 @@
+{
+    "feature": "Retention Pop Up",
+    "testCases": [
+        {
+            "section": "Pop-up Trigger",
+            "testCases": [
+                {
+                    "id": "TC-001",
+                    "title": "The retention pop-up should appear when the user attempts to leave the booking flow via back button",
+                    "type": "positive",
+                    "priority": "high",
+                    "preconditions": [
+                        "User is in the booking flow for any supported product (e.g., hotel, flight, train, bus, car rental, activity)"
+                    ],
+                    "steps": [
+                        {
+                            "content": "Tap the device back button while in the booking flow",
+                            "expected": "Retention pop-up appears"
+                        }
+                    ],
+                    "expectedResult": "Retention pop-up should be displayed when user taps back button during booking flow"
+                },
+                {
+                    "id": "TC-002",
+                    "title": "The retention pop-up should appear when the user attempts to leave the booking flow via close icon",
+                    "type": "positive",
+                    "priority": "high",
+                    "preconditions": [
+                        "User is in the booking flow for any supported product"
+                    ],
+                    "steps": [
+                        {
+                            "content": "Tap the close icon (X) in the booking flow",
+                            "expected": "Retention pop-up appears"
+                        }
+                    ],
+                    "expectedResult": "Retention pop-up should be displayed when user taps close icon during booking flow"
+                },
+                {
+                    "id": "TC-003",
+                    "title": "The retention pop-up should not appear when the booking is already completed",
+                    "type": "negative",
+                    "priority": "high",
+                    "preconditions": [
+                        "User has completed the booking flow"
+                    ],
+                    "steps": [
+                        {
+                            "content": "Attempt to leave the completed booking screen",
+                            "expected": "No retention pop-up appears"
+                        }
+                    ],
+                    "expectedResult": "Retention pop-up should not be displayed after booking completion"
+                },
+                {
+                    "id": "TC-004",
+                    "title": "The retention pop-up should appear when the user swipes to exit the booking flow",
+                    "type": "positive",
+                    "priority": "medium",
+                    "preconditions": [
+                        "User is in the booking flow for any supported product"
+                    ],
+                    "steps": [
+                        {
+                            "content": "Swipe right (or left, as per app navigation) to exit booking flow",
+                            "expected": "Retention pop-up appears"
+                        }
+                    ],
+                    "expectedResult": "Retention pop-up should be displayed when user swipes to exit booking flow"
+                },
+                {
+                    "id": "TC-005",
+                    "title": "The retention pop-up should not appear when user navigates to a non-booking section",
+                    "type": "negative",
+                    "priority": "medium",
+                    "preconditions": [
+                        "User is outside the booking flow"
+                    ],
+                    "steps": [
+                        {
+                            "content": "Navigate to any section outside booking flow (e.g., home, support)",
+                            "expected": "No retention pop-up appears"
+                        }
+                    ],
+                    "expectedResult": "Retention pop-up should not be displayed outside booking flow"
+                }
+            ]
+        },
+        {
+            "section": "Content Variants",
+            "testCases": [
+                {
+                    "id": "TC-006",
+                    "title": "The retention pop-up should display hotel-specific messaging when user attempts to leave hotel booking flow",
+                    "type": "positive",
+                    "priority": "high",
+                    "preconditions": [
+                        "User is in hotel booking flow"
+                    ],
+                    "steps": [
+                        {
+                            "content": "Attempt to leave hotel booking flow",
+                            "expected": "Retention pop-up appears with hotel-specific urgency message"
+                        }
+                    ],
+                    "expectedResult": "Retention pop-up should display hotel-specific copy as per Figma when leaving hotel booking flow"
+                },
+                {
+                    "id": "TC-007",
+                    "title": "The retention pop-up should display flight-specific messaging when user attempts to leave flight booking flow",
+                    "type": "positive",
+                    "priority": "high",
+                    "preconditions": [
+                        "User is in flight booking flow"
+                    ],
+                    "steps": [
+                        {
+                            "content": "Attempt to leave flight booking flow",
+                            "expected": "Retention pop-up appears with flight-specific urgency message"
+                        }
+                    ],
+                    "expectedResult": "Retention pop-up should display flight-specific copy as per Figma when leaving flight booking flow"
+                },
+                {
+                    "id": "TC-008",
+                    "title": "The retention pop-up should display train-specific messaging when user attempts to leave train booking flow",
+                    "type": "positive",
+                    "priority": "medium",
+                    "preconditions": [
+                        "User is in train booking flow"
+                    ],
+                    "steps": [
+                        {
+                            "content": "Attempt to leave train booking flow",
+                            "expected": "Retention pop-up appears with train-specific urgency message"
+                        }
+                    ],
+                    "expectedResult": "Retention pop-up should display train-specific copy as per Figma when leaving train booking flow"
+                },
+                {
+                    "id": "TC-009",
+                    "title": "The retention pop-up should display bus-specific messaging when user attempts to leave bus booking flow",
+                    "type": "positive",
+                    "priority": "medium",
+                    "preconditions": [
+                        "User is in bus booking flow"
+                    ],
+                    "steps": [
+                        {
+                            "content": "Attempt to leave bus booking flow",
+                            "expected": "Retention pop-up appears with bus-specific urgency message"
+                        }
+                    ],
+                    "expectedResult": "Retention pop-up should display bus-specific copy as per Figma when leaving bus booking flow"
+                },
+                {
+                    "id": "TC-010",
+                    "title": "The retention pop-up should display car rental-specific messaging when user attempts to leave car rental booking flow",
+                    "type": "positive",
+                    "priority": "medium",
+                    "preconditions": [
+                        "User is in car rental booking flow"
+                    ],
+                    "steps": [
+                        {
+                            "content": "Attempt to leave car rental booking flow",
+                            "expected": "Retention pop-up appears with car rental-specific urgency message"
+                        }
+                    ],
+                    "expectedResult": "Retention pop-up should display car rental-specific copy as per Figma when leaving car rental booking flow"
+                },
+                {
+                    "id": "TC-011",
+                    "title": "The retention pop-up should display activity-specific messaging when user attempts to leave activity booking flow",
+                    "type": "positive",
+                    "priority": "medium",
+                    "preconditions": [
+                        "User is in travel activity booking flow"
+                    ],
+                    "steps": [
+                        {
+                            "content": "Attempt to leave activity booking flow",
+                            "expected": "Retention pop-up appears with activity-specific urgency message"
+                        }
+                    ],
+                    "expectedResult": "Retention pop-up should display activity-specific copy as per Figma when leaving activity booking flow"
+                },
+                {
+                    "id": "TC-012",
+                    "title": "The retention pop-up should display correct messaging for mixed bookings when user attempts to leave combined booking flow",
+                    "type": "edge",
+                    "priority": "medium",
+                    "preconditions": [
+                        "User is in a booking flow with multiple product types (e.g., flight + hotel)"
+                    ],
+                    "steps": [
+                        {
+                            "content": "Attempt to leave combined booking flow",
+                            "expected": "Retention pop-up appears with appropriate messaging for all booked products"
+                        }
+                    ],
+                    "expectedResult": "Retention pop-up should display messaging that covers all relevant product types in mixed booking flows"
+                }
+            ]
+        },
+        {
+            "section": "Action Buttons",
+            "testCases": [
+                {
+                    "id": "TC-013",
+                    "title": "The continue booking button should return user to booking flow when user taps continue booking",
+                    "type": "positive",
+                    "priority": "high",
+                    "preconditions": [
+                        "Retention pop-up is displayed"
+                    ],
+                    "steps": [
+                        {
+                            "content": "Tap the 'Continue booking' button on the pop-up",
+                            "expected": "User is returned to the booking flow"
+                        }
+                    ],
+                    "expectedResult": "User should be returned to booking flow when 'Continue booking' is tapped"
+                },
+                {
+                    "id": "TC-014",
+                    "title": "The leave for now button should exit booking flow when user taps leave for now",
+                    "type": "positive",
+                    "priority": "high",
+                    "preconditions": [
+                        "Retention pop-up is displayed"
+                    ],
+                    "steps": [
+                        {
+                            "content": "Tap the 'Leave for now' button on the pop-up",
+                            "expected": "User exits booking flow and is navigated to previous or home screen"
+                        }
+                    ],
+                    "expectedResult": "User should exit booking flow when 'Leave for now' is tapped"
+                },
+                {
+                    "id": "TC-015",
+                    "title": "The action buttons should be disabled when pop-up is loading or not fully rendered",
+                    "type": "edge",
+                    "priority": "medium",
+                    "preconditions": [
+                        "Retention pop-up is loading or not fully rendered"
+                    ],
+                    "steps": [
+                        {
+                            "content": "Attempt to tap action buttons during pop-up loading",
+                            "expected": "Buttons are disabled and do not trigger actions"
+                        }
+                    ],
+                    "expectedResult": "Action buttons should be disabled during pop-up loading"
+                }
+            ]
+        },
+        {
+            "section": "Coupon Messaging",
+            "testCases": [
+                {
+                    "id": "TC-016",
+                    "title": "The retention pop-up should display coupon messaging when coupon is applied to booking",
+                    "type": "positive",
+                    "priority": "medium",
+                    "preconditions": [
+                        "User has applied a coupon to booking"
+                    ],
+                    "steps": [
+                        {
+                            "content": "Attempt to leave booking flow with coupon applied",
+                            "expected": "Retention pop-up appears with coupon-specific messaging"
+                        }
+                    ],
+                    "expectedResult": "Retention pop-up should display coupon-specific copy as per Figma when coupon is applied"
+                },
+                {
+                    "id": "TC-017",
+                    "title": "The retention pop-up should not display coupon messaging when no coupon is applied",
+                    "type": "negative",
+                    "priority": "medium",
+                    "preconditions": [
+                        "No coupon applied to booking"
+                    ],
+                    "steps": [
+                        {
+                            "content": "Attempt to leave booking flow without coupon applied",
+                            "expected": "Retention pop-up appears without coupon-specific messaging"
+                        }
+                    ],
+                    "expectedResult": "Retention pop-up should not display coupon-specific copy when no coupon is applied"
+                }
+            ]
+        },
+        {
+            "section": "UI Consistency",
+            "testCases": [
+                {
+                    "id": "TC-018",
+                    "title": "The retention pop-up should match Figma design for layout and copy when displayed",
+                    "type": "positive",
+                    "priority": "medium",
+                    "preconditions": [
+                        "Retention pop-up is displayed"
+                    ],
+                    "steps": [
+                        {
+                            "content": "Compare pop-up layout and copy with Figma design",
+                            "expected": "Pop-up matches Figma layout and copy"
+                        }
+                    ],
+                    "expectedResult": "Retention pop-up should match Figma design for layout and copy"
+                },
+                {
+                    "id": "TC-019",
+                    "title": "The retention pop-up should display correctly on devices with different screen sizes and orientations when displayed",
+                    "type": "edge",
+                    "priority": "medium",
+                    "preconditions": [
+                        "Retention pop-up is displayed"
+                    ],
+                    "steps": [
+                        {
+                            "content": "Rotate device to landscape and portrait orientations",
+                            "expected": "Pop-up displays correctly in both orientations"
+                        },
+                        {
+                            "content": "View pop-up on devices with small and large screens",
+                            "expected": "Pop-up displays correctly on all screen sizes"
+                        }
+                    ],
+                    "expectedResult": "Retention pop-up should display correctly across device sizes and orientations"
+                }
+            ]
+        },
+        {
+            "section": "Accessibility",
+            "testCases": [
+                {
+                    "id": "TC-020",
+                    "title": "The retention pop-up should be accessible via screen reader when displayed",
+                    "type": "positive",
+                    "priority": "medium",
+                    "preconditions": [
+                        "Retention pop-up is displayed",
+                        "Screen reader is enabled"
+                    ],
+                    "steps": [
+                        {
+                            "content": "Enable screen reader and navigate to retention pop-up",
+                            "expected": "Screen reader reads pop-up content and action buttons"
+                        }
+                    ],
+                    "expectedResult": "Retention pop-up should be accessible via screen reader"
+                },
+                {
+                    "id": "TC-021",
+                    "title": "The retention pop-up should have sufficient contrast for text and buttons when displayed",
+                    "type": "positive",
+                    "priority": "medium",
+                    "preconditions": [
+                        "Retention pop-up is displayed"
+                    ],
+                    "steps": [
+                        {
+                            "content": "Check color contrast of pop-up text and buttons",
+                            "expected": "Contrast meets accessibility standards"
+                        }
+                    ],
+                    "expectedResult": "Retention pop-up should have sufficient contrast for accessibility"
+                },
+                {
+                    "id": "TC-022",
+                    "title": "The retention pop-up should support increased font size when accessibility settings are enabled",
+                    "type": "edge",
+                    "priority": "medium",
+                    "preconditions": [
+                        "Retention pop-up is displayed",
+                        "Device accessibility settings for font size are enabled"
+                    ],
+                    "steps": [
+                        {
+                            "content": "Enable increased font size in device settings",
+                            "expected": "Pop-up text scales appropriately"
+                        }
+                    ],
+                    "expectedResult": "Retention pop-up should support increased font size for accessibility"
+                }
+            ]
+        },
+        {
+            "section": "Localization",
+            "testCases": [
+                {
+                    "id": "TC-023",
+                    "title": "The retention pop-up should display content in user's selected language when displayed",
+                    "type": "positive",
+                    "priority": "medium",
+                    "preconditions": [
+                        "Retention pop-up is displayed",
+                        "User's device language is set to a supported locale"
+                    ],
+                    "steps": [
+                        {
+                            "content": "Set device language to a supported locale",
+                            "expected": "Pop-up content appears in selected language"
+                        }
+                    ],
+                    "expectedResult": "Retention pop-up should display content in user's selected language"
+                },
+                {
+                    "id": "TC-024",
+                    "title": "The retention pop-up should display fallback language when user's locale is unsupported",
+                    "type": "edge",
+                    "priority": "low",
+                    "preconditions": [
+                        "Retention pop-up is displayed",
+                        "User's device language is set to an unsupported locale"
+                    ],
+                    "steps": [
+                        {
+                            "content": "Set device language to an unsupported locale",
+                            "expected": "Pop-up content appears in fallback language (e.g., English)"
+                        }
+                    ],
+                    "expectedResult": "Retention pop-up should display fallback language when user's locale is unsupported"
+                }
+            ]
+        },
+        {
+            "section": "Edge Cases",
+            "testCases": [
+                {
+                    "id": "TC-025",
+                    "title": "The retention pop-up should handle rapid user actions when user double-taps exit",
+                    "type": "edge",
+                    "priority": "medium",
+                    "preconditions": [
+                        "User is in booking flow"
+                    ],
+                    "steps": [
+                        {
+                            "content": "Double-tap back or close icon rapidly",
+                            "expected": "Retention pop-up appears only once and handles input gracefully"
+                        }
+                    ],
+                    "expectedResult": "Retention pop-up should handle rapid exit actions without duplicate pop-ups"
+                },
+                {
+                    "id": "TC-026",
+                    "title": "The retention pop-up should not overlap or conflict with other modal dialogs when displayed",
+                    "type": "edge",
+                    "priority": "medium",
+                    "preconditions": [
+                        "Another modal dialog is already open"
+                    ],
+                    "steps": [
+                        {
+                            "content": "Attempt to trigger retention pop-up while another modal is open",
+                            "expected": "Retention pop-up does not overlap or conflict with existing modal"
+                        }
+                    ],
+                    "expectedResult": "Retention pop-up should not overlap or conflict with other modal dialogs"
+                },
+                {
+                    "id": "TC-027",
+                    "title": "The retention pop-up should display correctly in offline mode when triggered",
+                    "type": "edge",
+                    "priority": "low",
+                    "preconditions": [
+                        "Device is offline",
+                        "User is in booking flow"
+                    ],
+                    "steps": [
+                        {
+                            "content": "Attempt to leave booking flow while offline",
+                            "expected": "Retention pop-up appears and displays correctly"
+                        }
+                    ],
+                    "expectedResult": "Retention pop-up should display correctly in offline mode"
+                }
+            ]
+        }
+    ]
+}

@@ -2,6 +2,20 @@ const DashboardService = require("../service/DashboardService");
 const path = require("path");
 const fs = require("fs");
 
+const DEFAULT_MODELS = Object.freeze({
+    copilot: String(process.env.GITHUB_MODEL || "openai/gpt-5-chat").trim(),
+    claude: String(process.env.CLAUDE_MODEL || "claude-sonnet-4-6").trim(),
+    gemini: String(process.env.GEMINI_MODEL || "models/gemini-2.5-flash").trim(),
+});
+
+const resolveModelName = (prompt = {}) => {
+    const explicitModel = String(prompt.model || prompt.modelName || "").trim();
+    if (explicitModel) return explicitModel;
+
+    const agent = String(prompt.agent || "").trim().toLowerCase();
+    return DEFAULT_MODELS[agent] || null;
+};
+
 const getDashboard = async (req, res) => {
     try {
         const prompts = await DashboardService.getPromptData();
@@ -33,6 +47,7 @@ const getDashboard = async (req, res) => {
                     promptId:      p.promptId,
                     projectName:   p.projectName || null,
                     status:        p.status || null,
+                    model:         resolveModelName(p),
                     testCaseCount: p.testCaseCount ?? null,
                     turnaroundMs:  (p.startAt && p.endAt)
                         ? Math.max(0, new Date(p.endAt) - new Date(p.startAt))

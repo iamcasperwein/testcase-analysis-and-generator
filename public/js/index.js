@@ -1,8 +1,8 @@
 // --- Constants ---
 const AGENTS = Object.freeze([
-  { value: "claude", label: "Claude", description: "Anthropic Claude model" },
-  { value: "gemini", label: "Gemini", description: "Google Gemini model" },
   { value: "copilot", label: "GitHub Copilot", description: "GitHub Models via Copilot token" },
+  { value: "claude", label: "Claude", description: "Anthropic Claude model" },
+  // { value: "gemini", label: "Gemini", description: "Google Gemini model" },
 ]);
 
 const DOC_TYPES = Object.freeze([
@@ -10,10 +10,10 @@ const DOC_TYPES = Object.freeze([
   { value: "rfc", label: "RFC", description: "Request for Comments" },
   { value: "figma", label: "Figma", description: "Figma design file" },
   { value: "user-story", label: "User Story", description: "User story format" },
-  { value: "other", label: "Other", description: "Other artifact type" },
+  { value: "other", qlabel: "Other", description: "Other artifact type" },
 ]);
 
-const DEFAULT_AGENT = "claude";
+const DEFAULT_AGENT = "copilot";
 const DEFAULT_DOC_TYPE = "prd";
 
 // --- Helper: simple fetch wrapper ---
@@ -235,9 +235,14 @@ function createStaticOptionSelect({ wrapId, triggerId, triggerTextId, dropdownId
 
   function setSelection(value) {
     const item = safeOptions.find((option) => option.value === value) || safeOptions[0] || { value: "", label: "" };
+    const previousValue = valueEl.value;
     valueEl.value = item.value;
     triggerTextEl.textContent = item.label;
     triggerTextEl.classList.toggle("is-placeholder", !item.label);
+
+    if (previousValue !== item.value) {
+      valueEl.dispatchEvent(new Event("change", { bubbles: true }));
+    }
   }
 
   function renderOptions(filter = "") {
@@ -246,7 +251,7 @@ function createStaticOptionSelect({ wrapId, triggerId, triggerTextId, dropdownId
 
     optionsEl.innerHTML = "";
     if (!filtered.length) {
-      optionsEl.innerHTML = '<div class="prompt-select-no-results">No models found.</div>';
+      optionsEl.innerHTML = '<div class="prompt-select-no-results">No options found.</div>';
       return;
     }
 
@@ -335,6 +340,120 @@ const docTypePicker = createStaticOptionSelect({
   options: DOC_TYPES,
 });
 
+const additionalDocsList = document.getElementById("additionalDocsList");
+const addDocBtn = document.getElementById("addDocBtn");
+const additionalDocHelper = document.getElementById("additionalDocHelper");
+const ADDITIONAL_DOC_TYPES = [
+  "RFC iOS",
+  "RFC Android",
+  "RFC Web",
+  "RFC BE",
+  "Figma App",
+  "Figma Web",
+  "API Contract",
+  "Architecture Doc",
+  "Test Plan",
+  "Other",
+];
+
+const ADDITIONAL_DOC_OPTIONS = ADDITIONAL_DOC_TYPES.map((type) => ({
+  value: type,
+  label: type,
+  description: type === "Other" ? "Custom artifact type" : "Supporting artifact",
+}));
+
+let additionalDocRowSequence = 0;
+
+function updateAdditionalDocHelper() {
+  if (!additionalDocHelper) return;
+  const hasRows = Boolean(additionalDocsList?.querySelector(".additional-doc-row"));
+  additionalDocHelper.classList.toggle("is-hidden", hasRows);
+}
+
+function createAdditionalDocRow() {
+  const rowId = ++additionalDocRowSequence;
+  const row = document.createElement("div");
+  row.className = "additional-doc-row";
+  row.dataset.rowId = String(rowId);
+  const valueId = `addDocTypeValue-${rowId}`;
+  const wrapId = `addDocTypeWrap-${rowId}`;
+  const triggerId = `addDocTypeTrigger-${rowId}`;
+  const triggerTextId = `addDocTypeTriggerText-${rowId}`;
+  const dropdownId = `addDocTypeDropdown-${rowId}`;
+  const searchId = `addDocTypeSearch-${rowId}`;
+  const optionsId = `addDocTypeOptions-${rowId}`;
+
+  row.innerHTML = `
+    <div class="additional-doc-row-grid">
+      <div class="add-doc-col-type">
+        <label class="add-doc-label">Type</label>
+        <div class="prompt-select-wrap add-doc-type-wrap" id="${wrapId}">
+          <div class="prompt-select-trigger" id="${triggerId}" tabindex="0">
+            <span class="prompt-select-trigger-text" id="${triggerTextId}">RFC iOS</span>
+            <i class="bi bi-chevron-down" style="font-size:0.75rem;flex-shrink:0;"></i>
+          </div>
+          <div class="prompt-select-dropdown" id="${dropdownId}">
+            <input type="text" class="prompt-select-search" id="${searchId}" placeholder="Search type..." autocomplete="off" />
+            <div class="prompt-select-options" id="${optionsId}"></div>
+          </div>
+        </div>
+        <input type="hidden" id="${valueId}" class="add-doc-type-value" value="RFC iOS" />
+      </div>
+      <div class="add-doc-col-name">
+        <label class="add-doc-label">Document Name</label>
+        <input type="text" class="form-control form-control-sm add-doc-name" placeholder="RFC iOS document" />
+      </div>
+      <div class="add-doc-col-file">
+        <label class="add-doc-label">File</label>
+        <input type="file" class="form-control form-control-sm add-doc-file" accept=".txt,.md,.pdf,.doc,.docx,.json,.csv,.png,.jpg,.jpeg" />
+      </div>
+      <div class="add-doc-col-action">
+        <button type="button" class="btn btn-sm btn-outline-danger remove-doc-btn" title="Remove document">
+          <i class="bi bi-trash3"></i>
+        </button>
+      </div>
+    </div>
+  `;
+
+  additionalDocsList.appendChild(row);
+
+  createStaticOptionSelect({
+    wrapId,
+    triggerId,
+    triggerTextId,
+    dropdownId,
+    searchId,
+    optionsId,
+    valueId,
+    options: ADDITIONAL_DOC_OPTIONS,
+  });
+
+  const typeValueInput = row.querySelector(".add-doc-type-value");
+  const nameInput = row.querySelector(".add-doc-name");
+  const removeButton = row.querySelector(".remove-doc-btn");
+
+  const syncNamePlaceholder = () => {
+    const selectedType = String(typeValueInput?.value || "Other").trim();
+    if (!nameInput.value.trim()) {
+      nameInput.placeholder = selectedType === "Other" ? "Document name (optional)" : `${selectedType} document`;
+    }
+  };
+
+  const onTypeChange = () => syncNamePlaceholder();
+  typeValueInput?.addEventListener("change", onTypeChange);
+
+  removeButton?.addEventListener("click", () => {
+    row.remove();
+    updateAdditionalDocHelper();
+  });
+
+  syncNamePlaceholder();
+  updateAdditionalDocHelper();
+}
+
+addDocBtn?.addEventListener("click", createAdditionalDocRow);
+updateAdditionalDocHelper();
+
 qaForm.addEventListener("submit", async (e) => {
   e.preventDefault();
   formStatus.textContent = "";
@@ -342,13 +461,9 @@ qaForm.addEventListener("submit", async (e) => {
   submitFormBtn.textContent = "Submitting...";
 
   const prdFile = document.getElementById("prdUrlInput").files?.[0] || null;
-  const rfcFile = document.getElementById("rfcUrlInput").files?.[0] || null;
-  const figmaFile = document.getElementById("figmaUrlInput").files?.[0] || null;
-  const rawContentEl = document.getElementById("rawContentInput");
-  const manualRawContent = rawContentEl ? rawContentEl.value.trim() : "";
 
-  // PRD is required — either a file or raw content
-  if (!prdFile && !manualRawContent) {
+  // PRD is required
+  if (!prdFile) {
     formStatus.textContent = "PRD file is required.";
     formStatus.classList.remove("text-success");
     formStatus.classList.add("text-danger");
@@ -364,11 +479,21 @@ qaForm.addEventListener("submit", async (e) => {
   formData.append("feature", document.getElementById("projectNameInput").value.trim());
   formData.append("docType", docTypePicker.getValue() || DEFAULT_DOC_TYPE);
   formData.append("context", document.getElementById("contextInput").value.trim());
-  formData.append("rawContent", manualRawContent);
+  formData.append("rawContent", "");
 
-  if (prdFile)   formData.append("prd",   prdFile);
-  if (rfcFile)   formData.append("rfc",   rfcFile);
-  if (figmaFile) formData.append("figma", figmaFile);
+  if (prdFile) formData.append("prd", prdFile);
+
+  // Dynamic additional docs
+  const additionalRows = Array.from(document.querySelectorAll(".additional-doc-row"));
+  additionalRows.forEach((row) => {
+    const file = row.querySelector(".add-doc-file")?.files?.[0] || null;
+    if (!file) return;
+    const docType = row.querySelector(".add-doc-type-value")?.value || "OTHER";
+    const docName = row.querySelector(".add-doc-name")?.value?.trim() || file.name;
+    formData.append("additionalDocs", file);
+    formData.append("docTypes", docType);
+    formData.append("docNames", docName);
+  });
 
   try {
     const response = await apiRequest("/generate/ask", {
@@ -741,6 +866,8 @@ let selectedTcIds = new Set();
 let tcSearchQuery = "";
 let testrailSectionsCache = [];
 let isFetchingTestrailSections = false;
+const TESTRAIL_CASE_URL_BASE = "https://traveloka.testrail.com/index.php?/cases/view/";
+let activeLockedEditPopover = null;
 
 toggleIdColumn.addEventListener("change", () => {
   applyAllViewColumnVisibility();
@@ -949,11 +1076,12 @@ function renderSections() {
 function createActionButtons(tc) {
   const tdActions = document.createElement("td");
   tdActions.className = "text-end";
+  const isPostedToTestrail = tc?.testrailPost?.status === "success" && tc?.testrailPost?.testrailCaseId != null;
   tdActions.innerHTML = `
     <button class="btn btn-sm btn-outline-secondary icon-action-btn" title="See detail" aria-label="See detail">
       <i class="bi bi-eye"></i>
     </button>
-    <button class="btn btn-sm btn-outline-primary icon-action-btn" title="Edit" aria-label="Edit">
+    <button class="btn btn-sm btn-outline-primary icon-action-btn${isPostedToTestrail ? " is-disabled is-locked" : ""}" title="${isPostedToTestrail ? "Edit disabled for TestRail-posted cases" : "Edit"}" aria-label="${isPostedToTestrail ? "Edit disabled for TestRail-posted cases" : "Edit"}" aria-disabled="${isPostedToTestrail ? "true" : "false"}">
       <i class="bi bi-pencil-square"></i>
     </button>
     <button class="btn btn-sm btn-outline-danger icon-action-btn" title="Delete" aria-label="Delete">
@@ -963,11 +1091,99 @@ function createActionButtons(tc) {
 
   const [btnView, btnEdit, btnDelete] = tdActions.querySelectorAll("button");
   btnView.addEventListener("click", () => openViewModal(tc));
-  btnEdit.addEventListener("click", () => openEditModal(tc));
+  if (isPostedToTestrail) {
+    attachLockedEditPopover(btnEdit, tc);
+  } else {
+    btnEdit.addEventListener("click", () => openEditModal(tc));
+  }
   btnDelete.addEventListener("click", () => openDeleteModal(tc));
 
   return tdActions;
 }
+
+function getTestrailCaseUrl(caseId) {
+  return `${TESTRAIL_CASE_URL_BASE}${encodeURIComponent(String(caseId || "").trim())}`;
+}
+
+function closeLockedEditPopover() {
+  if (!activeLockedEditPopover?.instance) return;
+  activeLockedEditPopover.instance.hide();
+  activeLockedEditPopover = null;
+}
+
+function buildLockedEditPopoverContent(tc = {}) {
+  const caseId = tc?.testrailPost?.testrailCaseId;
+  const href = getTestrailCaseUrl(caseId);
+  const escapedCaseId = escapeHtml(caseId);
+
+  return `
+    <div class="tr-locked-popover-body">
+      <div class="tr-locked-popover-icon"><i class="bi bi-lock-fill"></i></div>
+      <div class="tr-locked-popover-copy">This test case is already posted to TestRail. You can directly edit it there to keep both systems consistent.</div>
+      <div class="tr-locked-popover-case">Linked TestRail case: <strong>C${escapedCaseId}</strong></div>
+      <a class="btn btn-sm btn-primary tr-locked-popover-link" href="${href}" target="_blank" rel="noopener noreferrer">
+        <i class="bi bi-box-arrow-up-right me-1"></i>Open in TestRail
+      </a>
+    </div>
+  `;
+}
+
+function attachLockedEditPopover(button, tc) {
+  if (!button) return;
+
+  const popover = bootstrap.Popover.getOrCreateInstance(button, {
+    trigger: "manual",
+    html: true,
+    sanitize: false,
+    placement: "left",
+    container: "body",
+    customClass: "tr-locked-popover",
+    title: '<span class="tr-locked-popover-title"><i class="bi bi-slash-circle me-1"></i>Edit locked</span>',
+    content: () => buildLockedEditPopoverContent(tc),
+  });
+
+  button.addEventListener("click", (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+
+    const isOpen = button.getAttribute("aria-describedby");
+    if (isOpen) {
+      popover.hide();
+      activeLockedEditPopover = null;
+      return;
+    }
+
+    closeLockedEditPopover();
+    popover.show();
+    activeLockedEditPopover = { instance: popover, button };
+  });
+
+  button.addEventListener("shown.bs.popover", () => {
+    activeLockedEditPopover = { instance: popover, button };
+  });
+
+  button.addEventListener("hidden.bs.popover", () => {
+    if (activeLockedEditPopover?.button === button) {
+      activeLockedEditPopover = null;
+    }
+  });
+}
+
+document.addEventListener("click", (event) => {
+  if (!activeLockedEditPopover?.instance || !activeLockedEditPopover?.button) return;
+
+  const openPopover = document.querySelector(".popover.tr-locked-popover.show");
+  if (activeLockedEditPopover.button.contains(event.target)) return;
+  if (openPopover?.contains(event.target)) return;
+
+  closeLockedEditPopover();
+});
+
+document.addEventListener("keydown", (event) => {
+  if (event.key === "Escape") {
+    closeLockedEditPopover();
+  }
+});
 
 function scrollRowBelowStickyHeader(row, behavior = "smooth") {
   if (!row) return;
@@ -2888,6 +3104,10 @@ const dashStatTotalTc   = document.getElementById("dashStatTotalTc");
 const failedPromptInfoModal = new bootstrap.Modal(document.getElementById("failedPromptInfoModal"));
 const failedPromptIdText = document.getElementById("failedPromptIdText");
 const failedPromptNoteText = document.getElementById("failedPromptNoteText");
+const retryPromptOverlay = document.getElementById("retryPromptOverlay");
+const retryPromptIdBadge = document.getElementById("retryPromptIdBadge");
+const retryPromptCancelBtn = document.getElementById("retryPromptCancelBtn");
+const retryPromptConfirmBtn = document.getElementById("retryPromptConfirmBtn");
 
 function formatDashDate(str) {
   if (!str) return "—";
@@ -2931,6 +3151,36 @@ function openFailedPromptInfo(promptId, note) {
   failedPromptIdText.textContent = promptId || "—";
   failedPromptNoteText.textContent = String(note || "No failure details.");
   failedPromptInfoModal.show();
+}
+
+function openRetryPromptDialog(promptId) {
+  return new Promise((resolve) => {
+    if (!retryPromptOverlay) {
+      resolve(confirm(`Retry prompt ${promptId}?`));
+      return;
+    }
+
+    retryPromptIdBadge.textContent = promptId || "—";
+    retryPromptOverlay.classList.add("open");
+
+    const cleanup = () => {
+      retryPromptOverlay.classList.remove("open");
+      retryPromptConfirmBtn?.removeEventListener("click", onConfirm);
+      retryPromptCancelBtn?.removeEventListener("click", onCancel);
+      retryPromptOverlay.removeEventListener("click", onBackdrop);
+      document.removeEventListener("keydown", onKeydown);
+    };
+
+    const onConfirm = () => { cleanup(); resolve(true); };
+    const onCancel = () => { cleanup(); resolve(false); };
+    const onBackdrop = (event) => { if (event.target === retryPromptOverlay) onCancel(); };
+    const onKeydown = (event) => { if (event.key === "Escape") onCancel(); };
+
+    retryPromptConfirmBtn?.addEventListener("click", onConfirm);
+    retryPromptCancelBtn?.addEventListener("click", onCancel);
+    retryPromptOverlay.addEventListener("click", onBackdrop);
+    document.addEventListener("keydown", onKeydown);
+  });
 }
 
 const promptLogModal = new bootstrap.Modal(document.getElementById("promptLogModal"));
@@ -3008,7 +3258,7 @@ function formatLogAsTerminal(raw) {
 
 async function loadDashboard() {
   dashStatus.textContent = "Loading...";
-  dashTableBody.innerHTML = `<tr><td colspan="7" class="dash-empty"><div class="spinner-border spinner-border-sm text-primary me-2" role="status"></div>Fetching data...</td></tr>`;
+  dashTableBody.innerHTML = `<tr><td colspan="8" class="dash-empty"><div class="spinner-border spinner-border-sm text-primary me-2" role="status"></div>Fetching data...</td></tr>`;
 
   try {
     const resp = await apiRequest("/dashboard");
@@ -3030,7 +3280,7 @@ async function loadDashboard() {
     dashStatTotalTc.textContent     = totalTc || "—";
 
     if (!prompts.length) {
-      dashTableBody.innerHTML = `<tr><td colspan="7" class="dash-empty">No prompts found.</td></tr>`;
+      dashTableBody.innerHTML = `<tr><td colspan="8" class="dash-empty">No prompts found.</td></tr>`;
       dashStatus.textContent = "Dashboard loaded.";
       return;
     }
@@ -3041,7 +3291,7 @@ async function loadDashboard() {
 
     dashStatus.textContent = `Dashboard loaded · ${prompts.length} prompt(s).`;
   } catch (err) {
-    dashTableBody.innerHTML = `<tr><td colspan="7" class="dash-empty text-danger">Failed to load dashboard: ${err.message}</td></tr>`;
+    dashTableBody.innerHTML = `<tr><td colspan="8" class="dash-empty text-danger">Failed to load dashboard: ${err.message}</td></tr>`;
     dashStatus.textContent = err.message;
   }
 }
@@ -3066,7 +3316,7 @@ function renderDashTable(prompts) {
   });
 
   if (!filtered.length) {
-    dashTableBody.innerHTML = `<tr><td colspan="7" class="dash-empty">No prompts match the current filters.</td></tr>`;
+    dashTableBody.innerHTML = `<tr><td colspan="8" class="dash-empty">No prompts match the current filters.</td></tr>`;
     return;
   }
 
@@ -3075,6 +3325,7 @@ function renderDashTable(prompts) {
       const promptId = p.promptId || p.id || "—";
       const project  = p.projectName || p.project || "—";
       const status   = p.status || "—";
+      const model    = p.model || "—";
       const statusKey = String(status || "").toLowerCase().replace(/ /g, "_");
       const isFailed = statusKey === "failed" || statusKey === "error";
       const failureNote = String(p.failureNote || p.errorMessage || "").trim();
@@ -3093,6 +3344,7 @@ function renderDashTable(prompts) {
         <td><span class="dash-prompt-link" data-promptid="${promptId}">${promptId}</span></td>
         <td>${project}</td>
         <td>${getStatusBadge(status)}</td>
+        <td><span class="small text-muted">${escapeHtml(model)}</span></td>
         <td>${tc}</td>
         <td>${duration}</td>
         <td>${created}</td>
@@ -3143,7 +3395,8 @@ function renderDashTable(prompts) {
   dashTableBody.querySelectorAll(".dash-retry").forEach(el => {
     el.addEventListener("click", async () => {
       const id = el.dataset.id;
-      if (!confirm(`Retry prompt ${id}?`)) return;
+      const shouldRetry = await openRetryPromptDialog(id);
+      if (!shouldRetry) return;
       el.disabled = true;
       el.innerHTML = `<span class="spinner-border spinner-border-sm"></span>`;
       try {

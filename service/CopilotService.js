@@ -1,7 +1,7 @@
 const axios = require("axios")
 
 const COPILOT_API_URL = String(process.env.GITHUB_MODELS_API_URL || "https://models.github.ai/inference/chat/completions").trim()
-const DEFAULT_MODEL = String(process.env.GITHUB_MODEL || "gpt-4.1-mini").trim()
+const DEFAULT_MODEL = String(process.env.GITHUB_MODEL || "openai/gpt-5-chat").trim()
 
 const getApiKey = () => {
 	const apiKey = String(process.env.GITHUB_TOKEN || process.env.GH_TOKEN || "").trim()
