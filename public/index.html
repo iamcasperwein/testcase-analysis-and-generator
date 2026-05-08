@@ -555,45 +555,151 @@
       >
         <div class="card form-card">
           <div class="card-header d-flex justify-content-between align-items-center">
-            <h5 class="mb-0"><i class="bi bi-gear me-1"></i>Environment Settings</h5>
+            <h5 class="mb-0"><i class="bi bi-gear me-1"></i>Settings Workspace</h5>
             <button class="btn btn-sm btn-outline-secondary" id="refreshSettingsBtn">
               <i class="bi bi-arrow-clockwise me-1"></i>Refresh
             </button>
           </div>
           <div class="card-body">
-            <div id="settingsStatus" class="small text-muted mb-3"></div>
 
-            <div class="border rounded p-3 mb-3" style="border-color:#d8e5f8 !important; background:#f8fbff;">
-              <div class="d-flex justify-content-between align-items-center mb-2">
-                <h6 class="mb-0">Add Multiple Settings</h6>
-                <button class="btn btn-sm btn-outline-primary" id="addSettingRowBtn" type="button">
-                  <i class="bi bi-plus-lg me-1"></i>Add Row
-                </button>
-              </div>
-              <div id="settingsRows" class="d-flex flex-column gap-2"></div>
-              <div class="mt-2">
-                <button class="btn btn-primary btn-sm" id="saveSettingsBtn" type="button">
-                  <i class="bi bi-save me-1"></i>Save Settings
-                </button>
-              </div>
-            </div>
 
-            <h6 class="mb-2">Current Configuration</h6>
-            <div class="table-responsive">
-              <table class="table table-sm align-middle">
-                <thead class="table-light">
-                  <tr>
-                    <th style="width: 260px;">Key</th>
-                    <th>Value</th>
-                    <th style="width: 140px;" class="text-end">Actions</th>
-                  </tr>
-                </thead>
-                <tbody id="settingsTableBody">
-                  <tr>
-                    <td colspan="3" class="text-center text-muted small">No settings loaded.</td>
-                  </tr>
-                </tbody>
-              </table>
+            <ul class="nav nav-tabs mb-3" id="settingsSubTabs" role="tablist">
+              <li class="nav-item" role="presentation">
+                <button
+                  class="nav-link active"
+                  id="settings-environment-tab"
+                  data-bs-toggle="tab"
+                  data-bs-target="#settings-environment-pane"
+                  type="button"
+                  role="tab"
+                  aria-controls="settings-environment-pane"
+                  aria-selected="true"
+                >
+                  Environment
+                </button>
+              </li>
+              <li class="nav-item" role="presentation">
+                <button
+                  class="nav-link"
+                  id="settings-model-catalog-tab"
+                  data-bs-toggle="tab"
+                  data-bs-target="#settings-model-catalog-pane"
+                  type="button"
+                  role="tab"
+                  aria-controls="settings-model-catalog-pane"
+                  aria-selected="false"
+                >
+                  Model Catalog
+                </button>
+              </li>
+            </ul>
+
+            <div class="tab-content" id="settingsSubTabsContent">
+              <div
+                class="tab-pane fade show active"
+                id="settings-environment-pane"
+                role="tabpanel"
+                aria-labelledby="settings-environment-tab"
+              >
+                <div class="border rounded p-3 mb-3" style="border-color:#d8e5f8 !important; background:#f8fbff;">
+                  <div class="d-flex justify-content-between align-items-center mb-2">
+                    <h6 class="mb-0">Add Multiple Settings</h6>
+                    <button class="btn btn-sm btn-outline-primary" id="addSettingRowBtn" type="button">
+                      <i class="bi bi-plus-lg me-1"></i>Add Row
+                    </button>
+                  </div>
+                  <div id="settingsRows" class="d-flex flex-column gap-2"></div>
+                  <div class="mt-2">
+                    <button class="btn btn-primary btn-sm" id="saveSettingsBtn" type="button">
+                      <i class="bi bi-save me-1"></i>Save Settings
+                    </button>
+                  </div>
+                </div>
+
+                <h6 class="mb-2">Current Configuration</h6>
+                <div class="table-responsive">
+                  <table class="table table-sm align-middle">
+                    <thead class="table-light">
+                      <tr>
+                        <th style="width: 260px;">Key</th>
+                        <th>Value</th>
+                        <th style="width: 140px;" class="text-end">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody id="settingsTableBody">
+                      <tr>
+                        <td colspan="3" class="text-center text-muted small">No settings loaded.</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              <div
+                class="tab-pane fade"
+                id="settings-model-catalog-pane"
+                role="tabpanel"
+                aria-labelledby="settings-model-catalog-tab"
+              >
+                <div class="border rounded p-3 mb-3" style="border-color:#d8e5f8 !important; background:#f8fbff;">
+                  <div class="d-flex justify-content-between align-items-start gap-3 flex-wrap mb-3">
+                    <div>
+                      <h6 class="mb-1">Model Catalog</h6>
+                      <div class="small text-muted">Browse available models by agent and apply the selected model directly to its setting key.</div>
+                    </div>
+                    <button class="btn btn-sm btn-outline-secondary" id="refreshModelCatalogBtn" type="button">
+                      <i class="bi bi-arrow-clockwise me-1"></i>Refresh Catalog
+                    </button>
+                  </div>
+
+                  <div class="row g-2 align-items-center mb-3">
+                    <div class="col-md-3">
+                      <label for="modelCatalogAgentValue" class="form-label small fw-semibold mb-1">Agent</label>
+                      <div class="prompt-select-wrap" id="modelCatalogAgentSelectWrap">
+                        <div class="prompt-select-trigger" id="modelCatalogAgentTrigger" tabindex="0">
+                          <span class="prompt-select-trigger-text" id="modelCatalogAgentTriggerText">Copilot</span>
+                          <i class="bi bi-chevron-down" style="font-size:0.75rem;flex-shrink:0;"></i>
+                        </div>
+                        <div class="prompt-select-dropdown" id="modelCatalogAgentDropdown">
+                          <input type="text" class="prompt-select-search" id="modelCatalogAgentSearch" placeholder="Search agent..." autocomplete="off" />
+                          <div class="prompt-select-options" id="modelCatalogAgentOptions"></div>
+                        </div>
+                      </div>
+                      <input type="hidden" id="modelCatalogAgentValue" value="copilot" />
+                    </div>
+                    <div class="col-md-5">
+                      <label for="modelCatalogSearchInput" class="form-label small fw-semibold mb-1">Search Models</label>
+                      <input type="text" class="form-control form-control-sm" id="modelCatalogSearchInput" placeholder="Search by model ID, name, publisher, tag..." />
+                    </div>
+                    <div class="col-md-4">
+                      <label class="form-label small fw-semibold mb-1">Target Setting</label>
+                      <div class="small text-muted border rounded bg-white px-2 py-2" id="modelCatalogSettingKey">—</div>
+                    </div>
+                  </div>
+
+                  <div id="modelCatalogStatus" class="small text-muted mb-2">Select an agent to load available models.</div>
+
+                  <div id="modelCatalogTableWrap" class="table-responsive border rounded bg-white">
+                    <table class="table table-sm align-middle mb-0">
+                      <thead class="table-light">
+                        <tr>
+                          <th style="width: 260px;">Model</th>
+                          <th style="width: 150px;">Publisher</th>
+                          <th>Summary</th>
+                          <th style="width: 170px;">Capabilities</th>
+                          <th style="width: 120px;">Context</th>
+                          <th style="width: 130px;" class="text-end">Action</th>
+                        </tr>
+                      </thead>
+                      <tbody id="modelCatalogTableBody">
+                        <tr>
+                          <td colspan="6" class="text-center text-muted small">Catalog not loaded.</td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         </div>

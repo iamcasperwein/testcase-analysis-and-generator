@@ -2506,22 +2506,62 @@ async function handleBulkDelete() {
 }
 
 // --- SETTINGS CRUD: /settings ---
-const settingsStatus = document.getElementById("settingsStatus");
 const refreshSettingsBtn = document.getElementById("refreshSettingsBtn");
 const settingsRows = document.getElementById("settingsRows");
 const addSettingRowBtn = document.getElementById("addSettingRowBtn");
 const saveSettingsBtn = document.getElementById("saveSettingsBtn");
 const settingsTableBody = document.getElementById("settingsTableBody");
+const modelCatalogAgentValue = document.getElementById("modelCatalogAgentValue");
+const modelCatalogSearchInput = document.getElementById("modelCatalogSearchInput");
+const modelCatalogStatus = document.getElementById("modelCatalogStatus");
+const modelCatalogTableBody = document.getElementById("modelCatalogTableBody");
+const modelCatalogSettingKey = document.getElementById("modelCatalogSettingKey");
+const refreshModelCatalogBtn = document.getElementById("refreshModelCatalogBtn");
 
 let availableSettingKeys = [];
 let availableSettingKeyDefinitions = [];
 const settingKeyConfidentialMap = new Map();
 const SENSITIVE_SETTING_KEY_PATTERN = /(pass(word|wd)?|api[-_]?key|secret|token|credential|private[-_]?key|client[-_]?secret|access[-_]?key|auth(entication)?)/i;
+const MODEL_AGENT_CONFIG = Object.freeze({
+  copilot: { label: "Copilot", settingKey: "GITHUB_MODEL" },
+  claude: { label: "Claude", settingKey: "CLAUDE_MODEL" },
+  gemini: { label: "Gemini", settingKey: "GEMINI_MODEL" },
+});
+const MODEL_AGENT_OPTIONS = Object.entries(MODEL_AGENT_CONFIG).map(([value, item]) => ({
+  value,
+  label: item.label,
+  description: `${item.settingKey} target`,
+}));
+
+let currentSettingsMap = new Map();
+let modelCatalogState = {
+  agent: "copilot",
+  settingKey: "GITHUB_MODEL",
+  supported: false,
+  models: [],
+};
+
+const modelCatalogAgentPicker = createStaticOptionSelect({
+  wrapId: "modelCatalogAgentSelectWrap",
+  triggerId: "modelCatalogAgentTrigger",
+  triggerTextId: "modelCatalogAgentTriggerText",
+  dropdownId: "modelCatalogAgentDropdown",
+  searchId: "modelCatalogAgentSearch",
+  optionsId: "modelCatalogAgentOptions",
+  valueId: "modelCatalogAgentValue",
+  options: MODEL_AGENT_OPTIONS,
+});
 
 function setSettingsStatus(message, variant = "muted") {
-  settingsStatus.textContent = message || "";
-  settingsStatus.classList.remove("text-muted", "text-danger", "text-success");
-  settingsStatus.classList.add(
+  if (!message || variant === "muted") return;
+  showBanner(message, variant);
+}
+
+function setModelCatalogStatus(message, variant = "muted") {
+  if (!modelCatalogStatus) return;
+  modelCatalogStatus.textContent = message || "";
+  modelCatalogStatus.classList.remove("text-muted", "text-danger", "text-success");
+  modelCatalogStatus.classList.add(
     variant === "danger" ? "text-danger" : variant === "success" ? "text-success" : "text-muted"
   );
 }
@@ -2882,7 +2922,175 @@ function renderSettingsTable(items = []) {
 async function loadCurrentSettings() {
   const resp = await apiRequest("/settings");
   const list = resp?.data ?? resp;
+  currentSettingsMap = new Map(
+    (Array.isArray(list) ? list : []).map((item) => [String(item?.key || "").trim(), String(item?.value || "")])
+  );
   renderSettingsTable(Array.isArray(list) ? list : []);
+}
+
+function formatTokenCount(value) {
+  const numberValue = Number(value);
+  if (!Number.isFinite(numberValue) || numberValue <= 0) return "—";
+  if (numberValue >= 1000000) return `${(numberValue / 1000000).toFixed(numberValue % 1000000 === 0 ? 0 : 1)}M`;
+  if (numberValue >= 1000) return `${(numberValue / 1000).toFixed(numberValue % 1000 === 0 ? 0 : 1)}K`;
+  return String(numberValue);
+}
+
+function getSelectedModelCatalogQuery() {
+  return String(modelCatalogSearchInput?.value || "").trim().toLowerCase();
+}
+
+function renderModelCatalogTable() {
+  if (!modelCatalogTableBody) return;
+
+  const { models = [], supported = false, settingKey = "" } = modelCatalogState || {};
+  if (modelCatalogSettingKey) {
+    modelCatalogSettingKey.textContent = settingKey || "—";
+  }
+
+  if (!supported) {
+    modelCatalogTableBody.innerHTML = `<tr><td colspan="6" class="text-center text-muted small">Catalog is not available for this agent yet.</td></tr>`;
+    return;
+  }
+
+  const query = getSelectedModelCatalogQuery();
+  const filteredModels = models.filter((model) => {
+    if (!query) return true;
+    const haystack = [
+      model.id,
+      model.name,
+      model.publisher,
+      model.summary,
+      ...(Array.isArray(model.tags) ? model.tags : []),
+      ...(Array.isArray(model.capabilities) ? model.capabilities : []),
+    ]
+      .map((item) => String(item || "").toLowerCase())
+      .join(" ");
+    return haystack.includes(query);
+  });
+
+  if (!filteredModels.length) {
+    modelCatalogTableBody.innerHTML = `<tr><td colspan="6" class="text-center text-muted small">No models match the current filter.</td></tr>`;
+    return;
+  }
+
+  const currentValue = String(currentSettingsMap.get(settingKey) || "").trim();
+  modelCatalogTableBody.innerHTML = "";
+
+  filteredModels.forEach((model) => {
+    const isCurrent = currentValue && currentValue === String(model.id || "").trim();
+    const capabilityBadges = (Array.isArray(model.capabilities) ? model.capabilities : [])
+      .slice(0, 3)
+      .map((capability) => `<span class="badge bg-light text-secondary border me-1 mb-1">${escapeHtml(capability)}</span>`)
+      .join("");
+
+    const row = document.createElement("tr");
+    row.innerHTML = `
+      <td>
+        <div class="fw-semibold d-flex align-items-center gap-2 flex-wrap">
+          <span>${escapeHtml(model.name || model.id || "—")}</span>
+          ${isCurrent ? '<span class="badge bg-success-subtle text-success border border-success-subtle">Current</span>' : ""}
+        </div>
+        <div class="small text-muted"><code>${escapeHtml(model.id || "—")}</code></div>
+      </td>
+      <td>
+        <div>${escapeHtml(model.publisher || "—")}</div>
+        <div class="small text-muted">${escapeHtml(model.rateLimitTier || "")}</div>
+      </td>
+      <td>
+        <div class="small">${escapeHtml(model.summary || "No summary available.")}</div>
+        ${model.htmlUrl ? `<div class="mt-1"><a href="${escapeHtml(model.htmlUrl)}" target="_blank" rel="noreferrer" class="small">Open details</a></div>` : ""}
+      </td>
+      <td><div class="small">${capabilityBadges || '<span class="text-muted">—</span>'}</div></td>
+      <td>
+        <div class="small fw-semibold">${formatTokenCount(model.maxInputTokens)}</div>
+        <div class="small text-muted">input tokens</div>
+      </td>
+      <td class="text-end">
+        <button type="button" class="btn btn-sm ${isCurrent ? "btn-outline-success" : "btn-outline-primary"} model-catalog-apply-btn" data-model-id="${escapeHtml(model.id || "")}">
+          ${isCurrent ? '<i class="bi bi-check2-circle me-1"></i>Applied' : '<i class="bi bi-box-arrow-in-down-left me-1"></i>Use Model'}
+        </button>
+      </td>
+    `;
+    modelCatalogTableBody.appendChild(row);
+  });
+
+  modelCatalogTableBody.querySelectorAll(".model-catalog-apply-btn").forEach((btn) => {
+    btn.addEventListener("click", async () => {
+      const modelId = String(btn.dataset.modelId || "").trim();
+      const targetSettingKey = String(modelCatalogState.settingKey || "").trim();
+      if (!modelId || !targetSettingKey) return;
+
+      const exists = currentSettingsMap.has(targetSettingKey);
+      const originalHtml = btn.innerHTML;
+      btn.disabled = true;
+      btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1" role="status"></span>Applying';
+
+      try {
+        await apiRequest(exists ? `/settings/${encodeURIComponent(targetSettingKey)}` : "/settings", {
+          method: exists ? "PUT" : "POST",
+          body: JSON.stringify(exists ? { value: modelId } : { settings: [{ key: targetSettingKey, value: modelId }] }),
+        });
+
+        await loadSettingsPageData({ preserveCatalog: true });
+        setModelCatalogStatus(`Applied ${modelId} to ${targetSettingKey}.`, "success");
+        setSettingsStatus(`Setting ${targetSettingKey} updated from catalog.`, "success");
+        showBanner(`Model ${modelId} applied to ${targetSettingKey}.`, "success");
+      } catch (error) {
+        setModelCatalogStatus(`Failed to apply model: ${error.message}`, "danger");
+        showBanner(`Failed to apply model: ${error.message}`, "danger");
+      } finally {
+        btn.disabled = false;
+        btn.innerHTML = originalHtml;
+      }
+    });
+  });
+}
+
+async function loadModelCatalog(agent = "copilot") {
+  const normalizedAgent = String(agent || modelCatalogAgentPicker?.getValue() || modelCatalogAgentValue?.value || "copilot").trim().toLowerCase() || "copilot";
+  const fallbackConfig = MODEL_AGENT_CONFIG[normalizedAgent] || MODEL_AGENT_CONFIG.copilot;
+
+  modelCatalogState = {
+    ...modelCatalogState,
+    agent: normalizedAgent,
+    settingKey: fallbackConfig.settingKey,
+  };
+
+  if (modelCatalogAgentValue) {
+    modelCatalogAgentValue.value = normalizedAgent;
+  }
+
+  if (modelCatalogSettingKey) {
+    modelCatalogSettingKey.textContent = fallbackConfig.settingKey;
+  }
+
+  setModelCatalogStatus(`Loading ${fallbackConfig.label} catalog...`);
+  modelCatalogTableBody.innerHTML = `<tr><td colspan="6" class="text-center text-muted small"><span class="spinner-border spinner-border-sm me-2" role="status"></span>Fetching model catalog...</td></tr>`;
+
+  try {
+    const resp = await apiRequest(`/settings/models?agent=${encodeURIComponent(normalizedAgent)}`);
+    const data = resp?.data ?? resp ?? {};
+    modelCatalogState = {
+      agent: normalizedAgent,
+      settingKey: String(data.settingKey || fallbackConfig.settingKey || "").trim(),
+      supported: Boolean(data.supported),
+      models: Array.isArray(data.models) ? data.models : [],
+      message: String(data.message || "").trim(),
+    };
+    renderModelCatalogTable();
+    setModelCatalogStatus(modelCatalogState.message || `Loaded ${modelCatalogState.models.length} model(s).`, modelCatalogState.supported ? "success" : "muted");
+  } catch (error) {
+    modelCatalogState = {
+      agent: normalizedAgent,
+      settingKey: fallbackConfig.settingKey,
+      supported: false,
+      models: [],
+      message: "",
+    };
+    modelCatalogTableBody.innerHTML = `<tr><td colspan="6" class="text-center text-danger small">Failed to load model catalog: ${escapeHtml(error.message)}</td></tr>`;
+    setModelCatalogStatus(`Failed to load model catalog: ${error.message}`, "danger");
+  }
 }
 
 function collectSettingRowsPayload() {
@@ -2918,7 +3126,7 @@ function findDuplicateSettingKeys(entries = []) {
   return Array.from(duplicates);
 }
 
-async function loadSettingsPageData() {
+async function loadSettingsPageData({ preserveCatalog = false } = {}) {
   setSettingsStatus("Loading settings...");
   await loadAvailableSettingKeys();
   await loadCurrentSettings();
@@ -2926,6 +3134,11 @@ async function loadSettingsPageData() {
   if (!settingsRows.querySelector(".setting-row")) {
     appendSettingRow();
   }
+
+  const selectedAgent = preserveCatalog
+    ? String(modelCatalogState.agent || modelCatalogAgentPicker?.getValue() || modelCatalogAgentValue?.value || "copilot").trim().toLowerCase()
+    : String(modelCatalogAgentPicker?.getValue() || modelCatalogAgentValue?.value || "copilot").trim().toLowerCase();
+  await loadModelCatalog(selectedAgent || "copilot");
 
   setSettingsStatus("Settings loaded.");
 }
@@ -2981,6 +3194,21 @@ refreshSettingsBtn.addEventListener("click", () => {
       refreshSettingsBtn.disabled = false;
     }, 600);
   });
+});
+modelCatalogAgentValue?.addEventListener("change", () => {
+  loadModelCatalog(modelCatalogAgentPicker?.getValue() || modelCatalogAgentValue.value);
+});
+modelCatalogSearchInput?.addEventListener("input", () => {
+  renderModelCatalogTable();
+});
+refreshModelCatalogBtn?.addEventListener("click", async () => {
+  refreshModelCatalogBtn.classList.add("btn-spin");
+  refreshModelCatalogBtn.disabled = true;
+  await loadModelCatalog(modelCatalogAgentPicker?.getValue() || modelCatalogAgentValue?.value || modelCatalogState.agent || "copilot");
+  setTimeout(() => {
+    refreshModelCatalogBtn.classList.remove("btn-spin");
+    refreshModelCatalogBtn.disabled = false;
+  }, 500);
 });
 document.getElementById("settings-tab").addEventListener("shown.bs.tab", loadSettingsPageData);
 

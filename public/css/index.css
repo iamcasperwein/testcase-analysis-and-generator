@@ -2593,3 +2593,27 @@
     .setting-secret-wrap.is-revealed .setting-value-text {
       color: #0f172a;
     }
+
+    #settingsSubTabs .nav-link:not(.active) {
+      color: #1e293b;
+    }
+    #settingsSubTabs .nav-link:not(.active):hover {
+      color: #0f172a;
+    }
+
+    #modelCatalogTableWrap {
+      max-height: calc(100vh - 400px);
+      min-height: 120px;
+      overflow-x: auto;
+      overflow-y: auto !important;
+      border: 1px solid #dde8fb;
+      border-radius: 0.65rem;
+      box-shadow: 0 2px 8px rgba(13,110,253,0.04);
+    }
+    #modelCatalogTableWrap thead th {
+      position: sticky;
+      top: 0;
+      z-index: 2;
+      background: #f4f8ff;
+      box-shadow: 0 1px 0 #dde8fb;
+    }
