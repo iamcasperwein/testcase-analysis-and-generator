@@ -1,15 +1,19 @@
 const fs = require("fs")
 const path = require("path")
 const dotenv = require("dotenv")
+const axios = require("axios")
 
 const ENV_FILE_PATH = path.join(__dirname, "../.env")
+const GITHUB_MODELS_CATALOG_URL = "https://models.github.ai/catalog/models"
 
 const DEFAULT_SETTING_KEYS = [
 	{ key: "PORT", confidential: false },
 	{ key: "GEMINI_API_KEY", confidential: true },
+	{ key: "GEMINI_MODEL", confidential: false },
 	{ key: "GITHUB_TOKEN", confidential: true },
 	{ key: "GITHUB_MODEL", confidential: false },
 	{ key: "GITHUB_MODELS_API_URL", confidential: false },
+	{ key: "CLAUDE_MODEL", confidential: false },
 	{ key: "TESTRAIL_API_KEY", confidential: true },
 	{ key: "TESTRAIL_PASSWORD", confidential: true },
 	{ key: "TESTRAIL_URL", confidential: false },
@@ -28,6 +32,45 @@ const createValidationError = (message, statusCode = 400) => {
 	error.statusCode = statusCode
 	return error
 }
+
+const normalizeAgent = (value = "") => String(value || "").trim().toLowerCase()
+
+const MODEL_CATALOGS = Object.freeze({
+	copilot: {
+		agent: "copilot",
+		label: "GitHub Models",
+		settingKey: "GITHUB_MODEL",
+		supported: true,
+	},
+	claude: {
+		agent: "claude",
+		label: "Anthropic",
+		settingKey: "CLAUDE_MODEL",
+		supported: false,
+		message: "Claude model catalog browsing is not wired yet. Set CLAUDE_MODEL manually for now.",
+	},
+	gemini: {
+		agent: "gemini",
+		label: "Google Gemini",
+		settingKey: "GEMINI_MODEL",
+		supported: false,
+		message: "Gemini model catalog browsing is not wired yet. Set GEMINI_MODEL manually for now.",
+	},
+})
+
+const normalizeGithubCatalogItem = (item = {}) => ({
+	id: String(item.id || "").trim(),
+	name: String(item.name || item.id || "").trim(),
+	publisher: String(item.publisher || "").trim(),
+	summary: String(item.summary || "").trim(),
+	registry: String(item.registry || "").trim(),
+	rateLimitTier: String(item.rate_limit_tier || "").trim(),
+	capabilities: Array.isArray(item.capabilities) ? item.capabilities : [],
+	tags: Array.isArray(item.tags) ? item.tags : [],
+	htmlUrl: String(item.html_url || "").trim(),
+	maxInputTokens: Number.isFinite(Number(item?.limits?.max_input_tokens)) ? Number(item.limits.max_input_tokens) : null,
+	maxOutputTokens: Number.isFinite(Number(item?.limits?.max_output_tokens)) ? Number(item.limits.max_output_tokens) : null,
+})
 
 const ensureEnvFileExists = () => {
 	if (fs.existsSync(ENV_FILE_PATH)) {
@@ -222,10 +265,51 @@ const deleteSetting = async (key) => {
 	}
 }
 
+const getModelCatalog = async (agent) => {
+	const normalizedAgent = normalizeAgent(agent)
+	const catalogConfig = MODEL_CATALOGS[normalizedAgent]
+
+	if (!catalogConfig) {
+		throw createValidationError(`Unsupported agent: ${agent}`, 404)
+	}
+
+	if (!catalogConfig.supported) {
+		return {
+			agent: catalogConfig.agent,
+			label: catalogConfig.label,
+			settingKey: catalogConfig.settingKey,
+			supported: false,
+			message: catalogConfig.message || "Model catalog is not available for this agent yet.",
+			models: [],
+		}
+	}
+
+	const response = await axios.get(GITHUB_MODELS_CATALOG_URL, {
+		headers: {
+			Accept: "application/json",
+		},
+		timeout: 20000,
+	})
+
+	const models = Array.isArray(response?.data)
+		? response.data.map(normalizeGithubCatalogItem).filter((item) => item.id)
+		: []
+
+	return {
+		agent: catalogConfig.agent,
+		label: catalogConfig.label,
+		settingKey: catalogConfig.settingKey,
+		supported: true,
+		message: `${models.length} model(s) available from ${catalogConfig.label}.`,
+		models,
+	}
+}
+
 module.exports = {
 	getSettings,
 	getAvailableKeys,
 	createSettings,
 	updateSetting,
 	deleteSetting,
+	getModelCatalog,
 }

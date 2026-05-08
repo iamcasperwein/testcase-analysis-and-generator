@@ -4,6 +4,7 @@ const router = express.Router()
 const Settings = require("../controller/Settings")
 
 router.get("/key", Settings.getSettingKeys)
+router.get("/models", Settings.getModelCatalog)
 router.get("/", Settings.getSettings)
 router.post("/", Settings.createSettings)
 router.put("/:key", Settings.updateSetting)
