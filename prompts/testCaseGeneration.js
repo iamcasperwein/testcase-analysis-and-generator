@@ -177,11 +177,77 @@ const formatDocumentSection = (docType, document) => {
     ].join("\n");
 };
 
+const formatAdditionalDocuments = (additionalDocuments = []) => {
+    if (!Array.isArray(additionalDocuments) || !additionalDocuments.length) return "";
+    const sections = additionalDocuments
+        .filter(doc => doc && (doc.content || doc.name))
+        .map((doc, index) => {
+            const label = resolveAdditionalDocumentLabel(doc, index);
+            const name = normalizeText(doc.name) || label.toLowerCase();
+            const content = normalizeText(doc.content);
+            if (!content) return `### ${label}\nFile: ${name}\nNot extracted (binary or empty).`;
+            return [`### ${label}`, `File: ${name}`, "```text", content, "```"].join("\n");
+        });
+    if (!sections.length) return "";
+    return "\n### Additional Documents\n" + sections.join("\n\n");
+};
+
+const describeExtractionStatus = (content = "") => {
+    const length = normalizeText(content).length;
+    if (!length) return "not extracted";
+    if (length < 120) return `partial (${length} chars)`;
+    return `extracted (${length} chars)`;
+};
+
+const resolveAdditionalDocumentLabel = (doc = {}, index = 0) => {
+    const docType = normalizeText(doc?.docType).toUpperCase();
+    const name = normalizeText(doc?.name || doc?.originalName);
+    const genericTypes = new Set(["", "ADDITIONAL", "OTHER", "CUSTOM", "MISC"]);
+    const preferredSource = genericTypes.has(docType) ? name : docType || name;
+    const normalized = normalizeText(preferredSource).toUpperCase();
+
+    if (/(^|\b)RFC(\b|$)/i.test(normalized)) return "RFC";
+    if (/(^|\b)FIGMA(\b|$)/i.test(normalized)) return "FIGMA";
+    if (/(^|\b)PRD(\b|$)/i.test(normalized)) return "PRD";
+    return normalized || `ADDITIONAL ${index + 1}`;
+};
+
+const buildDocumentInventory = (documents = {}, additionalDocuments = []) => {
+    const coreRows = ["prd", "rfc", "figma"].map((docType) => {
+        const label = DOCUMENT_LABELS[docType] || String(docType || "").toUpperCase();
+        const doc = documents?.[docType] || {};
+        const name = normalizeText(doc?.name) || "Not provided";
+        const status = describeExtractionStatus(doc?.content);
+        return `- ${label}: ${name} (${status})`;
+    });
+
+    const additionalRows = Array.isArray(additionalDocuments)
+        ? additionalDocuments.map((doc, index) => {
+            const label = resolveAdditionalDocumentLabel(doc, index);
+            const name = normalizeText(doc?.name) || "Unnamed document";
+            const status = describeExtractionStatus(doc?.content);
+            return `- ${label.toUpperCase()}: ${name} (${status})`;
+        })
+        : [];
+
+    return [
+        "Document Inventory:",
+        ...coreRows,
+        ...(additionalRows.length ? additionalRows : ["- Additional Documents: None"]),
+    ].join("\n");
+};
+
 const getAttachedDocumentLabels = (documents, input = {}) => {
     const byText = ["prd", "rfc", "figma"].filter((docType) => documents?.[docType]?.content);
     const byUpload = ["prd", "rfc", "figma"].filter((docType) => Boolean(input.uploadedFiles?.[docType]));
+    const additionalDocs = Array.isArray(input.additionalDocuments) ? input.additionalDocuments : [];
+    const additionalLabels = additionalDocs
+        .map((doc, index) => resolveAdditionalDocumentLabel(doc, index))
+        .filter(Boolean)
+        .map((value) => value.toUpperCase());
     const merged = Array.from(new Set([...byText, ...byUpload]));
-    return merged.map((docType) => DOCUMENT_LABELS[docType]);
+    const baseLabels = merged.map((docType) => DOCUMENT_LABELS[docType]);
+    return Array.from(new Set([...baseLabels, ...additionalLabels]));
 };
 
 const normalizePromptInput = (input = {}) => {
@@ -231,13 +297,15 @@ const normalizePromptInput = (input = {}) => {
             parsedRawContent.supplementalContext,
         ].filter(Boolean).join("\n\n"),
         documents,
+        additionalDocuments: Array.isArray(input.additionalDocuments) ? input.additionalDocuments : [],
     };
 };
 
 const buildTestCaseGenerationPrompt = (input = {}) => {
-    const { feature, platform, additionalContext, documents } = normalizePromptInput(input);
+    const { feature, platform, additionalContext, documents, additionalDocuments } = normalizePromptInput(input);
     const analysisContext = String(input.analysisContext || "").trim();
     const attachedLabels = getAttachedDocumentLabels(documents, input);
+    const documentInventory = buildDocumentInventory(documents, additionalDocuments);
 
     const lines = [
         "You are a Senior QE Engineer.",
@@ -245,12 +313,13 @@ const buildTestCaseGenerationPrompt = (input = {}) => {
         "Use the PRD as the primary source of truth. Use RFC and Figma content when provided to refine workflows, business rules, UI states, and edge cases.",
         "Group related cases into sections and keep each test case precise, executable, and review-friendly.",
         "",
-        "Product Context:",
+        "Product Context:", 
         `- Feature: ${feature}`,
         `- Platform: ${platform}`,
         `- Additional Context: ${additionalContext || "N/A"}`,
         `- Attached Documents: ${attachedLabels.join(", ") || "PRD only / fallback context"}`,
         "- Some attached files may be binary (PDF/image). Use attached file context in addition to extracted text sections.",
+        documentInventory,
         "",
         "Source Documents:",
         formatDocumentSection("prd", documents.prd),
@@ -258,6 +327,7 @@ const buildTestCaseGenerationPrompt = (input = {}) => {
         formatDocumentSection("rfc", documents.rfc),
         "",
         formatDocumentSection("figma", documents.figma),
+        formatAdditionalDocuments(additionalDocuments),
     ];
 
     if (analysisContext) {
@@ -282,7 +352,9 @@ const buildTestCaseGenerationPrompt = (input = {}) => {
         '- Each section must contain a "testCases" array.',
         "- Derive test case sections from the Testing Analysis scope and edge cases when available.",
         "- If RFC or Figma is missing, do not invent those details.",
+        "- Consider every entry in Document Inventory and Additional Documents. Do not ignore listed artifacts.",
         "- If documents conflict, prioritize PRD for scope, then use RFC for implementation detail, then Figma for UI behavior.",
+        "- For additional documents: treat labels containing RFC as implementation guidance, labels containing FIGMA as UI guidance, and others as supporting constraints.",
         "- Use concise but complete steps and expected results.",
         "- Each step in the 'steps' array MUST be an object with 'content' (the action) and 'expected' (the expected result for that step).",
         "- If the expected result for a specific step is unknown or not applicable, use 'N/A' as the value.",
@@ -306,8 +378,9 @@ const buildTestCaseGenerationPrompt = (input = {}) => {
 };
 
 const buildTestAnalysisPrompt = (input = {}) => {
-    const { feature, platform, additionalContext, documents } = normalizePromptInput(input);
+    const { feature, platform, additionalContext, documents, additionalDocuments } = normalizePromptInput(input);
     const attachedLabels = getAttachedDocumentLabels(documents, input);
+    const documentInventory = buildDocumentInventory(documents, additionalDocuments);
 
     return [
         "You are a Senior QE Engineer.",
@@ -320,6 +393,7 @@ const buildTestAnalysisPrompt = (input = {}) => {
         `- Additional Context: ${additionalContext || "N/A"}`,
         `- Attached Documents: ${attachedLabels.join(", ") || "PRD only / fallback context"}`,
         "- Some attached files may be binary (PDF/image). Use attached file context in addition to extracted text sections.",
+        documentInventory,
         "",
         "Source Documents:",
         formatDocumentSection("prd", documents.prd),
@@ -327,11 +401,12 @@ const buildTestAnalysisPrompt = (input = {}) => {
         formatDocumentSection("rfc", documents.rfc),
         "",
         formatDocumentSection("figma", documents.figma),
+        formatAdditionalDocuments(additionalDocuments),
         "",
         "Required document structure (use exactly these markdown headings):",
         "",
         "# Testing Analysis Document",
-        "(Include metadata: Feature, Platform, Primary Source, RFC, Figma)",
+        "(Include metadata: Feature, Platform, Primary Source, RFC, Figma, Additional Sources)",
         "",
         "## 1. Summary / Overview",
         "(Brief overview of what the feature does and the testing goal)",
@@ -360,6 +435,8 @@ const buildTestAnalysisPrompt = (input = {}) => {
         "- Do NOT return JSON.",
         "- Keep it concise and actionable.",
         "- If RFC/Figma is missing, explicitly mention assumptions and avoid invented details.",
+        "- You MUST include an 'Additional Sources' metadata line listing every additional document name from Document Inventory.",
+        "- If any document is marked partial/not extracted, mention that limitation explicitly in assumptions.",
         "- When listing test scenarios or cases in the analysis, use the naming pattern: Object + Expectation + Condition (e.g., 'The user should be able to submit the form when all fields are valid').",
     ].join("\n");
 };

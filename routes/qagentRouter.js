@@ -32,8 +32,7 @@ const upload = multer({
 
 router.post("/ask", upload.fields([
     { name: "prd", maxCount: 1 },
-    { name: "rfc", maxCount: 1 },
-    { name: "figma", maxCount: 1 },
+    { name: "additionalDocs", maxCount: 20 },
 ]), QAgent.askAi)
 
 router.post("/retry/:promptId", QAgent.retryPrompt)

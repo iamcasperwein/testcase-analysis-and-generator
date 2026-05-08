@@ -416,5 +416,101 @@
         "resultTestCases": "testcases/01KQZ76QBD4X1E0K1TKSGHV6YR.json",
         "failureNote": null,
         "errorMessage": null
+    },
+    {
+        "promptId": "01KQZEVH4JZNF4BW7RPFZA9Y6K",
+        "projectName": "Login Register Page 2",
+        "status": "COMPLETED",
+        "agent": "claude",
+        "docType": "prd",
+        "prdUrl": "PRD_Login_Register.pdf",
+        "rfcUrl": null,
+        "figmaUrl": null,
+        "createdAt": "2026-05-06T20:14:48.552Z",
+        "startAt": "2026-05-06T20:14:48.554Z",
+        "endAt": "2026-05-06T20:17:28.606Z",
+        "testCaseCount": 26,
+        "resultAnalysis": "analyze/01KQZEVH4JZNF4BW7RPFZA9Y6K.md",
+        "resultTestCases": "testcases/01KQZEVH4JZNF4BW7RPFZA9Y6K.json",
+        "failureNote": null,
+        "errorMessage": null
+    },
+    {
+        "promptId": "01KR0C2D254FS5RMRNMDCF9N82",
+        "projectName": "Revamp Login Register",
+        "status": "COMPLETED",
+        "agent": "claude",
+        "docType": "prd",
+        "prdUrl": "PRD_Login_Register.pdf",
+        "rfcUrl": null,
+        "figmaUrl": null,
+        "createdAt": "2026-05-07T04:45:22.512Z",
+        "startAt": "2026-05-07T04:45:22.514Z",
+        "endAt": "2026-05-07T04:48:15.516Z",
+        "testCaseCount": 24,
+        "resultAnalysis": "analyze/01KR0C2D254FS5RMRNMDCF9N82.md",
+        "resultTestCases": "testcases/01KR0C2D254FS5RMRNMDCF9N82.json",
+        "failureNote": null,
+        "errorMessage": null
+    },
+    {
+        "promptId": "01KR125ZDVJNAAA07GYEAHKK5C",
+        "projectName": "Retention Pop Up",
+        "status": "COMPLETED",
+        "agent": "copilot",
+        "docType": "prd",
+        "prdUrl": "PRD-Retention Pop Up.pdf",
+        "rfcUrl": null,
+        "figmaUrl": null,
+        "createdAt": "2026-05-07T11:11:48.376Z",
+        "startAt": "2026-05-07T11:40:46.219Z",
+        "endAt": "2026-05-07T11:42:07.435Z",
+        "testCaseCount": 17,
+        "resultAnalysis": "analyze/01KR125ZDVJNAAA07GYEAHKK5C.md",
+        "resultTestCases": "testcases/01KR125ZDVJNAAA07GYEAHKK5C.json",
+        "failureNote": null,
+        "errorMessage": null
+    },
+   {
+        "promptId": "01KR2TA619BVWP5SWGJ0WD27T0",
+        "projectName": "Retention Pop Up",
+        "status": "COMPLETED",
+        "agent": "copilot",
+        "model": "openai/gpt-4.1",
+        "docType": "prd",
+        "prdUrl": "PRD-Retention Pop Up.pdf",
+        "rfcUrl": null,
+        "figmaUrl": null,
+        "createdAt": "2026-05-08T03:32:46.421Z",
+        "startAt": "2026-05-08T03:32:46.423Z",
+        "endAt": "2026-05-08T03:33:33.949Z",
+        "testCaseCount": 27,
+        "resultAnalysis": "analyze/01KR2TA619BVWP5SWGJ0WD27T0.md",
+        "resultTestCases": "testcases/01KR2TA619BVWP5SWGJ0WD27T0.json",
+        "additionalDocuments": [
+            {
+                "docType": "OTHER",
+                "name": "RFC App and Web",
+                "filename": "",
+                "originalName": "RFC-Retention Pop Up.pdf",
+                "path": "/Users/casper.weinberger/Documents/github/qe-test-case-generator/data/uploads/01KR2TA619BVWP5SWGJ0WD27T0_OTHER_0.pdf"
+            },
+            {
+                "docType": "FIGMA",
+                "name": "Figma - App.pdf",
+                "filename": "",
+                "originalName": "Figma - App.pdf",
+                "path": "/Users/casper.weinberger/Documents/github/qe-test-case-generator/data/uploads/01KR2TA619BVWP5SWGJ0WD27T0_FIGMA_1.pdf"
+            },
+            {
+                "docType": "FIGMA",
+                "name": "Figma - Web.pdf",
+                "filename": "",
+                "originalName": "Figma - Web.pdf",
+                "path": "/Users/casper.weinberger/Documents/github/qe-test-case-generator/data/uploads/01KR2TA619BVWP5SWGJ0WD27T0_FIGMA_2.pdf"
+            }
+        ],
+        "failureNote": null,
+        "errorMessage": null
     }
 ]

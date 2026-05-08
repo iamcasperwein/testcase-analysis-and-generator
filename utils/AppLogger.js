@@ -43,6 +43,11 @@ const normalizeFileName = ({ service, promptId, fileName }) => {
 	return `runtime/${service}.txt`
 }
 
+const getJakartaTimestamp = () => {
+	const jakartaEpoch = Date.now() + 7 * 60 * 60 * 1000
+	return new Date(jakartaEpoch).toISOString().replace("Z", "+07:00")
+}
+
 const createActionLogger = ({
 	service = "app",
 	action = "operation",
@@ -62,7 +67,7 @@ const createActionLogger = ({
 	}
 
 	const write = (level, message, meta, consoleMethod = "log") => {
-		const timestamp = new Date().toISOString()
+		const timestamp = getJakartaTimestamp()
 		const text = String(message || "").trim() || "(no message)"
 		const prefix = `[${timestamp}] [${level}] [${safeService}] [${safeAction}]`
 		const promptTag = safePromptId ? ` [promptId=${safePromptId}]` : ""

@@ -21,6 +21,20 @@ const AGENTS = Object.freeze({
     }),
 });
 
+const DEFAULT_MODELS = Object.freeze({
+    copilot: String(process.env.GITHUB_MODEL || "openai/gpt-5-chat").trim(),
+    claude: String(process.env.CLAUDE_MODEL || "claude-sonnet-4-6").trim(),
+    gemini: String(process.env.GEMINI_MODEL || "models/gemini-2.5-flash").trim(),
+});
+
+const resolveModelName = (agent = "", payload = {}) => {
+    const explicitModel = String(payload?.model || payload?.modelName || "").trim();
+    if (explicitModel) return explicitModel;
+
+    const normalizedAgent = String(agent || "").trim().toLowerCase();
+    return DEFAULT_MODELS[normalizedAgent] || null;
+};
+
 const SubmissionValidationError = class extends Error {
     constructor(message) {
         super(message);
@@ -55,6 +69,18 @@ const readPromptData = () => {
 
 const writePromptData = (records) => {
     FileReader.writeDataFile("promptdata.json", records);
+};
+
+const writePromptSnapshot = (promptId, stage, prompt) => {
+    const safePromptId = String(promptId || "").trim();
+    const safeStage = String(stage || "prompt").trim().toLowerCase();
+    const text = String(prompt || "");
+
+    if (!safePromptId || !text.trim()) {
+        return;
+    }
+
+    FileReader.writeDataFile(`runtime/prompts/${safePromptId}-${safeStage}.txt`, text);
 };
 
 const appendPromptRecord = (record) => {
@@ -138,11 +164,12 @@ const normalizeGeneratedTestCases = (generated, featureFallback = "") => {
     };
 };
 
-const createInitialRecord = ({ promptId, payload, agent }) => ({
+const createInitialRecord = ({ promptId, payload, agent, model }) => ({
     promptId,
     projectName: String(payload.projectName || payload.feature || "").trim() || null,
     status: "RECEIVED",
     agent,
+    model: String(model || payload?.model || "").trim() || null,
     docType: String(payload.docType || "").trim() || null,
     prdUrl: String(payload.prdUrl || payload.documents?.prd?.name || "").trim() || null,
     rfcUrl: String(payload.rfcUrl || payload.documents?.rfc?.name || "").trim() || null,
@@ -153,6 +180,15 @@ const createInitialRecord = ({ promptId, payload, agent }) => ({
     testCaseCount: null,
     resultAnalysis: `analyze/${promptId}.md`,
     resultTestCases: `testcases/${promptId}.json`,
+    additionalDocuments: Array.isArray(payload.additionalDocuments)
+        ? payload.additionalDocuments.map((doc = {}) => ({
+            docType: String(doc.docType || "").trim(),
+            name: String(doc.name || "").trim(),
+            filename: String(doc.filename || "").trim(),
+            originalName: String(doc.originalName || "").trim(),
+            path: String(doc.path || "").trim(),
+        }))
+        : [],
     failureNote: null,
     errorMessage: null,
 });
@@ -211,6 +247,28 @@ const enrichDocumentContents = async (documents = {}, logger = null) => {
     return enriched;
 };
 
+const enrichAdditionalDocuments = async (additionalDocuments = [], logger = null) => {
+    if (!Array.isArray(additionalDocuments) || !additionalDocuments.length) return [];
+    const enriched = [];
+    for (const doc of additionalDocuments) {
+        if (String(doc.content || "").trim()) {
+            enriched.push(doc);
+            continue;
+        }
+        if (!String(doc.path || "").trim()) {
+            enriched.push(doc);
+            continue;
+        }
+        logger?.step("Extracting additional document", { docType: doc.docType, name: doc.name });
+        const extracted = await extractTextFromFile(doc.path, logger);
+        enriched.push({ ...doc, content: extracted || "" });
+        if (extracted) {
+            logger?.success("Additional doc enriched", { docType: doc.docType, chars: extracted.length });
+        }
+    }
+    return enriched;
+};
+
 const sanitizeSubmissionPayload = (payload = {}) => {
     const projectName = String(payload.projectName || payload.feature || "").trim();
     if (!projectName) {
@@ -247,6 +305,7 @@ const sanitizeSubmissionPayload = (payload = {}) => {
     return {
         ...payload,
         agent: String(payload.agent || payload.agentName || "claude").trim().toLowerCase(),
+        model: String(payload.model || payload.modelName || "").trim(),
         projectName,
         feature: String(payload.feature || projectName).trim(),
         documents: normalizedDocuments,
@@ -294,7 +353,10 @@ const processSubmission = async (payload = {}, { isRetry = false } = {}) => {
     });
 
     const agent = normalizeAgentName(validatedPayload.agent || validatedPayload.agentName);
+    const selectedModel = resolveModelName(agent, validatedPayload);
+    validatedPayload.model = selectedModel || validatedPayload.model || "";
     logger.info("Agent selected", { promptId, agent, rawAgentValue: payload.agent });
+    logger.info("Model selected", { promptId, model: selectedModel || null });
 
     const runSelectedAgent = async ({ prompt, payload, mode }) => {
         const handler = AGENTS[agent];
@@ -314,7 +376,7 @@ const processSubmission = async (payload = {}, { isRetry = false } = {}) => {
             if (isAuthError || isConfigError) {
                 const agentKeyMap = {
                     gemini: "GEMINI_API_KEY",
-                    copilot: "COPILOT_TOKEN",
+                    copilot: "GITHUB_TOKEN",
                     claude: "CLAUDE_API_KEY",
                 };
                 const requiredKey = agentKeyMap[agent] || `API key for "${agent}"`;
@@ -338,11 +400,16 @@ const processSubmission = async (payload = {}, { isRetry = false } = {}) => {
     // Enrich documents with extracted text from uploaded files
     logger.step("Enriching document contents");
     validatedPayload.documents = await enrichDocumentContents(validatedPayload.documents, logger);
-    logger.success("Document enrichment complete");
+    validatedPayload.additionalDocuments = await enrichAdditionalDocuments(validatedPayload.additionalDocuments || [], logger);
+    logger.success("Document enrichment complete", { additionalDocs: validatedPayload.additionalDocuments.length });
 
     if (!isRetry) {
-        appendPromptRecord(createInitialRecord({ promptId, payload: validatedPayload, agent }));
+        appendPromptRecord(createInitialRecord({ promptId, payload: validatedPayload, agent, model: selectedModel }));
         logger.success("Prompt record created", { status: "RECEIVED" });
+    } else {
+        updatePromptRecord(promptId, {
+            model: selectedModel || null,
+        });
     }
 
     updatePromptRecord(promptId, { status: isRetry ? "RETRYING" : "IN_PROGRESS", startAt: new Date().toISOString(), endAt: null, failureNote: null, errorMessage: null });
@@ -374,6 +441,8 @@ const processSubmission = async (payload = {}, { isRetry = false } = {}) => {
                 additionalContext: validatedPayload.additionalContext || validatedPayload.context || "",
             });
             logger.success("Step 1/3 - Analysis prompt built", { chars: analysisPrompt.length });
+            writePromptSnapshot(promptId, "analysis", analysisPrompt);
+            logger.info("Step 1/3 - Analysis prompt snapshot saved", { path: `runtime/prompts/${promptId}-analysis.txt` });
 
             logger.step("Step 1/3 - Sending analysis prompt", { agent });
             analysisText = await runSelectedAgent({ prompt: analysisPrompt, payload: validatedPayload, mode: "analysis" });
@@ -393,6 +462,8 @@ const processSubmission = async (payload = {}, { isRetry = false } = {}) => {
             analysisContext: analysisText,
         });
         logger.success("Step 2/3 - Test case prompt built", { chars: testCasePrompt.length });
+        writePromptSnapshot(promptId, "testcases", testCasePrompt);
+        logger.info("Step 2/3 - Test case prompt snapshot saved", { path: `runtime/prompts/${promptId}-testcases.txt` });
 
         logger.step("Step 2/3 - Sending test case prompt", { agent });
         const generatedText = await runSelectedAgent({ prompt: testCasePrompt, payload: validatedPayload, mode: "testcases" });
