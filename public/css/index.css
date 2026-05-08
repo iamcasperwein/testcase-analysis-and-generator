@@ -2601,7 +2601,6 @@
       color: #0f172a;
     }
 
-    /* Model catalog table: scroll internally like the dashboard table */
     #modelCatalogTableWrap {
       max-height: calc(100vh - 400px);
       min-height: 120px;
