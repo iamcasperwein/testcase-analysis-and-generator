@@ -3,7 +3,7 @@
   "version": "0.0.0",
   "private": true,
   "scripts": {
-    "start": "nodemon --ext js,mjs,cjs app.js .env"
+    "start": "nodemon app.js"
   },
   "dependencies": {
     "@google/generative-ai": "^0.24.1",
