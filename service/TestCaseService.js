@@ -1,3 +1,4 @@
+const { ulid } = require("ulid");
 const FileReader = require("../utils/FileReader");
 const {
     DEFAULT_TEST_CASE_INPUT,
@@ -125,13 +126,29 @@ const normalizeOptionalNumber = (value) => {
     return Number.isFinite(asNumber) ? asNumber : null;
 };
 
+// Accepts both numeric (TestRail) and string "sec_xxx" (local) sectionIds
+const normalizeOptionalId = (value) => {
+    if (value == null || value === "") {
+        return null;
+    }
+    // String-based local ID (e.g. "sec_01ABC...")
+    if (typeof value === "string" && value.startsWith("sec_")) {
+        return value;
+    }
+    // Numeric TestRail ID
+    const asNumber = Number(value);
+    return Number.isFinite(asNumber) ? asNumber : null;
+};
+
+const generateLocalSectionId = () => `sec_${ulid()}`;
+
 const normalizeSectionMeta = (payload = {}, fallback = {}) => {
-    const fromPayloadSectionId = normalizeOptionalNumber(payload.sectionId);
+    const fromPayloadSectionId = normalizeOptionalId(payload.sectionId);
     const fromPayloadSuiteId = normalizeOptionalNumber(payload.suiteId || payload.suite_id);
     const fromPayloadSource = String(payload.sectionSource || payload.section_source || "").trim().toLowerCase();
 
     const merged = {
-        sectionId: fromPayloadSectionId != null ? fromPayloadSectionId : normalizeOptionalNumber(fallback.sectionId),
+        sectionId: fromPayloadSectionId != null ? fromPayloadSectionId : normalizeOptionalId(fallback.sectionId),
         suiteId: fromPayloadSuiteId != null ? fromPayloadSuiteId : normalizeOptionalNumber(fallback.suiteId),
         sectionSource: fromPayloadSource || String(fallback.sectionSource || "").trim().toLowerCase() || "ai",
     };
@@ -223,9 +240,19 @@ const editTestCase = async (promptId, testcaseId, payload = {}) => {
 
     sourceSection.testCases.splice(sourceTestCaseIndex, 1);
 
-    let targetSection = sectionGroups.find(
-        (section) => normalizeSectionName(section.section).toLowerCase() === nextSectionName.toLowerCase()
-    );
+    // Find target section by sectionId first, then fall back to name
+    const targetSectionId = normalizeOptionalId(payload.sectionId);
+    let targetSection = null;
+    if (targetSectionId != null) {
+        targetSection = sectionGroups.find(
+            (section) => section.sectionId != null && String(section.sectionId) === String(targetSectionId)
+        );
+    }
+    if (!targetSection) {
+        targetSection = sectionGroups.find(
+            (section) => normalizeSectionName(section.section).toLowerCase() === nextSectionName.toLowerCase()
+        );
+    }
 
     if (!targetSection) {
         targetSection = {
@@ -322,11 +349,164 @@ const deleteTestCase = async (promptId, testcaseId) => {
     };
 };
 
+const generateNextTestCaseId = (sectionGroups = []) => {
+    let maxNum = 0;
+    sectionGroups.forEach((section) => {
+        const testCases = Array.isArray(section.testCases) ? section.testCases : [];
+        testCases.forEach((tc) => {
+            const match = String(tc.id || "").match(/^TC-(\d+)$/i);
+            if (match) {
+                const num = parseInt(match[1], 10);
+                if (num > maxNum) maxNum = num;
+            }
+        });
+    });
+    return `TC-${String(maxNum + 1).padStart(3, "0")}`;
+};
+
+const addTestCase = async (promptId, sectionName, payload = {}) => {
+    const fileName = `testcases/${promptId}.json`;
+    const rawData = FileReader.readDataFile(fileName);
+    const parsedData = JSON.parse(rawData);
+    const sectionGroups = Array.isArray(parsedData.testCases) ? parsedData.testCases : [];
+
+    const targetSectionName = normalizeSectionName(sectionName);
+    const newId = generateNextTestCaseId(sectionGroups);
+
+    const newTestCase = sanitizeUpdatedTestCase({
+        ...payload,
+        id: newId,
+    }, newId);
+
+    // Ensure required fields have defaults
+    newTestCase.id = newId;
+    newTestCase.title = newTestCase.title || "";
+    newTestCase.type = newTestCase.type || "positive";
+    newTestCase.priority = newTestCase.priority || "medium";
+    newTestCase.preconditions = newTestCase.preconditions || [];
+    newTestCase.steps = newTestCase.steps || [];
+    newTestCase.expectedResult = newTestCase.expectedResult || "";
+
+    // Find existing section by sectionId first, then fall back to name
+    const incomingSectionId = normalizeOptionalId(payload.sectionId);
+    let targetSection = null;
+    if (incomingSectionId != null) {
+        targetSection = sectionGroups.find(
+            (section) => section.sectionId != null && String(section.sectionId) === String(incomingSectionId)
+        );
+    }
+    if (!targetSection) {
+        targetSection = sectionGroups.find(
+            (section) => normalizeSectionName(section.section).toLowerCase() === targetSectionName.toLowerCase()
+        );
+    }
+
+    if (!targetSection) {
+        const sectionMeta = normalizeSectionMeta(payload, {});
+        targetSection = {
+            section: targetSectionName,
+            sectionId: sectionMeta.sectionId || generateLocalSectionId(),
+            suiteId: sectionMeta.suiteId,
+            sectionSource: sectionMeta.sectionSource || "user",
+            testCases: [],
+        };
+        sectionGroups.push(targetSection);
+    }
+
+    targetSection.testCases = Array.isArray(targetSection.testCases) ? targetSection.testCases : [];
+    targetSection.testCases.push(newTestCase);
+
+    parsedData.testCases = sectionGroups;
+    FileReader.writeDataFile(fileName, parsedData);
+
+    return {
+        promptId,
+        testcaseId: newId,
+        data: parsedData,
+        addedTestCase: {
+            ...newTestCase,
+            section: targetSectionName,
+            sectionId: targetSection.sectionId ?? null,
+            suiteId: targetSection.suiteId ?? null,
+            sectionSource: targetSection.sectionSource || "ai",
+        },
+    };
+};
+
+const editSectionName = async (promptId, currentSectionName, newSectionName, sectionId = null) => {
+    const fileName = `testcases/${promptId}.json`;
+    const rawData = FileReader.readDataFile(fileName);
+    const parsedData = JSON.parse(rawData);
+    const sectionGroups = Array.isArray(parsedData.testCases) ? parsedData.testCases : [];
+
+    const normalizedCurrent = normalizeSectionName(currentSectionName).toLowerCase();
+    const normalizedNew = normalizeSectionName(newSectionName);
+
+    if (!normalizedNew || !normalizedNew.trim()) {
+        const error = new Error("New section name is required");
+        error.statusCode = 400;
+        throw error;
+    }
+
+    // Find the target section by sectionId first, then fall back to name
+    const resolvedSectionId = normalizeOptionalId(sectionId);
+    let targetSection = null;
+    if (resolvedSectionId != null) {
+        targetSection = sectionGroups.find(
+            (section) => section.sectionId != null && String(section.sectionId) === String(resolvedSectionId)
+        );
+    }
+    if (!targetSection) {
+        targetSection = sectionGroups.find(
+            (section) => normalizeSectionName(section.section).toLowerCase() === normalizedCurrent
+        );
+    }
+
+    if (!targetSection) {
+        const error = new Error("Section not found");
+        error.statusCode = 404;
+        throw error;
+    }
+
+    // Block renaming TestRail sections
+    const source = String(targetSection.sectionSource || "").toLowerCase();
+    if (source === "testrail") {
+        const error = new Error("Cannot rename a TestRail-synced section. Edit the section name directly in TestRail.");
+        error.statusCode = 403;
+        throw error;
+    }
+
+    // Check for name conflict with existing sections
+    const conflicting = sectionGroups.find(
+        (section) =>
+            normalizeSectionName(section.section).toLowerCase() === normalizedNew.toLowerCase() &&
+            section !== targetSection
+    );
+    if (conflicting) {
+        const error = new Error(`A section named "${normalizedNew}" already exists`);
+        error.statusCode = 409;
+        throw error;
+    }
+
+    targetSection.section = normalizedNew;
+    FileReader.writeDataFile(fileName, parsedData);
+
+    return {
+        promptId,
+        previousName: currentSectionName,
+        newName: normalizedNew,
+        sectionSource: targetSection.sectionSource || "ai",
+        data: parsedData,
+    };
+};
+
 module.exports = {
     getTestCases,
     getAnalyzeData,
     editTestCase,
     deleteTestCase,
+    addTestCase,
+    editSectionName,
     getTestAnalysisPrompt,
     getTestCaseGenerationPrompt,
     resolvePromptInput,

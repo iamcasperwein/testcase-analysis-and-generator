@@ -208,6 +208,8 @@ const normalizeGeneratedTestCases = (generated, featureFallback = "") => {
 
         return {
             section: String(section?.section || "Uncategorized").trim() || "Uncategorized",
+            sectionId: String(section?.sectionId || "").trim() || `sec_${ulid()}`,
+            sectionSource: "ai",
             "testCases": sectionCases,
         };
     });

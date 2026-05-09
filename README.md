@@ -9,11 +9,12 @@
 1. [Feature Overview](#feature-overview)
 2. [Tech Stack](#tech-stack)
 3. [Design Patterns](#design-patterns)
-4. [Use Cases & Sequence Diagrams](#use-cases--sequence-diagrams)
-5. [Scalability & Performance](#scalability--performance)
-6. [Error Handling](#error-handling)
-7. [Deployment & Environment](#deployment--environment)
-8. [Project Structure](#project-structure)
+4. [AI Pipeline & Prompt Architecture](#ai-pipeline--prompt-architecture)
+5. [Use Cases & Sequence Diagrams](#use-cases--sequence-diagrams)
+6. [Scalability & Performance](#scalability--performance)
+7. [Error Handling](#error-handling)
+8. [Deployment & Environment](#deployment--environment)
+9. [Project Structure](#project-structure)
 
 ---
 
@@ -37,7 +38,8 @@ The **QE Test Case Generator** is a Node.js / Express backend that ingests produ
 ### Primary Capabilities
 
 - **Submit & Analyze** — Upload PRD/RFC/Figma documents and receive an asynchronous job ID.
-- **Two-Stage AI Pipeline** — Step 1 produces an analysis; Step 2 produces test cases grounded on that analysis.
+- **Two-Stage AI Pipeline** — Step 1 produces an analysis; Step 2 produces test cases grounded on that analysis. Both stages use a dedicated system prompt with expert QA persona and provider-specific configuration (temperature, model routing).
+- **Context-Aware Generation** — Token estimation and context limit validation prevent silent failures on large documents. Few-shot examples and self-evaluation checklists improve output quality on mid-tier models.
 - **CRUD on Test Cases** — Edit, move between sections, and delete generated test cases.
 - **Dashboard Analytics** — Aggregate counts, turnaround time, and failure notes.
 - **Runtime Settings** — Manage application secrets (API keys, ports) via a REST surface backed by `.env`.
@@ -71,9 +73,9 @@ The **QE Test Case Generator** is a Node.js / Express backend that ingests produ
   - [data/uploads/](data/uploads/) — Raw uploaded user files
 
 ### External Services
-- **Google Gemini API** — `models/gemini-2.5-flash` for analysis & generation
-- **Anthropic Claude API** — Claude chat completion endpoint for analysis & generation
-- **GitHub Models API** — GitHub Copilot-compatible model inference (`/chat/completions`)
+- **Google Gemini API** — Configurable model (default `models/gemini-2.5-flash`) with system instruction and `temperature=0.2` for deterministic output
+- **Anthropic Claude API** — Configurable model (default `claude-sonnet-4-6`) with dedicated `system` prompt field and `temperature=0.2`
+- **GitHub Models API** — Configurable model (default `openai/gpt-5-chat`) with system message and `temperature=0.2`
 - **TestRail API** — Sections + Cases sync (`get_sections`, `add_section`, `add_cases` / `add_case` fallback)
 
 ---
@@ -89,13 +91,234 @@ Routes  →  Controller  →  Service  →  Utils / External APIs / File Store
 | Pattern | Where It Is Used | Justification |
 |---|---|---|
 | **Layered Architecture** | [routes/](routes/), [controller/](controller/), [service/](service/), [utils/](utils/) | Keeps HTTP concerns out of business logic; each layer is independently testable. |
-| **Strategy Pattern** | `AGENTS` map in [service/QAgentService.js](service/QAgentService.js#L10-L21) | Pluggable AI agents (`claude`, `gemini`, `copilot`) selected at runtime via `normalizeAgentName`. |
-| **Template Method** | [prompts/index.js](prompts/index.js), [prompts/testCaseGeneration.js](prompts/testCaseGeneration.js) | `buildTestAnalysisPrompt` and `buildTestCaseGenerationPrompt` follow a fixed scaffold filled by inputs. |
+| **Strategy Pattern** | `AGENTS` map in [service/QAgentService.js](service/QAgentService.js#L13-L26) | Pluggable AI agents (`claude`, `gemini`, `copilot`) selected at runtime via `normalizeAgentName`. Each agent receives the resolved model name from `resolveModelName()`. |
+| **Template Method** | [prompts/index.js](prompts/index.js), [prompts/testCaseGeneration.js](prompts/testCaseGeneration.js) | `buildTestAnalysisPrompt` and `buildTestCaseGenerationPrompt` follow a fixed scaffold filled by inputs. A shared `SYSTEM_PROMPT` is separated from user content for all providers. |
 | **Repository (file-backed)** | `readPromptData` / `writePromptData` in [service/QAgentService.js](service/QAgentService.js#L28-L46), [utils/FileReader.js](utils/FileReader.js) | Abstracts storage so the JSON-on-disk layer can later be swapped for a database. |
 | **DTO / Sanitizer** | `sanitizeSubmissionPayload`, `sanitizeUpdatedTestCase` | Normalizes untrusted input into a stable internal contract. |
 | **Factory** | `createInitialRecord` in [service/QAgentService.js](service/QAgentService.js#L113-L131) | Centralizes the construction of a normalized prompt record. |
 | **Async Job / Fire-and-Forget** | [controller/QAgent.js](controller/QAgent.js#L77-L92) | Returns `202 Accepted` and continues processing in the background. |
 | **Validation Error** | `SubmissionValidationError` class | Structured, status-code-aware errors propagated to the controller. |
+
+---
+
+## AI Pipeline & Prompt Architecture
+
+This section documents the AI prompting strategy, model configuration, and quality controls used across all providers.
+
+### System Prompt (Shared)
+
+All three providers (Claude, Gemini, Copilot) receive a dedicated **system prompt** that establishes the AI's persona and core constraints. This is separated from the user content to leverage each model's higher attention weight on system instructions.
+
+**Defined in:** [`prompts/testCaseGeneration.js`](prompts/testCaseGeneration.js) as `SYSTEM_PROMPT`
+
+```
+You are a Senior QE Engineer with 10+ years of experience in test planning,
+test case design, and quality assessment. You specialize in deriving
+comprehensive, actionable test cases from product specifications.
+
+Your core principles:
+1. Every test case must be independently executable by a manual QA tester
+   who has never seen the PRD.
+2. Steps must be atomic — one action per step, one verification per expected result.
+3. Cover the "testing pyramid": happy path first, then error cases, then edge cases.
+4. If a requirement is ambiguous, create a test case that surfaces the ambiguity
+   rather than assuming intent.
+5. Never invent features or behaviors not stated in the source documents.
+```
+
+**How it's delivered to each provider:**
+
+| Provider | Mechanism | File |
+|---|---|---|
+| **Claude** | `system` field in the API request body | [`service/ClaudeService.js`](service/ClaudeService.js) |
+| **Copilot/GPT** | `role: "system"` message prepended to the messages array | [`service/CopilotService.js`](service/CopilotService.js) |
+| **Gemini** | `systemInstruction` parameter in `getGenerativeModel()` | [`service/GeminiService.js`](service/GeminiService.js) |
+
+### Model Configuration
+
+All providers are configured for deterministic, structured output:
+
+| Provider | Temperature | Model Default | Model Override |
+|---|---|---|---|
+| **Claude** | `0.2` | `claude-sonnet-4-6` | `CLAUDE_MODEL` env var or `payload.model` |
+| **Copilot** | `0.2` | `openai/gpt-5-chat` | `GITHUB_MODEL` env var or `payload.model` |
+| **Gemini** | `0.2` (+ `topP: 0.95`) | `models/gemini-2.5-flash` | `GEMINI_MODEL` env var or `payload.model` |
+
+**Model resolution flow:**
+
+```
+payload.model (explicit) → env var (CLAUDE_MODEL, etc.) → hardcoded default
+```
+
+Resolved by `resolveModelName()` in [`service/QAgentService.js`](service/QAgentService.js) and passed to each service via `options.model`.
+
+### Two-Stage Prompt Pipeline
+
+```
+Documents → [Stage 1: Analysis] → [Stage 2: Test Case Generation] → Parse & Save
+```
+
+#### Stage 1: Test Analysis Prompt
+
+**Builder:** `buildTestAnalysisPrompt()` in [`prompts/testCaseGeneration.js`](prompts/testCaseGeneration.js)
+
+Produces a structured Markdown analysis document. The prompt instructs the model to produce these sections:
+
+1. **Summary / Overview** — Feature overview and testing goal
+2. **Scope** — Functional areas in scope with PRD references
+3. **Impact Analysis** — UX, backend, support, security, performance impact
+4. **Out of Scope** — Explicit exclusions
+5. **Edge Cases** — Boundary conditions
+6. **Risks & Mitigations** — Potential risks
+7. **Test Strategy Notes** — Approach, environment, test data needs
+
+**Prompt structure (order matters — critical info placed at top for model attention):**
+
+```
+[System prompt — delivered separately via provider API]
+
+1. Task instruction (create analysis document)
+2. Product context (feature, platform, attached documents)
+3. Document inventory (what's available and extraction status)
+4. Source documents (PRD, RFC, Figma content)
+5. Additional documents (supplementary artifacts)
+6. Required output structure (exact Markdown headings)
+7. Formatting rules and constraints
+```
+
+#### Stage 2: Test Case Generation Prompt
+
+**Builder:** `buildTestCaseGenerationPrompt()` in [`prompts/testCaseGeneration.js`](prompts/testCaseGeneration.js)
+
+Produces a JSON array of test cases grouped by section. The prompt includes:
+
+**Prompt structure:**
+
+```
+[System prompt — delivered separately via provider API]
+
+1. Task instruction (generate test cases in JSON)
+2. Product context (feature, platform, attached documents)
+3. Document inventory
+4. Source documents (PRD, RFC, Figma content)
+5. Additional documents
+6. Testing analysis context (from Stage 1 output)
+7. Output JSON schema
+8. Rules and constraints
+9. Test case title convention (Object + Expectation + Condition)
+10. Few-shot examples (good + bad)
+11. Self-evaluation checklist
+```
+
+### Few-Shot Examples
+
+The test case generation prompt includes two examples to guide mid-tier models:
+
+**Good example** — demonstrates:
+- Descriptive title following Object + Expectation + Condition pattern
+- Specific test data in steps (e.g., `'invalid-email'`)
+- Atomic steps (one action each)
+- Unambiguous expected results
+
+**Bad example** — highlights common mistakes:
+- Vague title (`"Test login"`)
+- Combined actions in a single step
+- Ambiguous expected results (`"Error shown"`)
+
+**Defined in:** [`prompts/testCaseGeneration.js`](prompts/testCaseGeneration.js) within `buildTestCaseGenerationPrompt()`
+
+### Self-Evaluation Checklist
+
+Before returning output, the model is instructed to verify each test case against:
+
+- Every test case has at least 2 steps
+- No step combines multiple actions
+- Every expected result is specific enough to pass/fail unambiguously
+- Each section has at least one negative or edge case
+- Titles follow the Object + Expectation + Condition pattern
+- No test case references information not in the source documents
+
+If any check fails, the model must revise before responding. This acts as a zero-cost quality gate (no extra API call).
+
+### Test Case Output Schema
+
+All generated test cases conform to this JSON structure:
+
+```json
+{
+    "feature": "string",
+    "testCases": [
+        {
+            "section": "string",
+            "sectionId": "string | number | null",
+            "sectionSource": "ai | user | testrail",
+            "testCases": [
+                {
+                    "id": "TC-001",
+                    "title": "string",
+                    "type": "positive|negative|edge",
+                    "priority": "high|medium|low",
+                    "preconditions": ["string"],
+                    "steps": [
+                        {
+                            "content": "Step description (the action to perform)",
+                            "expected": "Expected result for this step"
+                        }
+                    ],
+                    "expectedResult": "string"
+                }
+            ]
+        }
+    ]
+}
+```
+
+#### Section Identity (`sectionId`)
+
+Every section carries a `sectionId` that uniquely identifies it, preventing conflicts when multiple sections share the same name.
+
+| Source | `sectionId` format | Example | Assigned by |
+|---|---|---|---|
+| **AI-generated** | `sec_<ULID>` (string) | `sec_01KR3F9X2GQZJ7TNVP60M1ABCD` | `normalizeGeneratedTestCases()` in [`QAgentService.js`](service/QAgentService.js) |
+| **User-created** | `sec_<ULID>` (string) | `sec_01KR4A0Y3HRZK8UOWQ71N2EFGH` | `addTestCase()` in [`TestCaseService.js`](service/TestCaseService.js) when creating a new section |
+| **TestRail-synced** | Numeric (integer) | `12345` | TestRail API response, written back by [`TestrailService.js`](service/TestrailService.js) on post |
+
+**Lifecycle:** When an AI or user section is posted to TestRail, its local `sec_<ULID>` is overwritten with the numeric TestRail section ID, and `sectionSource` is set to `"testrail"`. This ensures subsequent syncs reuse the correct TestRail section.
+
+**Backward compatibility:** Legacy data with `sectionId: null` continues to work — section lookups fall back to name-based matching when no `sectionId` is present.
+
+### Token Estimation & Context Limit Validation
+
+**Utility:** [`utils/TokenEstimator.js`](utils/TokenEstimator.js)
+
+Before each AI call, the pipeline estimates the prompt's token count and checks it against the model's safe context window (total limit minus 15% output buffer).
+
+| Function | Purpose |
+|---|---|
+| `estimateTokens(text)` | Character-based approximation (~3.5 chars/token, ~±15% accuracy) |
+| `getContextLimit(model)` | Looks up the model's context window from a built-in map |
+| `validateContextFits(prompt, model)` | Returns `{ fits, estimated, safeLimit, excess }` |
+
+**Known model context limits:**
+
+| Model | Context Window |
+|---|---|
+| `models/gemini-2.5-flash` | 1,000,000 tokens |
+| `models/gemini-1.5-pro` | 2,000,000 tokens |
+| `claude-sonnet-4-6` | 200,000 tokens |
+| `openai/gpt-5-chat` | 128,000 tokens |
+| `openai/gpt-4.1-mini` | 128,000 tokens |
+
+**Behavior:** If the prompt exceeds the safe limit, a warning is logged with the estimated token count, safe limit, and excess. The call still proceeds (no hard block) to avoid false positives from the approximation, but the warning provides visibility for debugging.
+
+### Prompt Snapshot Persistence
+
+Every prompt sent to the AI is saved to disk for debugging and auditability:
+
+- **Analysis prompt:** `data/runtime/prompts/{promptId}-analysis.txt`
+- **Test case prompt:** `data/runtime/prompts/{promptId}-testcases.txt`
+
+Written by `writePromptSnapshot()` in [`service/QAgentService.js`](service/QAgentService.js).
 
 ---
 
@@ -109,6 +332,8 @@ The service exposes the following routes (mounted in [app.js](app.js)):
 | `GET`  | `/testcase/:promptId` | [controller/TestCase.js](controller/TestCase.js) | Fetch generated test cases |
 | `GET`  | `/testcase/getAnalyzeResult/:promptId` | [controller/TestCase.js](controller/TestCase.js) | Fetch analysis Markdown |
 | `POST`/`PUT` | `/testcase/edit` | [controller/TestCase.js](controller/TestCase.js) | Update / move a test case |
+| `POST` | `/testcase/add` | [controller/TestCase.js](controller/TestCase.js) | Add a new test case to a section |
+| `PUT` | `/testcase/editSection` | [controller/TestCase.js](controller/TestCase.js) | Rename a section (non-TestRail only) |
 | `DELETE` | `/testcase/deleteTestCase/:promptId/:testcaseId` | [controller/TestCase.js](controller/TestCase.js) | Delete a test case |
 | `GET` | `/dashboard/` | [controller/Dashboard.js](controller/Dashboard.js) | Aggregate metrics |
 | `GET` | `/dashboard/prompts` | [controller/Dashboard.js](controller/Dashboard.js) | List prompts (id + project) |
@@ -129,9 +354,9 @@ See [API_CONTRACT.md](API_CONTRACT.md) for full request/response documentation o
 
 When posting test cases to TestRail, section metadata in [data/testcases/](data/testcases/) is updated so future syncs can reuse the right TestRail section:
 
-- `sectionId`: target TestRail section ID
+- `sectionId`: overwritten from the local `sec_<ULID>` to the numeric TestRail section ID
 - `suiteId`: TestRail suite ID from environment
-- `sectionSource`: set to `testrail` after successful section resolution
+- `sectionSource`: set to `testrail` after successful section resolution (previously `ai` or `user`)
 - `testrailPost`: section-level posting audit object:
     - `status`: `success` / `partial` / `failed`
     - `lastAttemptAt`, `lastPostedAt`
@@ -197,24 +422,26 @@ sequenceDiagram
     Note over Ctrl,Svc: Background processing (fire-and-forget)
     Ctrl->>Svc: processSubmission(payload)
     Svc->>Svc: sanitizeSubmissionPayload + enrichDocumentContents (PDF parse)
-    Svc->>Svc: resolveAgent(payload.agent) → AIService
+    Svc->>Svc: resolveAgent(payload.agent) → AIService + resolveModelName → model
     Svc->>FS: appendPromptRecord (status=RECEIVED → IN_PROGRESS → PROCESSING)
 
     Svc->>TC: getTestAnalysisPrompt(payload)
     TC-->>Svc: analysis prompt (string)
-    Svc->>AI: generateFromPrompt(prompt, files)
-    AI->>API: Send prompt + context to provider
+    Svc->>Svc: validateContextFits(prompt, model) — log warning if exceeds limit
+    Svc->>AI: generateFromPrompt(prompt, { model, uploadedFiles })
+    AI->>API: Send system prompt + user prompt to provider
     API-->>AI: analysis text
     AI-->>Svc: analysisText
     Svc->>FS: write analyze/{promptId}.md
 
     Svc->>TC: getTestCaseGenerationPrompt(payload + analysisContext)
-    TC-->>Svc: testcase prompt
-    Svc->>AI: generateFromPrompt(prompt, files)
-    AI->>API: Send prompt to provider
+    TC-->>Svc: testcase prompt (with few-shot examples + self-eval checklist)
+    Svc->>Svc: validateContextFits(prompt, model) — log warning if exceeds limit
+    Svc->>AI: generateFromPrompt(prompt, { model, uploadedFiles })
+    AI->>API: Send system prompt + user prompt to provider
     API-->>AI: JSON-encoded test cases
     AI-->>Svc: generatedText
-    Svc->>Svc: extractJsonPayload + normalizeGeneratedTestCases
+    Svc->>Svc: extractJsonPayload + normalizeGeneratedTestCases (assign sec_ULID per section)
     Svc->>FS: write testcases/{promptId}.json
     Svc->>FS: updatePromptRecord(status=COMPLETED, testCaseCount)
 ```
@@ -303,7 +530,7 @@ sequenceDiagram
         Svc-->>Ctrl: Error 404
         Ctrl-->>Client: 404 { error: "Test case not found" }
     else found
-        Svc->>Svc: sanitizeUpdatedTestCase + move to target section
+        Svc->>Svc: sanitizeUpdatedTestCase + find target section by sectionId (or name fallback)
         Svc->>FR: writeDataFile (updated JSON)
         Svc-->>Ctrl: { updatedTestCase, data }
         Ctrl-->>Client: 200 { success, data }
@@ -312,7 +539,71 @@ sequenceDiagram
 
 ---
 
-### 5. `DELETE /testcase/deleteTestCase/:promptId/:testcaseId`
+### 5. `POST /testcase/add` — Add a New Test Case
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant Client
+    participant Router as testcaseRouter
+    participant Ctrl as TestCase.addTestCase
+    participant Svc as TestCaseService
+    participant FR as FileReader
+    participant FS as data/testcases/
+
+    Client->>Router: POST /testcase/add { promptId, section, sectionId?, title, steps, ... }
+    Router->>Ctrl: forward
+    Ctrl->>Ctrl: validate promptId & section
+    Ctrl->>Svc: addTestCase(promptId, section, body)
+    Svc->>FR: read testcases/{promptId}.json
+    FR-->>Svc: parsed sections
+    Svc->>Svc: generateNextTestCaseId (scan all TC-NNN, increment)
+    Svc->>Svc: find section by sectionId (or name fallback), create with sec_ULID if new
+    Svc->>FR: writeDataFile (updated JSON)
+    Svc-->>Ctrl: { addedTestCase, data }
+    Ctrl-->>Client: 201 { success, data }
+```
+
+---
+
+### 6. `PUT /testcase/editSection` — Rename a Section
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant Client
+    participant Router as testcaseRouter
+    participant Ctrl as TestCase.editSectionName
+    participant Svc as TestCaseService
+    participant FR as FileReader
+    participant FS as data/testcases/
+
+    Client->>Router: PUT /testcase/editSection { promptId, currentName, newName, sectionId? }
+    Router->>Ctrl: forward
+    Ctrl->>Ctrl: validate promptId, currentName, newName
+    Ctrl->>Svc: editSectionName(promptId, currentName, newName, sectionId)
+    Svc->>FR: read testcases/{promptId}.json
+    FR-->>Svc: parsed sections
+    Svc->>Svc: find section by sectionId (or name fallback)
+    alt section is TestRail-synced
+        Svc-->>Ctrl: 403 Forbidden
+        Ctrl-->>Client: 403 { error: "Cannot rename TestRail section" }
+    else section not found
+        Svc-->>Ctrl: 404 Not Found
+        Ctrl-->>Client: 404 { error: "Section not found" }
+    else name conflict
+        Svc-->>Ctrl: 409 Conflict
+        Ctrl-->>Client: 409 { error: "Section name already exists" }
+    else valid
+        Svc->>FR: writeDataFile (updated JSON)
+        Svc-->>Ctrl: { previousName, newName, data }
+        Ctrl-->>Client: 200 { success, data }
+    end
+```
+
+---
+
+### 7. `DELETE /testcase/deleteTestCase/:promptId/:testcaseId`
 
 ```mermaid
 sequenceDiagram
@@ -596,7 +887,7 @@ sequenceDiagram
 
 ### Current Strengths
 - **Asynchronous job model**: `POST /generate/ask` returns `202 Accepted` immediately. The expensive AI pipeline runs in the background, freeing the request thread. See [controller/QAgent.js](controller/QAgent.js#L77-L92).
-- **Singleton AI clients**: Gemini SDK clients are constructed once per process and reused, avoiding per-request handshake costs ([service/GeminiService.js](service/GeminiService.js#L6-L9)).
+- **Singleton AI clients**: Gemini SDK client (`GoogleGenerativeAI`) and file manager are constructed once per process and reused, avoiding per-request handshake costs. Model instances are created per-call to support dynamic model selection ([service/GeminiService.js](service/GeminiService.js)).
 - **Server-side file uploads to AI Model**: Documents are uploaded to Models's File API once and referenced by URI, avoiding repeated base64 transmission. Inline base64 is used only as a fallback ([service/GeminiService.js](service/GeminiService.js#L13-L66)).
 - **Two-stage prompting**: Decoupling analysis from test-case generation makes prompts smaller and improves reliability of JSON parsing.
 - **Upload size limits**: `multer` enforces a 10 MB cap per file ([routes/qagentRouter.js](routes/qagentRouter.js#L29-L31)).
@@ -657,9 +948,11 @@ Stored in `.env` at the project root and managed at runtime via `/settings/*`.
 |---|---|---|
 | `PORT` | ✗ (default `9009`) | HTTP port for the Express server |
 | `GEMINI_API_KEY` | ✓ (if using `gemini`) | Google Generative AI API key |
+| `GEMINI_MODEL` | ✗ (default `models/gemini-2.5-flash`) | Model id for Gemini requests |
 | `CLAUDE_API_KEY` or `ANTHROPIC_API_KEY` | ✓ (if using `claude`) | Anthropic Claude API key |
+| `CLAUDE_MODEL` | ✗ (default `claude-sonnet-4-6`) | Model id for Claude requests |
 | `GITHUB_TOKEN` | ✓ (if using `copilot`) | GitHub token for GitHub Models API |
-| `GITHUB_MODEL` | ✗ (default `gpt-4.1-mini`) | Model id for Copilot/GitHub Models requests |
+| `GITHUB_MODEL` | ✗ (default `openai/gpt-5-chat`) | Model id for Copilot/GitHub Models requests |
 | `GITHUB_MODELS_API_URL` | ✗ | Override for inference endpoint (default `https://models.inference.ai.azure.com/chat/completions`) |
 | `OPENAI_API_KEY` | ✗ | Reserved for a future OpenAI agent |
 | `TESTRAIL_URL` | ✗ | Base URL of TestRail instance (planned) |
@@ -715,9 +1008,11 @@ qe-test-case-generator/
 │   ├── index.js
 │   └── testCaseGeneration.js
 ├── utils/
+│   ├── AppLogger.js         # Structured action logger for pipeline steps
 │   ├── BaseUtils.js
 │   ├── FileExtractor.js     # Multer file → metadata helpers
-│   └── FileReader.js        # Read/write under data/
+│   ├── FileReader.js        # Read/write under data/
+│   └── TokenEstimator.js    # Token estimation & context limit validation
 ├── data/                    # Persisted artifacts (job records, analyses, test cases)
 └── public/                  # Static frontend (HTML/CSS/JS)
 ```
