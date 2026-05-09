@@ -167,7 +167,15 @@ const askAi = async (req, res) => {
       additionalDocuments,
     };
 
-    console.log("Received askAi request with payload:", JSON.stringify({ ...payload, additionalDocuments: payload.additionalDocuments?.map(d => ({ docType: d.docType, name: d.name })) }, null, 2));
+    console.log("Received askAi request:", JSON.stringify({
+      promptId,
+      agent: payload.agent,
+      projectName: payload.projectName,
+      feature: payload.feature,
+      additionalDocuments: payload.additionalDocuments?.map(d => ({ docType: d.docType, name: d.name })),
+      hasPrdFile: !!prdFileInfo,
+      prdUrl: payload.prdUrl || null,
+    }, null, 2));
 
     QAgentService.processSubmission(payload)
       .then((result) => {

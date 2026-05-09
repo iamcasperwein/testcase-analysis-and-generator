@@ -117,6 +117,10 @@ const writeEnvMap = (envMap = {}) => {
 
 	const finalContent = content ? `${content}\n` : ""
 	fs.writeFileSync(ENV_FILE_PATH, finalContent, "utf8")
+
+	keys.forEach((key) => {
+		process.env[key] = String(envMap[key] ?? "")
+	})
 }
 
 const normalizeKey = (value = "") => String(value || "").trim()

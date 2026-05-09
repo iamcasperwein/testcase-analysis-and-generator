@@ -15,12 +15,24 @@ const settingsRouter = require("./routes/settingsRouter")
 const app = express()
 const port = process.env.PORT || 9009
 
-app.use(cors())
+const allowedOrigins = [
+	`http://localhost:${port}`,
+	`http://127.0.0.1:${port}`,
+]
+
+app.use(cors({
+	origin: (origin, callback) => {
+		// Allow same-origin, curl, Postman (no Origin header) and file:// (Origin: null)
+		if (!origin || origin === "null" || allowedOrigins.includes(origin)) {
+			return callback(null, true)
+		}
+		callback(new Error(`CORS: origin '${origin}' is not allowed`))
+	},
+}))
 app.use(express.urlencoded({ extended: false }))
 app.use(express.json());
 
 app.use(express.static(path.join(__dirname, 'public')))
-app.use('/public', express.static(path.join(__dirname, 'public')))
 
 app.get('/', (req, res) => {
 	res.sendFile(path.join(__dirname, 'public', 'index.html'))
