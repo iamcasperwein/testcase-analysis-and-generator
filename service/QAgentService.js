@@ -9,6 +9,7 @@ const TestCaseService = require("./TestCaseService");
 const GeminiService = require("./GeminiService");
 const ClaudeService = require("./ClaudeService");
 const CopilotService = require("./CopilotService");
+const path = require("path");
 
 const AGENTS = Object.freeze({
     claude: async ({ prompt, payload, model }) => ClaudeService.generateFromPrompt(prompt, {
@@ -57,8 +58,6 @@ const normalizeAgentName = (value) => {
     const agentName = aliases[normalized] || normalized;
     return AGENTS[agentName] ? agentName : "claude";
 };
-
-const path = require("path");
 
 const PROMPT_DATA_LOCK = path.join(__dirname, "../data/promptdata.lock");
 const LOCK_RETRY_MS = 50;
