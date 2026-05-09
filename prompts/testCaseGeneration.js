@@ -1,3 +1,12 @@
+const SYSTEM_PROMPT = `You are a Senior QE Engineer with 10+ years of experience in test planning, test case design, and quality assessment. You specialize in deriving comprehensive, actionable test cases from product specifications.
+
+Your core principles:
+1. Every test case must be independently executable by a manual QA tester who has never seen the PRD.
+2. Steps must be atomic — one action per step, one verification per expected result.
+3. Cover the "testing pyramid": happy path first, then error cases, then edge cases.
+4. If a requirement is ambiguous, create a test case that surfaces the ambiguity rather than assuming intent.
+5. Never invent features or behaviors not stated in the source documents.`;
+
 const DEFAULT_TEST_CASE_INPUT = Object.freeze({
     feature: "login/register flow",
     platform: "mobile",
@@ -308,7 +317,6 @@ const buildTestCaseGenerationPrompt = (input = {}) => {
     const documentInventory = buildDocumentInventory(documents, additionalDocuments);
 
     const lines = [
-        "You are a Senior QE Engineer.",
         "Generate test cases for a mobile or web application in valid JSON only.",
         "Use the PRD as the primary source of truth. Use RFC and Figma content when provided to refine workflows, business rules, UI states, and edge cases.",
         "Group related cases into sections and keep each test case precise, executable, and review-friendly.",
@@ -371,7 +379,59 @@ const buildTestCaseGenerationPrompt = (input = {}) => {
         "  - 'The user should be able to click the submit button when all required fields are filled'",
         "  - 'Verify the error message should display invalid email format when user enters email without @ symbol'",
         "  - 'The login button should be disabled when email or password field is empty'",
-        "- Do NOT use vague titles like 'Test login' or 'Check validation'"
+        "- Do NOT use vague titles like 'Test login' or 'Check validation'",
+        "",
+        "Example of a WELL-WRITTEN test case (follow this pattern):",
+        "```json",
+        JSON.stringify({
+            "id": "TC-001",
+            "title": "Login form should display error message when user enters invalid email format",
+            "type": "negative",
+            "priority": "high",
+            "preconditions": [
+                "User is on the login page",
+                "User has not authenticated"
+            ],
+            "steps": [
+                {
+                    "content": "Enter 'invalid-email' (without @ symbol) in the email field",
+                    "expected": "Email field accepts the input"
+                },
+                {
+                    "content": "Enter 'ValidPass123!' in the password field",
+                    "expected": "Password field accepts the input and masks characters"
+                },
+                {
+                    "content": "Click the 'Login' button",
+                    "expected": "Error message 'Please enter a valid email address' is displayed below the email field. Login is not performed."
+                }
+            ],
+            "expectedResult": "User sees inline validation error for invalid email format and is not logged in"
+        }, null, 4),
+        "```",
+        "",
+        "Example of a POORLY-WRITTEN test case (avoid this):",
+        "```json",
+        JSON.stringify({
+            "id": "TC-001",
+            "title": "Test login",
+            "type": "positive",
+            "priority": "medium",
+            "preconditions": ["User exists"],
+            "steps": [{"content": "Login with invalid data", "expected": "Error shown"}],
+            "expectedResult": "Should show error"
+        }, null, 4),
+        "```",
+        "Problems with the above: vague title, unclear steps, no specific test data, ambiguous expected results.",
+        "",
+        "Before returning your response, verify each test case against this checklist:",
+        "- Every test case has at least 2 steps",
+        "- No step combines multiple actions (e.g., 'Enter email and click submit')",
+        "- Every expected result is specific enough to pass/fail unambiguously",
+        "- Each section has at least one negative or edge case",
+        "- Test case titles follow the Object + Expectation + Condition pattern",
+        "- No test case references information not present in the source documents",
+        "If any check fails, revise the affected test cases before responding."
     );
 
     return lines.join("\n");
@@ -383,7 +443,6 @@ const buildTestAnalysisPrompt = (input = {}) => {
     const documentInventory = buildDocumentInventory(documents, additionalDocuments);
 
     return [
-        "You are a Senior QE Engineer.",
         "Create a testing analysis document in well-structured Markdown format.",
         "Use PRD as primary source. Use RFC and Figma only when provided.",
         "",
@@ -442,6 +501,7 @@ const buildTestAnalysisPrompt = (input = {}) => {
 };
 
 module.exports = {
+    SYSTEM_PROMPT,
     DEFAULT_TEST_CASE_INPUT,
     buildTestAnalysisPrompt,
     buildTestCaseGenerationPrompt,

@@ -1,4 +1,5 @@
 const axios = require("axios")
+const { SYSTEM_PROMPT } = require("../prompts")
 
 const COPILOT_API_URL = String(process.env.GITHUB_MODELS_API_URL || "https://models.github.ai/inference/chat/completions").trim()
 const DEFAULT_MODEL = String(process.env.GITHUB_MODEL || "openai/gpt-5-chat").trim()
@@ -37,9 +38,10 @@ const extractResponseText = (responseData = {}) => {
 	return ""
 }
 
-const generateFromPrompt = async (prompt, _options = {}) => {
+const generateFromPrompt = async (prompt, options = {}) => {
 	const apiKey = getApiKey()
 	const messagePrompt = String(prompt || "").trim()
+	const model = String(options.model || DEFAULT_MODEL).trim()
 
 	if (!messagePrompt) {
 		const error = new Error("Prompt is required")
@@ -52,10 +54,14 @@ const generateFromPrompt = async (prompt, _options = {}) => {
 		response = await axios.post(
 			COPILOT_API_URL,
 			{
-				model: DEFAULT_MODEL,
+				model,
 				temperature: 0.2,
 				max_tokens: 8192,
 				messages: [
+					{
+						role: "system",
+						content: SYSTEM_PROMPT,
+					},
 					{
 						role: "user",
 						content: messagePrompt,
@@ -73,7 +79,7 @@ const generateFromPrompt = async (prompt, _options = {}) => {
 	} catch (err) {
 		const status = err.response?.status || "unknown"
 		const detail = err.response?.data?.error?.message || err.response?.data?.message || JSON.stringify(err.response?.data || err.message)
-		console.error(`[CopilotService] API error (${status}): model=${DEFAULT_MODEL}, detail=${detail}`)
+		console.error(`[CopilotService] API error (${status}): model=${model}, detail=${detail}`)
 		const error = new Error(`GitHub Models API error (${status}): ${detail}`)
 		error.statusCode = err.response?.status || 502
 		throw error

@@ -1,4 +1,5 @@
 const {
+    SYSTEM_PROMPT,
     DEFAULT_TEST_CASE_INPUT,
     buildTestAnalysisPrompt,
     buildTestCaseGenerationPrompt,
@@ -8,6 +9,7 @@ const {
 } = require("./testCaseGeneration");
 
 module.exports = {
+    SYSTEM_PROMPT,
     DEFAULT_TEST_CASE_INPUT,
     buildTestAnalysisPrompt,
     buildTestCaseGenerationPrompt,
