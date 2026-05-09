@@ -20,7 +20,7 @@ const DEFAULT_DOC_TYPE = "prd";
 async function apiRequest(url, options = {}) {
   const isAbsolute = /^https?:\/\//i.test(url);
   const normalizedPath = String(url || "").startsWith("/") ? String(url) : `/${String(url || "")}`;
-  const backendPort = "3001";
+  const backendPort = "9009";
 
   const candidates = [];
   if (isAbsolute) {
