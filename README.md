@@ -203,8 +203,8 @@ Produces a JSON array of test cases grouped by section. The prompt includes:
 4. Source documents (PRD, RFC, Figma content)
 5. Additional documents
 6. Testing analysis context (from Stage 1 output)
-7. Output JSON schema
-8. Rules and constraints
+7. Output JSON schema (includes sectionId per section)
+8. Rules and constraints (including sectionId uniqueness)
 9. Test case title convention (Object + Expectation + Condition)
 10. Few-shot examples (good + bad)
 11. Self-evaluation checklist
@@ -279,11 +279,13 @@ Every section carries a `sectionId` that uniquely identifies it, preventing conf
 
 | Source | `sectionId` format | Example | Assigned by |
 |---|---|---|---|
-| **AI-generated** | `sec_<ULID>` (string) | `sec_01KR3F9X2GQZJ7TNVP60M1ABCD` | `normalizeGeneratedTestCases()` in [`QAgentService.js`](service/QAgentService.js) |
+| **AI-generated** | `sec_NNN` (string, from AI output) | `sec_001`, `sec_002` | AI model via prompt schema; fallback to `sec_<ULID>` if AI omits it |
 | **User-created** | `sec_<ULID>` (string) | `sec_01KR4A0Y3HRZK8UOWQ71N2EFGH` | `addTestCase()` in [`TestCaseService.js`](service/TestCaseService.js) when creating a new section |
 | **TestRail-synced** | Numeric (integer) | `12345` | TestRail API response, written back by [`TestrailService.js`](service/TestrailService.js) on post |
 
-**Lifecycle:** When an AI or user section is posted to TestRail, its local `sec_<ULID>` is overwritten with the numeric TestRail section ID, and `sectionSource` is set to `"testrail"`. This ensures subsequent syncs reuse the correct TestRail section.
+**Lifecycle:** When an AI or user section is posted to TestRail, its local string `sectionId` is overwritten with the numeric TestRail section ID, and `sectionSource` is set to `"testrail"`. This ensures subsequent syncs reuse the correct TestRail section.
+
+**AI prompt integration:** The output JSON schema in the prompt includes `sectionId` as a required field per section, instructing the AI to generate unique identifiers (e.g. `sec_001`, `sec_002`). If the AI omits it, `normalizeGeneratedTestCases()` falls back to generating a `sec_<ULID>`.
 
 **Backward compatibility:** Legacy data with `sectionId: null` continues to work — section lookups fall back to name-based matching when no `sectionId` is present.
 
@@ -441,7 +443,7 @@ sequenceDiagram
     AI->>API: Send system prompt + user prompt to provider
     API-->>AI: JSON-encoded test cases
     AI-->>Svc: generatedText
-    Svc->>Svc: extractJsonPayload + normalizeGeneratedTestCases (assign sec_ULID per section)
+    Svc->>Svc: extractJsonPayload + normalizeGeneratedTestCases (preserve AI sectionId, fallback to sec_ULID)
     Svc->>FS: write testcases/{promptId}.json
     Svc->>FS: updatePromptRecord(status=COMPLETED, testCaseCount)
 ```
