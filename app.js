@@ -22,7 +22,6 @@ const allowedOrigins = [
 
 app.use(cors({
 	origin: (origin, callback) => {
-		// Allow same-origin, curl, Postman (no Origin header) and file:// (Origin: null)
 		if (!origin || origin === "null" || allowedOrigins.includes(origin)) {
 			return callback(null, true)
 		}
