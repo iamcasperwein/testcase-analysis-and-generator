@@ -18,12 +18,13 @@ const postTestCases = async (req, res) => {
 	try {
 		const promptId = String(req.body?.promptId || req.body?.promptID || req.query?.promptId || req.query?.promptID || "").trim()
 		const testcaseIds = Array.isArray(req.body?.testcaseIds) ? req.body.testcaseIds : []
+		const platformFilter = Array.isArray(req.body?.platformFilter) ? req.body.platformFilter : []
 
 		if (!promptId) {
 			return res.status(400).json({ success: false, error: "promptId is required" })
 		}
 
-		const result = await TestrailService.postTestCases({ promptId, testcaseIds })
+		const result = await TestrailService.postTestCases({ promptId, testcaseIds, platformFilter })
 
 		res.status(200).json({
 			success: true,

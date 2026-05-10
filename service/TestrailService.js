@@ -460,10 +460,10 @@ const ensurePostingSection = async (creds, remoteSections, sectionGroup = {}) =>
 	}
 }
 
-const postTestCases = async ({ promptId, testcaseIds = [] } = {}) => {
+const postTestCases = async ({ promptId, testcaseIds = [], platformFilter = [] } = {}) => {
 	const normalizedPromptId = String(promptId || "").trim()
 	const logger = createActionLogger({
-		service: "TestrailService",
+		service: "TerrailService",
 		action: "postTestCases",
 		promptId: normalizedPromptId || "unknown",
 		fileName: normalizedPromptId ? `analyze/${normalizedPromptId}.txt` : "runtime/testrail-posting.txt",
@@ -471,6 +471,7 @@ const postTestCases = async ({ promptId, testcaseIds = [] } = {}) => {
 	logger.start("Post test cases requested", {
 		promptId: normalizedPromptId || null,
 		selectedCount: Array.isArray(testcaseIds) ? testcaseIds.length : 0,
+		platformFilter: platformFilter.length > 0 ? platformFilter : "all",
 	})
 
 	if (!normalizedPromptId) {

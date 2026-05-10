@@ -303,6 +303,17 @@
                 <input type="hidden" id="docTypeSelect" name="docType" value="prd" />
               </div>
 
+              <!-- Platform Selection (multiselect) -->
+              <div class="col-12">
+                <label class="form-label">Target Platforms <span class="text-danger">*</span></label>
+                <div class="platform-multiselect" id="platformMultiselect">
+                  <div class="platform-selected-tags" id="platformSelectedTags"></div>
+                  <div class="platform-options" id="platformOptions"></div>
+                </div>
+                <input type="hidden" id="platformValueInput" name="platforms" value="" />
+                <div class="form-text">Select the platforms this feature will be implemented on.</div>
+              </div>
+
               <div class="col-12 form-section-title mt-1">
                 <i class="bi bi-link-45deg"></i>
                 <span>Artifact Sources</span>
@@ -492,6 +503,20 @@
               <button class="btn btn-sm btn-outline-secondary tc-select-btn" id="tcSelectModeBtn" title="Toggle selection mode">
                 <i class="bi bi-ui-checks me-1"></i>Select
               </button>
+              <!-- Platform filter (multiselect chips) -->
+              <div class="tc-platform-filter" id="tcPlatformFilter">
+                <div class="tc-pf-toggle" id="tcPlatformFilterToggle">
+                  <i class="bi bi-funnel me-1"></i>
+                  <span id="tcPlatformFilterLabel">All Platforms</span>
+                  <i class="bi bi-chevron-down ms-1 tc-pf-chevron"></i>
+                </div>
+                <div class="tc-pf-dropdown" id="tcPlatformFilterDropdown" style="display:none;">
+                  <div class="tc-pf-chips" id="tcPlatformFilterChips"></div>
+                  <button type="button" class="tc-pf-reset" id="tcPlatformFilterReset">
+                    <i class="bi bi-x-circle me-1"></i>Reset
+                  </button>
+                </div>
+              </div>
               <div class="d-flex align-items-center all-view-filters ms-auto" id="allViewFilters">
                 <div class="form-check form-switch mb-0">
                   <input class="form-check-input" type="checkbox" role="switch" id="toggleIdColumn" checked>
@@ -737,6 +762,11 @@
               <span class="tc-view-meta-value" id="viewTcSection">—</span>
             </div>
           </div>
+          <!-- Platforms -->
+          <div class="tc-view-field" id="viewTcPlatformRow" style="display:none;">
+            <div class="tc-view-field-label"><i class="bi bi-device-hdd me-1"></i>Platforms</div>
+            <div class="tc-view-platform-badges" id="viewTcPlatforms"></div>
+          </div>
           <!-- Title -->
           <div class="tc-view-field">
             <div class="tc-view-field-label">Test Title</div>
@@ -807,6 +837,12 @@
               </div>
               <input type="hidden" id="editTcSectionValue" />
               <div class="form-text mt-1"><i class="bi bi-info-circle me-1"></i>Search existing sections, or type a new name to create one.</div>
+            </div>
+
+            <!-- Platform tags -->
+            <div class="mb-3">
+              <label class="tc-field-label">Platforms</label>
+              <div class="platform-options" id="editTcPlatformOptions"></div>
             </div>
 
             <!-- Divider -->

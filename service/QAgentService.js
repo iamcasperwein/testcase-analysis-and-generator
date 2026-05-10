@@ -5,6 +5,7 @@ const { jsonrepair } = require("jsonrepair");
 const FileReader = require("../utils/FileReader");
 const { createActionLogger } = require("../utils/AppLogger");
 const { validateContextFits } = require("../utils/TokenEstimator");
+const { normalizePlatforms, VALID_PLATFORMS } = require("../prompts");
 const TestCaseService = require("./TestCaseService");
 const GeminiService = require("./GeminiService");
 const ClaudeService = require("./ClaudeService");
@@ -205,16 +206,25 @@ const normalizeGeneratedTestCases = (generated, featureFallback = "") => {
                 ? section.testcases
                 : [];
 
+        // Normalize platforms on each test case
+        const normalizedCases = sectionCases.map(tc => ({
+            ...tc,
+            platforms: Array.isArray(tc?.platforms)
+                ? tc.platforms.filter(p => VALID_PLATFORMS.includes(p))
+                : [],
+        }));
+
         return {
             section: String(section?.section || "Uncategorized").trim() || "Uncategorized",
             sectionId: String(section?.sectionId || "").trim() || `sec_${ulid()}`,
             sectionSource: "ai",
-            "testCases": sectionCases,
+            "testCases": normalizedCases,
         };
     });
 
     return {
         feature: String(generated?.feature || featureFallback || "").trim(),
+        platforms: Array.isArray(generated?.platforms) ? generated.platforms : [],
         testCases: normalizedSections,
     };
 };
@@ -225,6 +235,7 @@ const createInitialRecord = ({ promptId, payload, agent, model }) => ({
     status: "RECEIVED",
     agent,
     model: String(model || payload?.model || "").trim() || null,
+    platforms: Array.isArray(payload.platforms) ? payload.platforms : [],
     docType: String(payload.docType || "").trim() || null,
     prdUrl: String(payload.prdUrl || payload.documents?.prd?.name || "").trim() || null,
     rfcUrl: String(payload.rfcUrl || payload.documents?.rfc?.name || "").trim() || null,
@@ -362,6 +373,7 @@ const sanitizeSubmissionPayload = (payload = {}) => {
         model: String(payload.model || payload.modelName || "").trim(),
         projectName,
         feature: String(payload.feature || projectName).trim(),
+        platforms: normalizePlatforms(payload.platforms),
         documents: normalizedDocuments,
         prdUrl: String(payload.prdUrl || normalizedDocuments.prd.name || "").trim(),
         rfcUrl: String(payload.rfcUrl || normalizedDocuments.rfc.name || "").trim(),

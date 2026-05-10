@@ -340,6 +340,71 @@ const docTypePicker = createStaticOptionSelect({
   options: DOC_TYPES,
 });
 
+// --- Platform Multiselect ---
+const PLATFORM_OPTIONS = [
+  { value: "ios", label: "iOS", icon: "bi-phone" },
+  { value: "android", label: "Android", icon: "bi-android2" },
+  { value: "mobile-web", label: "Mobile Web", icon: "bi-globe2" },
+  { value: "desktop-web", label: "Desktop Web", icon: "bi-display" },
+  { value: "backend", label: "Backend", icon: "bi-hdd-rack" },
+];
+
+const platformSelectedTags = document.getElementById("platformSelectedTags");
+const platformOptionsEl = document.getElementById("platformOptions");
+const platformValueInput = document.getElementById("platformValueInput");
+let selectedPlatforms = new Set();
+
+function renderPlatformMultiselect() {
+  // Render option chips
+  platformOptionsEl.innerHTML = "";
+  PLATFORM_OPTIONS.forEach(opt => {
+    const chip = document.createElement("button");
+    chip.type = "button";
+    chip.className = `platform-chip${selectedPlatforms.has(opt.value) ? " platform-chip-selected" : ""}`;
+    chip.dataset.value = opt.value;
+    chip.innerHTML = `<i class="bi ${opt.icon}"></i> ${escapeHtml(opt.label)}`;
+    chip.addEventListener("click", () => {
+      if (selectedPlatforms.has(opt.value)) {
+        selectedPlatforms.delete(opt.value);
+      } else {
+        selectedPlatforms.add(opt.value);
+      }
+      renderPlatformMultiselect();
+    });
+    platformOptionsEl.appendChild(chip);
+  });
+
+  // Render selected tags
+  platformSelectedTags.innerHTML = "";
+  if (selectedPlatforms.size === 0) {
+    const placeholder = document.createElement("span");
+    placeholder.className = "platform-placeholder";
+    placeholder.textContent = "No platforms selected";
+    platformSelectedTags.appendChild(placeholder);
+  } else {
+    selectedPlatforms.forEach(val => {
+      const opt = PLATFORM_OPTIONS.find(o => o.value === val);
+      if (!opt) return;
+      const tag = document.createElement("span");
+      tag.className = "platform-tag";
+      tag.innerHTML = `<i class="bi ${opt.icon}"></i> ${escapeHtml(opt.label)} <button type="button" class="platform-tag-remove" aria-label="Remove ${opt.label}">&times;</button>`;
+      tag.querySelector(".platform-tag-remove").addEventListener("click", (e) => {
+        e.stopPropagation();
+        selectedPlatforms.delete(val);
+        renderPlatformMultiselect();
+      });
+      platformSelectedTags.appendChild(tag);
+    });
+  }
+
+  // Update hidden input
+  platformValueInput.value = Array.from(selectedPlatforms).join(",");
+}
+
+// Initialize with all platforms selected by default
+PLATFORM_OPTIONS.forEach(opt => selectedPlatforms.add(opt.value));
+renderPlatformMultiselect();
+
 const additionalDocsList = document.getElementById("additionalDocsList");
 const addDocBtn = document.getElementById("addDocBtn");
 const additionalDocHelper = document.getElementById("additionalDocHelper");
@@ -472,12 +537,23 @@ qaForm.addEventListener("submit", async (e) => {
     return;
   }
 
+  // At least one platform is required
+  if (selectedPlatforms.size === 0) {
+    formStatus.textContent = "At least one target platform is required.";
+    formStatus.classList.remove("text-success");
+    formStatus.classList.add("text-danger");
+    submitFormBtn.disabled = false;
+    submitFormBtn.textContent = "Submit";
+    return;
+  }
+
   // Build multipart FormData — files go as real uploads, server handles extraction
   const formData = new FormData();
   formData.append("agent", agentPicker.getValue() || DEFAULT_AGENT);
   formData.append("projectName", document.getElementById("projectNameInput").value.trim());
   formData.append("feature", document.getElementById("projectNameInput").value.trim());
   formData.append("docType", docTypePicker.getValue() || DEFAULT_DOC_TYPE);
+  formData.append("platforms", Array.from(selectedPlatforms).join(","));
   formData.append("context", document.getElementById("contextInput").value.trim());
   formData.append("rawContent", "");
 
@@ -859,6 +935,7 @@ const focusSectionToggle = document.getElementById("focusSectionToggle");
 let allTestCases = []; // raw data from backend
 let sections = [];     // derived sections
 let selectedSection = "all";
+let selectedPlatformFilters = new Set(); // empty = show all platforms
 let currentScopePromptId = null;
 let focusSelectedSectionOnly = true;
 let isSelectMode = false;
@@ -960,6 +1037,7 @@ async function loadTestScope(promptId) {
         sectionId: group.sectionId ?? null,
         suiteId: group.suiteId ?? null,
         sectionSource: group.sectionSource || (group.sectionId != null ? "testrail" : "ai"),
+        platforms: Array.isArray(tc.platforms) ? tc.platforms : [],
         preconditions: Array.isArray(tc.preconditions)
           ? tc.preconditions.join("\n")
           : (tc.preconditions || ""),
@@ -1223,12 +1301,19 @@ function renderAllTestCases() {
   const query = tcSearchQuery.toLowerCase().trim();
   const filteredSections = sectionsToRender.map(section => ({
     ...section,
-    testcases: query
-      ? section.testcases.filter(tc =>
-          (tc.id || "").toLowerCase().includes(query) ||
-          (tc.title || "").toLowerCase().includes(query)
-        )
-      : section.testcases,
+    testcases: section.testcases.filter(tc => {
+      // Platform filter
+      if (selectedPlatformFilters.size > 0) {
+        const tcPlatforms = Array.isArray(tc.platforms) ? tc.platforms : [];
+        if (!tcPlatforms.some(p => selectedPlatformFilters.has(p))) return false;
+      }
+      // Search filter
+      if (query) {
+        return (tc.id || "").toLowerCase().includes(query) ||
+               (tc.title || "").toLowerCase().includes(query);
+      }
+      return true;
+    }),
   })).filter(s => s.testcases.length > 0);
 
   if (!filteredSections.length) {
@@ -1378,6 +1463,19 @@ function renderAllTestCases() {
       } else {
         tdTitle.textContent = tc.title || "";
       }
+      // Platform badges
+      const tcPlatforms = Array.isArray(tc.platforms) ? tc.platforms : [];
+      if (tcPlatforms.length > 0) {
+        const badgeWrap = document.createElement("span");
+        badgeWrap.className = "tc-platform-badges";
+        tcPlatforms.forEach(p => {
+          const badge = document.createElement("span");
+          badge.className = `tc-platform-badge tc-platform-${p}`;
+          badge.textContent = p === "mobile-web" ? "M-Web" : p === "desktop-web" ? "D-Web" : p.charAt(0).toUpperCase() + p.slice(1);
+          badgeWrap.appendChild(badge);
+        });
+        tdTitle.appendChild(badgeWrap);
+      }
       tr.appendChild(tdTitle);
 
       tr.appendChild(createActionButtons(tc));
@@ -1430,6 +1528,72 @@ setFocusSelectedSectionOnly(localStorage.getItem("qa_focus_selected_section_only
 // --- Test case search filter ---
 document.getElementById("tcSearchInput").addEventListener("input", (e) => {
   tcSearchQuery = e.target.value;
+  renderAllTestCases();
+});
+
+// Platform filter (multiselect chips)
+const tcPlatformFilterToggle = document.getElementById("tcPlatformFilterToggle");
+const tcPlatformFilterDropdown = document.getElementById("tcPlatformFilterDropdown");
+const tcPlatformFilterChips = document.getElementById("tcPlatformFilterChips");
+const tcPlatformFilterLabel = document.getElementById("tcPlatformFilterLabel");
+
+function renderPlatformFilterChips() {
+  tcPlatformFilterChips.innerHTML = "";
+  PLATFORM_OPTIONS.forEach(opt => {
+    const chip = document.createElement("button");
+    chip.type = "button";
+    chip.className = `platform-chip${selectedPlatformFilters.has(opt.value) ? " platform-chip-selected" : ""}`;
+    chip.dataset.value = opt.value;
+    chip.innerHTML = `<i class="bi ${opt.icon}"></i> ${opt.label}`;
+    chip.addEventListener("click", (e) => {
+      e.stopPropagation();
+      if (selectedPlatformFilters.has(opt.value)) {
+        selectedPlatformFilters.delete(opt.value);
+      } else {
+        selectedPlatformFilters.add(opt.value);
+      }
+      renderPlatformFilterChips();
+      updatePlatformFilterLabel();
+      renderAllTestCases();
+    });
+    tcPlatformFilterChips.appendChild(chip);
+  });
+}
+
+function updatePlatformFilterLabel() {
+  if (selectedPlatformFilters.size === 0) {
+    tcPlatformFilterLabel.textContent = "All Platforms";
+  } else if (selectedPlatformFilters.size === 1) {
+    const val = [...selectedPlatformFilters][0];
+    const opt = PLATFORM_OPTIONS.find(o => o.value === val);
+    tcPlatformFilterLabel.textContent = opt ? opt.label : val;
+  } else {
+    tcPlatformFilterLabel.textContent = `${selectedPlatformFilters.size} Platforms`;
+  }
+}
+
+tcPlatformFilterToggle.addEventListener("click", (e) => {
+  e.stopPropagation();
+  const isOpen = tcPlatformFilterDropdown.style.display !== "none";
+  tcPlatformFilterDropdown.style.display = isOpen ? "none" : "block";
+  tcPlatformFilterToggle.classList.toggle("active", !isOpen);
+  if (!isOpen) renderPlatformFilterChips();
+});
+
+// Close dropdown on outside click
+document.addEventListener("click", (e) => {
+  if (!document.getElementById("tcPlatformFilter").contains(e.target)) {
+    tcPlatformFilterDropdown.style.display = "none";
+    tcPlatformFilterToggle.classList.remove("active");
+  }
+});
+
+// Reset platform filter
+document.getElementById("tcPlatformFilterReset").addEventListener("click", (e) => {
+  e.stopPropagation();
+  selectedPlatformFilters.clear();
+  renderPlatformFilterChips();
+  updatePlatformFilterLabel();
   renderAllTestCases();
 });
 
@@ -1593,6 +1757,25 @@ function openViewModal(tc) {
   document.getElementById("viewTcPreconditions").innerHTML = renderListItems(tc.preconditions, false);
   document.getElementById("viewTcSteps").innerHTML = renderStepItems(tc.steps);
   document.getElementById("viewTcExpected").textContent = tc.expected || "";
+
+  // Platforms
+  const platforms = Array.isArray(tc.platforms) ? tc.platforms : [];
+  const platformRow = document.getElementById("viewTcPlatformRow");
+  const platformContainer = document.getElementById("viewTcPlatforms");
+  if (platforms.length > 0 && platformRow && platformContainer) {
+    platformContainer.innerHTML = "";
+    platforms.forEach(p => {
+      const badge = document.createElement("span");
+      badge.className = `tc-view-platform-badge tc-platform-${p}`;
+      const opt = PLATFORM_OPTIONS.find(o => o.value === p);
+      badge.innerHTML = `<i class="bi ${opt ? opt.icon : "bi-question-circle"}"></i> ${opt ? opt.label : p}`;
+      platformContainer.appendChild(badge);
+    });
+    platformRow.style.display = "";
+  } else if (platformRow) {
+    platformRow.style.display = "none";
+  }
+
   viewTestCaseModal.show();
 }
 
@@ -2061,6 +2244,9 @@ function openAddTestCaseModal(section) {
   renderStepEditorRows([{ content: "", expected: "" }]);
   document.getElementById("editTcExpected").value = "";
 
+  // Default all platforms selected for new test cases
+  renderEditModalPlatformChips(PLATFORM_OPTIONS.map(o => o.value));
+
   editTestCaseModal.show();
 }
 
@@ -2084,6 +2270,32 @@ document.getElementById("editTestCaseModal").addEventListener("hidden.bs.modal",
   resetEditModalToEditMode();
 });
 
+// --- Edit modal platform chip selector ---
+function renderEditModalPlatformChips(selectedPlatforms = []) {
+  const container = document.getElementById("editTcPlatformOptions");
+  if (!container) return;
+  container.innerHTML = "";
+  const selected = new Set(selectedPlatforms);
+  PLATFORM_OPTIONS.forEach(opt => {
+    const chip = document.createElement("span");
+    chip.className = "platform-chip" + (selected.has(opt.value) ? " platform-chip-selected" : "");
+    chip.dataset.value = opt.value;
+    chip.innerHTML = `<i class="bi ${opt.icon} me-1"></i>${opt.label}`;
+    chip.addEventListener("click", () => {
+      chip.classList.toggle("platform-chip-selected");
+    });
+    container.appendChild(chip);
+  });
+}
+
+function getEditModalPlatforms() {
+  const container = document.getElementById("editTcPlatformOptions");
+  if (!container) return [];
+  return Array.from(container.querySelectorAll(".platform-chip-selected"))
+    .map(el => el.dataset.value)
+    .filter(Boolean);
+}
+
 function openEditModal(tc) {
   const sectionOptions = getSectionOptions();
   const currentSection = String(tc.section || "").trim();
@@ -2101,6 +2313,8 @@ function openEditModal(tc) {
   document.getElementById("editTcPreconditions").value = tc.preconditions || "";
   renderStepEditorRows(tc.steps);
   document.getElementById("editTcExpected").value = tc.expected || "";
+  // Populate platform chips in edit modal
+  renderEditModalPlatformChips(Array.isArray(tc.platforms) ? tc.platforms : []);
   editTestCaseModal.show();
 }
 
@@ -2142,6 +2356,7 @@ editTestCaseForm.addEventListener("submit", async (e) => {
       steps: steps,
       expected: document.getElementById("editTcExpected").value.trim(),
       expectedResult: document.getElementById("editTcExpected").value.trim(),
+      platforms: getEditModalPlatforms(),
     };
 
     try {
@@ -2163,6 +2378,7 @@ editTestCaseForm.addEventListener("submit", async (e) => {
           : (added.preconditions || ""),
         steps: Array.isArray(added.steps) ? added.steps : [],
         expected: added.expectedResult || added.expected || "",
+        platforms: Array.isArray(added.platforms) ? added.platforms : [],
       });
 
       const prevSection = selectedSection;
@@ -2197,6 +2413,7 @@ editTestCaseForm.addEventListener("submit", async (e) => {
     preconditions: document.getElementById("editTcPreconditions").value.trim(),
     steps: steps,
     expected: document.getElementById("editTcExpected").value.trim(),
+    platforms: getEditModalPlatforms(),
   };
 
   try {
@@ -2605,6 +2822,7 @@ async function handleBulkPostToTestrail() {
     const payload = {
       promptId: currentScopePromptId,
       testcaseIds: Array.from(selectedTcIds),
+      platformFilter: selectedPlatformFilters.size > 0 ? Array.from(selectedPlatformFilters) : [],
     };
 
     const response = await apiRequest("/testrail/posttestcases", {

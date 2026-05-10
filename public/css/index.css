@@ -418,6 +418,96 @@
       color: #6b7f9c;
     }
 
+    /* Platform Multiselect */
+    .platform-multiselect {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .platform-options {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+
+    .platform-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 5px 14px;
+      border-radius: 20px;
+      border: 1.5px solid #d0dff5;
+      background: #f7f9fc;
+      color: #5a7291;
+      font-size: 0.8rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.18s;
+      user-select: none;
+    }
+
+    .platform-chip:hover {
+      border-color: #8ab4ff;
+      background: #eef4ff;
+      color: #3b5b89;
+    }
+
+    .platform-chip-selected {
+      border-color: #4a90d9;
+      background: #e0edff;
+      color: #1a4a8a;
+      font-weight: 600;
+      box-shadow: 0 1px 4px rgba(74, 144, 217, 0.15);
+    }
+
+    .platform-chip-selected:hover {
+      border-color: #3578c4;
+      background: #d0e2ff;
+    }
+
+    .platform-selected-tags {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      min-height: 28px;
+      align-items: center;
+    }
+
+    .platform-tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 3px 10px;
+      border-radius: 14px;
+      background: #e0edff;
+      color: #1a4a8a;
+      font-size: 0.75rem;
+      font-weight: 600;
+      border: 1px solid #b8d4f5;
+    }
+
+    .platform-tag-remove {
+      background: none;
+      border: none;
+      color: #6b8ab5;
+      font-size: 0.85rem;
+      cursor: pointer;
+      padding: 0 2px;
+      line-height: 1;
+      transition: color 0.15s;
+    }
+
+    .platform-tag-remove:hover {
+      color: #dc3545;
+    }
+
+    .platform-placeholder {
+      color: #a3afc2;
+      font-size: 0.78rem;
+      font-style: italic;
+    }
+
     .modern-form .input-group-text {
       background: #f4f8ff;
       border-color: #d8e5f8;
@@ -2699,4 +2789,124 @@
       z-index: 2;
       background: #f4f8ff;
       box-shadow: 0 1px 0 #dde8fb;
+    }
+
+    /* ── Platform Badges (test case table rows) ── */
+    .tc-platform-badges {
+      display: inline-flex;
+      gap: 0.3rem;
+      margin-left: 0.5rem;
+      vertical-align: middle;
+      flex-wrap: wrap;
+    }
+    .tc-platform-badge {
+      display: inline-block;
+      font-size: 0.65rem;
+      font-weight: 600;
+      padding: 0.1rem 0.4rem;
+      border-radius: 0.75rem;
+      line-height: 1.3;
+      letter-spacing: 0.02em;
+      white-space: nowrap;
+    }
+    .tc-platform-ios       { background: #e8f0fe; color: #1a56db; }
+    .tc-platform-android   { background: #e6f9e6; color: #1a7f37; }
+    .tc-platform-mobile-web { background: #fff3cd; color: #856404; }
+    .tc-platform-desktop-web { background: #f0e6ff; color: #6f42c1; }
+    .tc-platform-backend   { background: #f1f1f1; color: #495057; }
+
+    /* ── Platform filter in toolbar ── */
+    .tc-platform-filter {
+      position: relative;
+      min-width: 160px;
+    }
+    .tc-pf-toggle {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.2rem;
+      padding: 0.3rem 0.7rem;
+      border-radius: 0.5rem;
+      border: 1.5px solid #d0dff5;
+      background: #f7f9fc;
+      color: #5a7291;
+      font-size: 0.8rem;
+      font-weight: 500;
+      cursor: pointer;
+      user-select: none;
+      transition: all 0.18s;
+      white-space: nowrap;
+    }
+    .tc-pf-toggle:hover {
+      border-color: #8ab4ff;
+      background: #eef4ff;
+    }
+    .tc-pf-toggle.active {
+      border-color: #4a90d9;
+      background: #e0edff;
+      color: #1a4a8a;
+    }
+    .tc-pf-chevron {
+      font-size: 0.65rem;
+      transition: transform 0.2s;
+    }
+    .tc-pf-toggle.active .tc-pf-chevron {
+      transform: rotate(180deg);
+    }
+    .tc-pf-dropdown {
+      position: absolute;
+      top: calc(100% + 4px);
+      left: 0;
+      z-index: 100;
+      background: #fff;
+      border: 1.5px solid #d0dff5;
+      border-radius: 0.65rem;
+      box-shadow: 0 4px 16px rgba(13, 110, 253, 0.10);
+      padding: 0.5rem;
+      min-width: 220px;
+    }
+    .tc-pf-chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+    .tc-pf-reset {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 100%;
+      margin-top: 0.4rem;
+      padding: 0.25rem 0;
+      border: none;
+      border-top: 1px solid #e8eef7;
+      background: transparent;
+      color: #6b8ab5;
+      font-size: 0.75rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: color 0.15s;
+    }
+    .tc-pf-reset:hover {
+      color: #dc3545;
+    }
+
+    /* ── Platform display in view modal ── */
+    .tc-view-platform-badges {
+      display: flex;
+      gap: 0.35rem;
+      flex-wrap: wrap;
+    }
+    .tc-view-platform-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.25rem;
+      font-size: 0.75rem;
+      font-weight: 600;
+      padding: 0.2rem 0.55rem;
+      border-radius: 0.75rem;
+      letter-spacing: 0.02em;
+    }
+
+    /* ── Edit modal platform chips ── */
+    #editTcPlatformOptions .platform-chip {
+      cursor: pointer;
     }

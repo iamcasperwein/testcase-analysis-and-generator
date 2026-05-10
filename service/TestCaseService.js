@@ -2,6 +2,7 @@ const { ulid } = require("ulid");
 const FileReader = require("../utils/FileReader");
 const {
     DEFAULT_TEST_CASE_INPUT,
+    VALID_PLATFORMS,
     buildTestAnalysisPrompt,
     buildTestCaseGenerationPrompt,
     normalizePromptInput,
@@ -189,6 +190,11 @@ const sanitizeUpdatedTestCase = (payload = {}, fallbackId) => {
 
     if (Object.prototype.hasOwnProperty.call(payload, "expectedResult") || Object.prototype.hasOwnProperty.call(payload, "expected")) {
         updatedTestCase.expectedResult = String(payload.expectedResult || payload.expected || "").trim();
+    }
+
+    if (Object.prototype.hasOwnProperty.call(payload, "platforms")) {
+        const raw = Array.isArray(payload.platforms) ? payload.platforms : [];
+        updatedTestCase.platforms = raw.filter(p => VALID_PLATFORMS.includes(p));
     }
 
     return Object.fromEntries(Object.entries(updatedTestCase).filter(([, value]) => value !== undefined));
@@ -386,6 +392,7 @@ const addTestCase = async (promptId, sectionName, payload = {}) => {
     newTestCase.preconditions = newTestCase.preconditions || [];
     newTestCase.steps = newTestCase.steps || [];
     newTestCase.expectedResult = newTestCase.expectedResult || "";
+    newTestCase.platforms = newTestCase.platforms || [];
 
     // Find existing section by sectionId first, then fall back to name
     const incomingSectionId = normalizeOptionalId(payload.sectionId);

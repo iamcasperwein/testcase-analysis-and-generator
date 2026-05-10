@@ -44,6 +44,7 @@ The **QE Test Case Generator** is a Node.js / Express backend that ingests produ
 - **Dashboard Analytics** — Aggregate counts, turnaround time, and failure notes.
 - **Runtime Settings** — Manage application secrets (API keys, ports) via a REST surface backed by `.env`.
 - **TestRail Integration** — Fetch sections, auto-create missing sections, and post selected test cases to TestRail.
+- **Platform Support** — Each test case carries a `platforms` array (`ios`, `android`, `mobile-web`, `desktop-web`, `backend`). The generation form lets users select target platforms (multiselect chips). Test cases display platform badges in the table and view modal. A multiselect platform filter in the toolbar lets users narrow the displayed test cases by one or more platforms. When posting to TestRail, only the currently visible (filtered/selected) test cases are sent.
 
 ---
 
