@@ -1,23 +1,28 @@
 const { ulid } = require("ulid");
 const fs = require("fs");
-const { PDFParse } = require("pdf-parse");
+const pdfParse = require("pdf-parse");
 const { jsonrepair } = require("jsonrepair");
 const FileReader = require("../utils/FileReader");
 const { createActionLogger } = require("../utils/AppLogger");
+const { validateContextFits } = require("../utils/TokenEstimator");
 const TestCaseService = require("./TestCaseService");
 const GeminiService = require("./GeminiService");
 const ClaudeService = require("./ClaudeService");
 const CopilotService = require("./CopilotService");
+const path = require("path");
 
 const AGENTS = Object.freeze({
-    claude: async ({ prompt, payload }) => ClaudeService.generateFromPrompt(prompt, {
+    claude: async ({ prompt, payload, model }) => ClaudeService.generateFromPrompt(prompt, {
         uploadedFiles: payload?.uploadedFiles,
+        model,
     }),
-    gemini: async ({ prompt, payload }) => GeminiService.generateFromPrompt(prompt, {
+    gemini: async ({ prompt, payload, model }) => GeminiService.generateFromPrompt(prompt, {
         uploadedFiles: payload?.uploadedFiles,
+        model,
     }),
-    copilot: async ({ prompt, payload }) => CopilotService.generateFromPrompt(prompt, {
+    copilot: async ({ prompt, payload, model }) => CopilotService.generateFromPrompt(prompt, {
         uploadedFiles: payload?.uploadedFiles,
+        model,
     }),
 });
 
@@ -54,6 +59,54 @@ const normalizeAgentName = (value) => {
     return AGENTS[agentName] ? agentName : "claude";
 };
 
+const PROMPT_DATA_LOCK = path.join(__dirname, "../data/promptdata.lock");
+const LOCK_RETRY_MS = 50;
+const LOCK_MAX_RETRIES = 40;
+const LOCK_STALE_MS = 10000;
+
+const acquireLock = () => {
+    for (let i = 0; i < LOCK_MAX_RETRIES; i++) {
+        try {
+            fs.writeFileSync(PROMPT_DATA_LOCK, String(Date.now()), { flag: "wx" });
+            return true;
+        } catch (err) {
+            if (err.code === "EEXIST") {
+                try {
+                    const lockTime = Number(fs.readFileSync(PROMPT_DATA_LOCK, "utf8"));
+                    if (Date.now() - lockTime > LOCK_STALE_MS) {
+                        fs.unlinkSync(PROMPT_DATA_LOCK);
+                        continue;
+                    }
+                } catch (_) { /* lock was removed between check and read — retry */ }
+
+                const waitUntil = Date.now() + LOCK_RETRY_MS;
+                while (Date.now() < waitUntil) { /* busy-wait */ }
+                continue;
+            }
+            throw err;
+        }
+    }
+    throw new Error("Could not acquire lock on promptdata.json after maximum retries");
+};
+
+const releaseLock = () => {
+    try {
+        fs.unlinkSync(PROMPT_DATA_LOCK);
+    } catch (_) { /* already released */ }
+};
+
+const withPromptData = (callback) => {
+    acquireLock();
+    try {
+        const records = readPromptData();
+        const updated = callback(records);
+        writePromptData(updated);
+        return updated;
+    } finally {
+        releaseLock();
+    }
+};
+
 const readPromptData = () => {
     try {
         const raw = FileReader.readDataFile("promptdata.json");
@@ -84,27 +137,27 @@ const writePromptSnapshot = (promptId, stage, prompt) => {
 };
 
 const appendPromptRecord = (record) => {
-    const records = readPromptData();
-    records.push(record);
-    writePromptData(records);
+    withPromptData((records) => {
+        records.push(record);
+        return records;
+    });
     return record;
 };
 
 const updatePromptRecord = (promptId, patch = {}) => {
-    const records = readPromptData();
-    const recordIndex = records.findIndex((record) => String(record.promptId || "") === String(promptId));
+    let updatedRecord = null;
+    withPromptData((records) => {
+        const recordIndex = records.findIndex((record) => String(record.promptId || "") === String(promptId));
+        if (recordIndex === -1) return records;
 
-    if (recordIndex === -1) {
-        return null;
-    }
-
-    records[recordIndex] = {
-        ...records[recordIndex],
-        ...patch,
-    };
-
-    writePromptData(records);
-    return records[recordIndex];
+        records[recordIndex] = {
+            ...records[recordIndex],
+            ...patch,
+        };
+        updatedRecord = records[recordIndex];
+        return records;
+    });
+    return updatedRecord;
 };
 
 const stripMarkdownFences = (value = "") => {
@@ -154,6 +207,8 @@ const normalizeGeneratedTestCases = (generated, featureFallback = "") => {
 
         return {
             section: String(section?.section || "Uncategorized").trim() || "Uncategorized",
+            sectionId: String(section?.sectionId || "").trim() || `sec_${ulid()}`,
+            sectionSource: "ai",
             "testCases": sectionCases,
         };
     });
@@ -201,8 +256,7 @@ const extractTextFromFile = async (filePath = "", logger = null) => {
         const isPdf = filePath.toLowerCase().endsWith(".pdf");
         if (isPdf) {
             logger?.step("Parsing PDF", { filePath, kb: Number((buffer.length / 1024).toFixed(1)) });
-            const parser = new PDFParse({ data: buffer });
-            const result = await parser.getText();
+            const result = await pdfParse(buffer);
             const text = String(result.text || "").trim();
             logger?.success("PDF extracted", { filePath, chars: text.length });
             return text;
@@ -364,8 +418,27 @@ const processSubmission = async (payload = {}, { isRetry = false } = {}) => {
             throw new Error(`Unknown agent "${agent}". Available agents: ${Object.keys(AGENTS).join(", ")}`);
         }
 
+        // Warn if the prompt may exceed the model's safe context window
+        const contextCheck = validateContextFits(prompt, selectedModel);
+        if (!contextCheck.fits) {
+            logger.warn("Prompt may exceed model context limit", {
+                mode,
+                estimated: contextCheck.estimated,
+                safeLimit: contextCheck.safeLimit,
+                excess: contextCheck.excess,
+                model: selectedModel,
+            });
+        } else {
+            logger.info("Context check passed", {
+                mode,
+                estimated: contextCheck.estimated,
+                safeLimit: contextCheck.safeLimit,
+                model: selectedModel,
+            });
+        }
+
         try {
-            return await handler({ prompt, payload, promptId, mode });
+            return await handler({ prompt, payload, promptId, mode, model: selectedModel });
         } catch (error) {
             const errorMsg = String(error.message || "");
 

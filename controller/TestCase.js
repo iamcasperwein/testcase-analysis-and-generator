@@ -97,9 +97,77 @@ const deleteTestCase = async (req, res) => {
   }
 };
 
+const addTestCase = async (req, res) => {
+  try {
+    const promptId = String(req.query.promptID || req.query.promptId || req.body.promptID || req.body.promptId || "").trim();
+    const section = String(req.body.section || "").trim();
+
+    if (!promptId) {
+      return res.status(400).json({ success: false, error: "promptId is required" });
+    }
+
+    if (!section) {
+      return res.status(400).json({ success: false, error: "section is required" });
+    }
+
+    const result = await TestCaseService.addTestCase(promptId, section, req.body || {});
+    res.status(201).json({
+      success: true,
+      message: "Test case added successfully",
+      data: result,
+    });
+  } catch (error) {
+    if (error.code === "ENOENT") {
+      return res.status(404).json({ success: false, error: "Test case data not found" });
+    }
+
+    if (error.statusCode) {
+      return res.status(error.statusCode).json({ success: false, error: error.message });
+    }
+
+    res.status(500).json({ success: false, error: error.message });
+  }
+};
+
+const editSectionName = async (req, res) => {
+  try {
+    const promptId = String(req.query.promptID || req.query.promptId || req.body.promptID || req.body.promptId || "").trim();
+    const currentName = String(req.body.currentName || "").trim();
+    const newName = String(req.body.newName || "").trim();
+    const sectionId = req.body.sectionId != null ? req.body.sectionId : null;
+
+    if (!promptId) {
+      return res.status(400).json({ success: false, error: "promptId is required" });
+    }
+
+    if (!currentName || !newName) {
+      return res.status(400).json({ success: false, error: "currentName and newName are required" });
+    }
+
+    const result = await TestCaseService.editSectionName(promptId, currentName, newName, sectionId);
+    res.status(200).json({
+      success: true,
+      message: "Section renamed successfully",
+      data: result,
+    });
+  } catch (error) {
+    if (error.code === "ENOENT") {
+      return res.status(404).json({ success: false, error: "Test case data not found" });
+    }
+
+    if (error.statusCode) {
+      return res.status(error.statusCode).json({ success: false, error: error.message });
+    }
+
+    res.status(500).json({ success: false, error: error.message });
+  }
+};
+
 module.exports = {
   getTestCases,
   getAnalyzeResult,
   editTestCase,
   deleteTestCase,
+  addTestCase,
+  editSectionName,
 };

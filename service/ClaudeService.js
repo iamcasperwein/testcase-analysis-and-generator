@@ -1,4 +1,5 @@
 const axios = require("axios")
+const { SYSTEM_PROMPT } = require("../prompts")
 
 const CLAUDE_API_URL = "https://api.anthropic.com/v1/messages"
 const DEFAULT_MODEL = String(process.env.CLAUDE_MODEL || "claude-sonnet-4-6").trim()
@@ -14,9 +15,10 @@ const getApiKey = () => {
 	return apiKey
 }
 
-const generateFromPrompt = async (prompt, _options = {}) => {
+const generateFromPrompt = async (prompt, options = {}) => {
 	const apiKey = getApiKey()
 	const messagePrompt = String(prompt || "").trim()
+	const model = String(options.model || DEFAULT_MODEL).trim()
 
 	if (!messagePrompt) {
 		const error = new Error("Prompt is required")
@@ -27,9 +29,10 @@ const generateFromPrompt = async (prompt, _options = {}) => {
 	const response = await axios.post(
 		CLAUDE_API_URL,
 		{
-			model: DEFAULT_MODEL,
+			model,
 			max_tokens: 8192,
 			temperature: 0.2,
+			system: SYSTEM_PROMPT,
 			messages: [
 				{
 					role: "user",
@@ -46,7 +49,7 @@ const generateFromPrompt = async (prompt, _options = {}) => {
 			headers: {
 				"Content-Type": "application/json",
 				"x-api-key": apiKey,
-				"anthropic-version": "2023-06-01",
+				"anthropic-version": "2026-05-01",
 			},
 			timeout: 120000,
 		},

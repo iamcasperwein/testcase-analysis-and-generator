@@ -1284,15 +1284,43 @@ function renderAllTestCases() {
     sectionContentDiv.className = "d-flex align-items-center justify-content-between gap-2";
     sectionContentDiv.innerHTML = `
       <span class="d-flex align-items-center gap-2"></span>
-      <span class="section-origin-pill origin-${sectionSource}">${sourceLabel}</span>
+      <span class="d-flex align-items-center gap-1">
+        <span class="section-origin-pill origin-${sectionSource}">${sourceLabel}</span>
+      </span>
     `;
     const sectionNameSpan = sectionContentDiv.querySelector("span.d-flex");
+    const sectionActionsSpan = sectionContentDiv.querySelectorAll("span.d-flex")[1];
     sectionNameSpan.prepend(sectionCbWrap);
-    const nameText = document.createTextNode(`${escapeHtml(section.name)} (${section.testcases.length})`);
-    // Use innerHTML for the text portion safely
     const namePart = document.createElement("span");
+    namePart.className = "section-name-text";
     namePart.textContent = `${section.name} (${section.testcases.length})`;
     sectionNameSpan.appendChild(namePart);
+
+    // Edit section name button
+    if (sectionSource !== "testrail") {
+      const editSectionBtn = document.createElement("button");
+      editSectionBtn.className = "btn btn-sm section-action-btn section-edit-btn";
+      editSectionBtn.title = "Rename section";
+      editSectionBtn.setAttribute("aria-label", "Rename section");
+      editSectionBtn.innerHTML = '<i class="bi bi-pencil"></i>';
+      editSectionBtn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        startInlineEditSection(sectionRow, section, namePart);
+      });
+      sectionNameSpan.appendChild(editSectionBtn);
+    }
+
+    // Add test case button
+    const addTcBtn = document.createElement("button");
+    addTcBtn.className = "btn btn-sm section-action-btn section-add-btn";
+    addTcBtn.title = "Add test case to this section";
+    addTcBtn.setAttribute("aria-label", "Add test case");
+    addTcBtn.innerHTML = '<i class="bi bi-plus-lg"></i>';
+    addTcBtn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      openAddTestCaseModal(section);
+    });
+    sectionNameSpan.appendChild(addTcBtn);
 
     sectionCell.appendChild(sectionContentDiv);
     sectionRow.appendChild(sectionCell);
@@ -1897,6 +1925,165 @@ const bulkSectionPicker = createSectionPicker({
   valueId: "bulkEditSectionValue",
 });
 
+// --- INLINE SECTION RENAME ---
+function startInlineEditSection(sectionRow, section, namePart) {
+  // Prevent multiple inline edits at once
+  if (document.querySelector(".section-inline-edit-wrap")) return;
+
+  const originalName = section.name;
+  const countSuffix = ` (${section.testcases.length})`;
+
+  const wrap = document.createElement("span");
+  wrap.className = "section-inline-edit-wrap d-flex align-items-center gap-1";
+  const input = document.createElement("input");
+  input.type = "text";
+  input.className = "form-control form-control-sm section-inline-edit-input";
+  input.value = originalName;
+  input.maxLength = 120;
+
+  const confirmBtn = document.createElement("button");
+  confirmBtn.type = "button";
+  confirmBtn.className = "btn btn-sm btn-primary section-inline-edit-confirm";
+  confirmBtn.title = "Save";
+  confirmBtn.innerHTML = '<i class="bi bi-check-lg"></i>';
+
+  const cancelBtn = document.createElement("button");
+  cancelBtn.type = "button";
+  cancelBtn.className = "btn btn-sm btn-outline-secondary section-inline-edit-cancel";
+  cancelBtn.title = "Cancel";
+  cancelBtn.innerHTML = '<i class="bi bi-x-lg"></i>';
+
+  wrap.appendChild(input);
+  wrap.appendChild(confirmBtn);
+  wrap.appendChild(cancelBtn);
+
+  namePart.style.display = "none";
+  // Hide action buttons (edit/add) during inline edit
+  const actionBtns = namePart.parentNode.querySelectorAll(".section-action-btn");
+  actionBtns.forEach(btn => btn.style.display = "none");
+  namePart.parentNode.insertBefore(wrap, namePart.nextSibling);
+
+  input.focus();
+  input.select();
+
+  const cleanup = () => {
+    wrap.remove();
+    namePart.style.display = "";
+    // Restore action buttons
+    actionBtns.forEach(btn => btn.style.display = "");
+  };
+
+  const save = async () => {
+    const newName = input.value.trim();
+    if (!newName || newName === originalName) {
+      cleanup();
+      return;
+    }
+
+    confirmBtn.disabled = true;
+    cancelBtn.disabled = true;
+    input.disabled = true;
+
+    try {
+      await apiRequest(`/testcase/editSection?promptID=${encodeURIComponent(currentScopePromptId)}`, {
+        method: "PUT",
+        body: JSON.stringify({
+          promptId: currentScopePromptId,
+          currentName: originalName,
+          newName: newName,
+          sectionId: section.sectionId ?? null,
+        }),
+      });
+
+      // Update local data
+      allTestCases = allTestCases.map(tc =>
+        (tc.section || "").toLowerCase() === originalName.toLowerCase()
+          ? { ...tc, section: newName }
+          : tc
+      );
+
+      const prevSection = selectedSection === originalName ? newName : selectedSection;
+      buildSectionsFromCases();
+      renderSections();
+      renderAllTestCases();
+      selectSection(prevSection);
+
+      showBanner("Section renamed successfully.", "success");
+    } catch (err) {
+      showBanner("Failed to rename section: " + (err.message || "Unknown error"), "danger");
+      cleanup();
+    }
+  };
+
+  confirmBtn.addEventListener("click", (e) => { e.stopPropagation(); save(); });
+  cancelBtn.addEventListener("click", (e) => { e.stopPropagation(); cleanup(); });
+  input.addEventListener("keydown", (e) => {
+    e.stopPropagation();
+    if (e.key === "Enter") { e.preventDefault(); save(); }
+    if (e.key === "Escape") { cleanup(); }
+  });
+  input.addEventListener("click", (e) => e.stopPropagation());
+}
+
+// --- ADD TEST CASE MODAL ---
+let isAddMode = false;
+let addTargetSection = null;
+
+function openAddTestCaseModal(section) {
+  isAddMode = true;
+  addTargetSection = section;
+
+  // Update modal header to reflect add mode
+  const modalTitle = document.getElementById("editTestCaseModalLabel");
+  const modalSub = document.querySelector(".tc-bloom-modal-sub");
+  const saveBtn = document.querySelector("#editTestCaseForm .tc-save-btn");
+  const iconWrap = document.querySelector(".tc-bloom-icon-edit");
+
+  modalTitle.textContent = "Add Test Case";
+  if (modalSub) modalSub.textContent = `Adding to section: ${section.name}`;
+  if (saveBtn) saveBtn.innerHTML = '<i class="bi bi-plus-circle me-1"></i>Add Test Case';
+  if (iconWrap) iconWrap.innerHTML = '<i class="bi bi-plus-circle"></i>';
+
+  // Set section picker to the target section (locked)
+  const sectionOptions = getSectionOptions();
+  editSectionPicker.setOptions(sectionOptions);
+  editSectionPicker.setValue(section.name, {
+    sectionId: section.sectionId,
+    suiteId: section.suiteId,
+    source: section.source,
+  });
+
+  // Clear all fields
+  document.getElementById("editTcId").value = "";
+  document.getElementById("editTcPromptId").value = currentScopePromptId || "";
+  document.getElementById("editTcTitle").value = "";
+  document.getElementById("editTcPreconditions").value = "";
+  renderStepEditorRows([{ content: "", expected: "" }]);
+  document.getElementById("editTcExpected").value = "";
+
+  editTestCaseModal.show();
+}
+
+function resetEditModalToEditMode() {
+  isAddMode = false;
+  addTargetSection = null;
+
+  const modalTitle = document.getElementById("editTestCaseModalLabel");
+  const modalSub = document.querySelector(".tc-bloom-modal-sub");
+  const saveBtn = document.querySelector("#editTestCaseForm .tc-save-btn");
+  const iconWrap = document.querySelector(".tc-bloom-icon-edit");
+
+  modalTitle.textContent = "Edit Test Case";
+  if (modalSub) modalSub.textContent = "Update test details and section";
+  if (saveBtn) saveBtn.innerHTML = '<i class="bi bi-floppy me-1"></i>Save Changes';
+  if (iconWrap) iconWrap.innerHTML = '<i class="bi bi-pencil-square"></i>';
+}
+
+// Reset modal mode when hidden
+document.getElementById("editTestCaseModal").addEventListener("hidden.bs.modal", () => {
+  resetEditModalToEditMode();
+});
+
 function openEditModal(tc) {
   const sectionOptions = getSectionOptions();
   const currentSection = String(tc.section || "").trim();
@@ -1936,6 +2123,69 @@ editTestCaseForm.addEventListener("submit", async (e) => {
     return;
   }
 
+  // --- ADD MODE ---
+  if (isAddMode) {
+    const title = document.getElementById("editTcTitle").value.trim();
+    if (!title) {
+      showBanner("Title is required.", "danger");
+      return;
+    }
+
+    const newTc = {
+      promptId: promptId,
+      section: resolvedSection,
+      sectionId: resolvedSelection.sectionId,
+      suiteId: resolvedSelection.suiteId,
+      sectionSource: resolvedSelection.source,
+      title: title,
+      preconditions: document.getElementById("editTcPreconditions").value.trim(),
+      steps: steps,
+      expected: document.getElementById("editTcExpected").value.trim(),
+      expectedResult: document.getElementById("editTcExpected").value.trim(),
+    };
+
+    try {
+      const result = await apiRequest(`/testcase/add?promptID=${encodeURIComponent(promptId)}`, {
+        method: "POST",
+        body: JSON.stringify(newTc),
+      });
+
+      // Add to local data
+      const added = result?.data?.addedTestCase || {};
+      allTestCases.push({
+        ...added,
+        section: added.section || resolvedSection,
+        sectionId: added.sectionId ?? resolvedSelection.sectionId,
+        suiteId: added.suiteId ?? resolvedSelection.suiteId,
+        sectionSource: added.sectionSource || resolvedSelection.source,
+        preconditions: Array.isArray(added.preconditions)
+          ? added.preconditions.join("\n")
+          : (added.preconditions || ""),
+        steps: Array.isArray(added.steps) ? added.steps : [],
+        expected: added.expectedResult || added.expected || "",
+      });
+
+      const prevSection = selectedSection;
+      buildSectionsFromCases();
+      renderSections();
+      renderAllTestCases();
+
+      const sectionNames = sections.map(s => s.name);
+      if (prevSection && prevSection !== "all" && sectionNames.includes(prevSection)) {
+        selectSection(prevSection);
+      } else {
+        selectSection("all");
+      }
+
+      editTestCaseModal.hide();
+      showBanner(`Test case ${added.id || ""} added successfully.`, "success");
+    } catch (err) {
+      showBanner("Failed to add test case: " + err.message, "danger");
+    }
+    return;
+  }
+
+  // --- EDIT MODE (existing behavior) ---
   const updated = {
     id: tcId,
     promptId: promptId,
@@ -1955,10 +2205,8 @@ editTestCaseForm.addEventListener("submit", async (e) => {
       body: JSON.stringify(updated),
     });
 
-    // Update local data to reflect changes
     allTestCases = allTestCases.map(tc => tc.id === tcId ? { ...tc, ...updated } : tc);
 
-    // Rebuild sections and keep current section focus
     const prevSection = selectedSection;
     buildSectionsFromCases();
     renderSections();

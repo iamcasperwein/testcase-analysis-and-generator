@@ -22,7 +22,7 @@ const DEFAULT_SETTING_KEYS = [
 	{ key: "TESTRAIL_TESTSUITE_ID", confidential: false },
 	{ key: "TESTRAIL_SUITE_ID", confidential: false },
 	{ key: "OPENAI_API_KEY", confidential: true },
-	{ key: "NODE_ENV", confidential: false },
+	// { key: "NODE_ENV", confidential: false },
 	{ key: "CLAUDE_API_KEY", confidential: true },
 	// { key: "ANTHROPIC_API_KEY", confidential: false }
 ]
@@ -112,7 +112,11 @@ const writeEnvMap = (envMap = {}) => {
 		.sort((a, b) => a.localeCompare(b))
 
 	const content = keys
-		.map((key) => `${key}=${String(envMap[key] ?? "")}`)
+		.map((key) => {
+			const val = String(envMap[key] ?? "")
+			const escaped = val.replace(/\\/g, "\\\\").replace(/"/g, '\\"')
+			return `${key}="${escaped}"`
+		})
 		.join("\n")
 
 	const finalContent = content ? `${content}\n` : ""

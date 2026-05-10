@@ -1,12 +1,12 @@
 const { GoogleGenerativeAI } = require("@google/generative-ai");
 const { GoogleAIFileManager } = require("@google/generative-ai/server");
 const fs = require("fs");
-const { buildTestCaseGenerationPrompt } = require("../prompts");
+const { buildTestCaseGenerationPrompt, SYSTEM_PROMPT } = require("../prompts");
 
+const DEFAULT_MODEL = String(process.env.GEMINI_MODEL || "models/gemini-2.5-flash").trim();
 
 let _genAI = null;
 let _fileManager = null;
-let _model = null;
 
 const getGenAI = () => {
     if (!_genAI) {
@@ -18,9 +18,20 @@ const getGenAI = () => {
         }
         _genAI = new GoogleGenerativeAI(apiKey);
         _fileManager = new GoogleAIFileManager(apiKey);
-        _model = _genAI.getGenerativeModel({ model: "models/gemini-2.5-flash" });
     }
-    return { genAI: _genAI, fileManager: _fileManager, model: _model };
+    return { genAI: _genAI, fileManager: _fileManager };
+};
+
+const getModel = (modelName) => {
+    const { genAI } = getGenAI();
+    return genAI.getGenerativeModel({
+        model: modelName || DEFAULT_MODEL,
+        systemInstruction: SYSTEM_PROMPT,
+        generationConfig: {
+            temperature: 0.2,
+            topP: 0.95,
+        },
+    });
 };
 
 /**
@@ -122,8 +133,9 @@ const buildGeminiInput = async (prompt, options = {}) => {
 const generateFromPrompt = async (prompt, options = {}) => {
     console.log("[GeminiService] generateFromPrompt :: start");
     const modelInput = await buildGeminiInput(prompt, options);
+    const modelName = String(options.model || DEFAULT_MODEL).trim();
     console.log("[GeminiService] generateFromPrompt :: calling Gemini API...");
-    const { model } = getGenAI();
+    const model = getModel(modelName);
     const result = await model.generateContent(modelInput);
     const text = result.response.text();
     console.log(`[GeminiService] generateFromPrompt :: response received (${text.length} chars)`);

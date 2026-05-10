@@ -1001,6 +1001,89 @@
       color: #3b5b89;
       border-top: 1px solid #dbe8ff;
     }
+
+    .scope-section-row:hover .section-action-btn {
+      opacity: 1;
+    }
+
+    /* Section action buttons (edit, add) */
+    .section-action-btn {
+      width: 24px;
+      height: 24px;
+      padding: 0;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 50%;
+      font-size: 0.72rem;
+      line-height: 1;
+      opacity: 0.45;
+      transition: opacity 0.15s, background 0.15s, color 0.15s, transform 0.12s;
+      border: 1px solid #d4e0ed;
+      background: #ecfeff;
+      color: #6b8ab5;
+      flex-shrink: 0;
+      margin-left: 4px;
+    }
+
+    .section-action-btn:hover {
+      opacity: 1 !important;
+      transform: translateY(-1px);
+    }
+
+    .section-edit-btn:hover {
+      background: #e8f0fe;
+      color: #3b5b89;
+      border-color: #c5d8f0;
+    }
+
+    .section-add-btn:hover {
+      background: #e6f4ea;
+      color: #1a7431;
+      border-color: #b7e1c4;
+    }
+
+    /* Inline section rename */
+    .section-inline-edit-wrap {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .section-inline-edit-input {
+      font-size: 0.82rem;
+      font-weight: 600;
+      color: #3b5b89;
+      width: 800px;
+      max-width: 80vw;
+      height: 28px;
+      padding: 0.15rem 0.45rem;
+      border-color: #a3c4f3;
+      border-radius: 0.35rem;
+      background: #fff;
+    }
+
+    .section-inline-edit-input:focus {
+      box-shadow: 0 0 0 2px rgba(13, 110, 253, 0.18);
+      border-color: #0d6efd;
+    }
+
+    .section-inline-edit-confirm,
+    .section-inline-edit-cancel {
+      width: 26px;
+      height: 26px;
+      padding: 0;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 50%;
+      font-size: 0.78rem;
+      flex-shrink: 0;
+    }
+
+    .section-name-text {
+      user-select: none;
+    }
+
     .section-cb-wrap {
       align-items: center;
       margin-right: 0.35rem;
