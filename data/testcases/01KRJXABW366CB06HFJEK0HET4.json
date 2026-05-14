@@ -13,62 +13,6 @@
             },
             "testCases": [
                 {
-                    "id": "TC-001",
-                    "title": "Login/Register screen should load with minimalist, conversion-focused design on initial access",
-                    "platforms": [
-                        "ios",
-                        "android",
-                        "mobile-web",
-                        "desktop-web"
-                    ],
-                    "type": "positive",
-                    "priority": "high",
-                    "preconditions": [
-                        "User is not authenticated"
-                    ],
-                    "steps": [
-                        {
-                            "content": "Navigate to the application's login/register entry point (e.g., launch app, click 'Login' button from homepage)",
-                            "expected": "The login/register screen loads successfully. The UI appears minimalist and conversion-focused, with clear input fields for email and password, and a primary action button."
-                        },
-                        {
-                            "content": "Observe the overall layout and design elements",
-                            "expected": "The design prioritizes a minimalist aesthetic. Primary action buttons are high-contrast. Alternative login methods are clearly separated."
-                        }
-                    ],
-                    "expectedResult": "The login/register screen is presented with a minimalist, conversion-focused design as per PRD."
-                },
-                {
-                    "id": "TC-002",
-                    "title": "Sign In and Sign Up states should transition seamlessly when user switches between them",
-                    "platforms": [
-                        "ios",
-                        "android",
-                        "mobile-web",
-                        "desktop-web"
-                    ],
-                    "type": "positive",
-                    "priority": "high",
-                    "preconditions": [
-                        "User is on the login/register screen"
-                    ],
-                    "steps": [
-                        {
-                            "content": "Ensure the screen is in the 'Sign In' state (if not, navigate to it)",
-                            "expected": "The 'Sign In' form is visible."
-                        },
-                        {
-                            "content": "Click on the 'Sign Up' option/tab",
-                            "expected": "The screen transitions smoothly to the 'Sign Up' form with a noticeable animation. The user remains oriented during the transition."
-                        },
-                        {
-                            "content": "Click on the 'Sign In' option/tab",
-                            "expected": "The screen transitions smoothly back to the 'Sign In' form with a noticeable animation. The user remains oriented during the transition."
-                        }
-                    ],
-                    "expectedResult": "Transitions between Sign In and Sign Up states are seamless and animated, keeping the user oriented."
-                },
-                {
                     "id": "TC-003",
                     "title": "Primary action buttons should be high-contrast and optimized for thumb-reachability on mobile platforms",
                     "platforms": [
@@ -102,6 +46,24 @@
                     "sectionId": "sec_002",
                     "suiteId": null,
                     "sectionSource": "ai"
+                },
+                "app": {
+                    "name": "Sign In Functionality",
+                    "sectionId": 1064036,
+                    "suiteId": 67624,
+                    "sectionSource": "testrail"
+                },
+                "mobile-web": {
+                    "name": "Sign In Functionality",
+                    "sectionId": 1064038,
+                    "suiteId": 68520,
+                    "sectionSource": "testrail"
+                },
+                "desktop-web": {
+                    "name": "Sign In Functionality",
+                    "sectionId": 1064040,
+                    "suiteId": 68521,
+                    "sectionSource": "testrail"
                 }
             },
             "testCases": [
@@ -134,7 +96,30 @@
                             "expected": "The application processes the login request. User is redirected to the authenticated home screen or dashboard."
                         }
                     ],
-                    "expectedResult": "User successfully logs in and is navigated to the authenticated section of the application."
+                    "expectedResult": "User successfully logs in and is navigated to the authenticated section of the application.",
+                    "testrailPost": {
+                        "app": {
+                            "status": "success",
+                            "lastAttemptAt": "2026-05-14T18:02:15.205Z",
+                            "message": "Posted to TestRail",
+                            "sectionId": 1064036,
+                            "testrailCaseId": 5375996
+                        },
+                        "mobile-web": {
+                            "status": "success",
+                            "lastAttemptAt": "2026-05-14T18:02:18.693Z",
+                            "message": "Posted to TestRail",
+                            "sectionId": 1064038,
+                            "testrailCaseId": 5375997
+                        },
+                        "desktop-web": {
+                            "status": "success",
+                            "lastAttemptAt": "2026-05-14T18:02:22.122Z",
+                            "message": "Posted to TestRail",
+                            "sectionId": 1064040,
+                            "testrailCaseId": 5375998
+                        }
+                    }
                 },
                 {
                     "id": "TC-005",
@@ -165,7 +150,30 @@
                             "expected": "Login fails. An error message indicating incorrect credentials (e.g., 'Incorrect email or password') is displayed on the screen. The 'Forgot Password' link is visible."
                         }
                     ],
-                    "expectedResult": "Login fails with an appropriate error message, and a direct path to 'Forgot Password' is available."
+                    "expectedResult": "Login fails with an appropriate error message, and a direct path to 'Forgot Password' is available.",
+                    "testrailPost": {
+                        "app": {
+                            "status": "success",
+                            "lastAttemptAt": "2026-05-14T18:05:07.815Z",
+                            "message": "Posted to TestRail",
+                            "sectionId": 1064036,
+                            "testrailCaseId": 5375999
+                        },
+                        "mobile-web": {
+                            "status": "success",
+                            "lastAttemptAt": "2026-05-14T18:05:10.230Z",
+                            "message": "Posted to TestRail",
+                            "sectionId": 1064038,
+                            "testrailCaseId": 5376000
+                        },
+                        "desktop-web": {
+                            "status": "success",
+                            "lastAttemptAt": "2026-05-14T18:05:12.622Z",
+                            "message": "Posted to TestRail",
+                            "sectionId": 1064040,
+                            "testrailCaseId": 5376001
+                        }
+                    }
                 },
                 {
                     "id": "TC-006",
@@ -227,7 +235,18 @@
                     ],
                     "expectedResult": "The 'Forgot Password' flow is directly accessible from any failed login attempt."
                 }
-            ]
+            ],
+            "testrailPost": {
+                "status": "success",
+                "lastAttemptAt": "2026-05-14T18:05:12.622Z",
+                "lastPostedAt": "2026-05-14T18:05:12.622Z",
+                "message": "Posted 1 test case(s) to TestRail",
+                "targetSectionId": 1064040,
+                "targetSectionName": "Sign In Functionality",
+                "sectionMode": "existing",
+                "postedCount": 1,
+                "failedCount": 0
+            }
         },
         {
             "section": {
@@ -236,6 +255,12 @@
                     "sectionId": "sec_003",
                     "suiteId": null,
                     "sectionSource": "ai"
+                },
+                "desktop-web": {
+                    "name": "Sign Up Functionality",
+                    "sectionId": 1064041,
+                    "suiteId": 68521,
+                    "sectionSource": "testrail"
                 }
             },
             "testCases": [
@@ -267,7 +292,16 @@
                             "expected": "The application processes the registration request. User is successfully registered and logged in, then redirected to the authenticated home screen or dashboard."
                         }
                     ],
-                    "expectedResult": "User successfully registers and is navigated to the authenticated section of the application."
+                    "expectedResult": "User successfully registers and is navigated to the authenticated section of the application.",
+                    "testrailPost": {
+                        "desktop-web": {
+                            "status": "success",
+                            "lastAttemptAt": "2026-05-14T18:13:41.811Z",
+                            "message": "Posted to TestRail",
+                            "sectionId": 1064041,
+                            "testrailCaseId": 5376002
+                        }
+                    }
                 },
                 {
                     "id": "TC-009",
@@ -329,8 +363,38 @@
                         }
                     ],
                     "expectedResult": "Registration fails due to weak password, with real-time inline validation feedback and contextual assistance."
+                },
+                {
+                    "id": "TC-019",
+                    "title": "for mobile-web only",
+                    "preconditions": [
+                        "testing"
+                    ],
+                    "steps": [
+                        {
+                            "content": "testing",
+                            "expected": "testing"
+                        }
+                    ],
+                    "expectedResult": "testing",
+                    "platforms": [
+                        "mobile-web"
+                    ],
+                    "type": "positive",
+                    "priority": "medium"
                 }
-            ]
+            ],
+            "testrailPost": {
+                "status": "success",
+                "lastAttemptAt": "2026-05-14T18:13:41.811Z",
+                "lastPostedAt": "2026-05-14T18:13:41.811Z",
+                "message": "Posted 1 test case(s) to TestRail",
+                "targetSectionId": 1064041,
+                "targetSectionName": "Sign Up Functionality",
+                "sectionMode": "new",
+                "postedCount": 1,
+                "failedCount": 0
+            }
         },
         {
             "section": {
@@ -469,7 +533,7 @@
             "section": {
                 "_default": {
                     "name": "Alternative Login Methods",
-                    "sectionId": "sec_005",
+                    "sectionId": "sec_01KRKRDH3NC0B7JF9ATNHBJG65",
                     "suiteId": null,
                     "sectionSource": "ai"
                 }
@@ -527,19 +591,97 @@
                         }
                     ],
                     "expectedResult": "Social login buttons correctly initiate their respective authentication flows."
+                },
+                {
+                    "id": "TC-018",
+                    "title": "New Testcase for testing",
+                    "preconditions": [
+                        "testing"
+                    ],
+                    "steps": [
+                        {
+                            "content": "testing step",
+                            "expected": "testing expect"
+                        }
+                    ],
+                    "expectedResult": "testing",
+                    "platforms": [
+                        "ios",
+                        "android",
+                        "mobile-web",
+                        "desktop-web"
+                    ],
+                    "type": "positive",
+                    "priority": "medium"
                 }
             ]
         },
         {
             "section": {
                 "_default": {
-                    "name": "Progressive Disclosure",
+                    "name": "new testing section",
                     "sectionId": "sec_006",
                     "suiteId": null,
-                    "sectionSource": "ai"
+                    "sectionSource": "user"
                 }
             },
             "testCases": [
+                {
+                    "id": "TC-001",
+                    "title": "Login/Register screen should load with minimalist, conversion-focused design on initial access",
+                    "platforms": [
+                        "ios",
+                        "android",
+                        "mobile-web",
+                        "desktop-web"
+                    ],
+                    "type": "positive",
+                    "priority": "high",
+                    "preconditions": [
+                        "User is not authenticated"
+                    ],
+                    "steps": [
+                        {
+                            "content": "Navigate to the application's login/register entry point (e.g., launch app, click 'Login' button from homepage)",
+                            "expected": "The login/register screen loads successfully. The UI appears minimalist and conversion-focused, with clear input fields for email and password, and a primary action button."
+                        },
+                        {
+                            "content": "Observe the overall layout and design elements",
+                            "expected": "The design prioritizes a minimalist aesthetic. Primary action buttons are high-contrast. Alternative login methods are clearly separated."
+                        }
+                    ],
+                    "expectedResult": "The login/register screen is presented with a minimalist, conversion-focused design as per PRD."
+                },
+                {
+                    "id": "TC-002",
+                    "title": "Sign In and Sign Up states should transition seamlessly when user switches between them",
+                    "platforms": [
+                        "ios",
+                        "android",
+                        "mobile-web",
+                        "desktop-web"
+                    ],
+                    "type": "positive",
+                    "priority": "high",
+                    "preconditions": [
+                        "User is on the login/register screen"
+                    ],
+                    "steps": [
+                        {
+                            "content": "Ensure the screen is in the 'Sign In' state (if not, navigate to it)",
+                            "expected": "The 'Sign In' form is visible."
+                        },
+                        {
+                            "content": "Click on the 'Sign Up' option/tab",
+                            "expected": "The screen transitions smoothly to the 'Sign Up' form with a noticeable animation. The user remains oriented during the transition."
+                        },
+                        {
+                            "content": "Click on the 'Sign In' option/tab",
+                            "expected": "The screen transitions smoothly back to the 'Sign In' form with a noticeable animation. The user remains oriented during the transition."
+                        }
+                    ],
+                    "expectedResult": "Transitions between Sign In and Sign Up states are seamless and animated, keeping the user oriented."
+                },
                 {
                     "id": "TC-017",
                     "title": "Complex fields should be hidden until needed during the registration process",

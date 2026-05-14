@@ -447,6 +447,17 @@ const readPromptTestCases = (promptId) => {
 	return JSON.parse(raw)
 }
 
+const getProjectNameForPrompt = (promptId) => {
+	try {
+		const raw = FileReader.readDataFile("promptdata.json")
+		const records = JSON.parse(raw)
+		const entry = Array.isArray(records) ? records.find(r => String(r.promptId || "") === String(promptId)) : null
+		return entry?.projectName || null
+	} catch {
+		return null
+	}
+}
+
 const buildSelectedSections = (parsedData = {}, testcaseIds = []) => {
 	const sectionGroups = Array.isArray(parsedData?.testCases) ? parsedData.testCases : []
 	const selectedIds = Array.isArray(testcaseIds)
@@ -533,29 +544,35 @@ const findSectionByName = (sections = [], sectionName = "", parentId = undefined
 	}) || null
 }
 
-const ensureAiGeneratedRootSection = async (creds, remoteSections) => {
-	const existing = findSectionByName(remoteSections, "AI generated", null)
+const ensureAiGeneratedRootSection = async (creds, remoteSections, projectName = null) => {
+	const rootName = projectName ? `AIGen - ${projectName}` : "AI generated"
+	const existing = findSectionByName(remoteSections, rootName, null)
 	if (existing) {
 		return existing
 	}
 
 	const created = await createSection(creds, {
-		name: "AI generated",
+		name: rootName,
 		suite_id: Number(creds.suiteId),
-		description: "",
+		description: projectName
+			? `Auto-generated test cases for ${projectName}.`
+			: "",
 	})
 
 	remoteSections.push(created)
 	return created
 }
 
-const ensurePostingSection = async (creds, remoteSections, sectionGroup = {}, platformGroup = null) => {
+const ensurePostingSection = async (creds, remoteSections, sectionGroup = {}, platformGroup = null, projectName = null) => {
 	const sectionName = getSectionName(sectionGroup, platformGroup)
 	const meta = getSectionMeta(sectionGroup, platformGroup)
 	const sectionId = meta.sectionId
 	const source = meta.sectionSource || "ai"
 
-	if (sectionId != null) {
+	// Only short-circuit for numeric TestRail IDs — local "sec_xxx" strings
+	// must fall through to name-based lookup / creation
+	const isNumericTestrailId = sectionId != null && !(typeof sectionId === "string" && sectionId.startsWith("sec_"))
+	if (isNumericTestrailId) {
 		return {
 			sectionId,
 			mode: "existing",
@@ -576,7 +593,7 @@ const ensurePostingSection = async (creds, remoteSections, sectionGroup = {}, pl
 		}
 	}
 
-	const rootSection = await ensureAiGeneratedRootSection(creds, remoteSections)
+	const rootSection = await ensureAiGeneratedRootSection(creds, remoteSections, projectName)
 	const existingChild = findSectionByName(remoteSections, sectionName, rootSection.id)
 
 	if (existingChild?.id != null) {
@@ -630,6 +647,8 @@ const postTestCases = async ({ promptId, testcaseIds = [], platformFilter = [], 
 		throw createValidationError("promptId is required", 400)
 	}
 
+	const projectName = getProjectNameForPrompt(normalizedPromptId)
+
 	// Multi-platform group posting: validate all groups have sync config, then loop per group
 	if (normalizedGroups.length > 1) {
 		// Validate all platform groups have sync config mappings
@@ -670,13 +689,14 @@ const postTestCases = async ({ promptId, testcaseIds = [], platformFilter = [], 
 			logger.info(`Processing platform group: ${groupKey}`, { platforms: groupPlatforms })
 
 			try {
-				const result = await postTestCasesForSingleGroup({
-					normalizedPromptId,
-					parsedData,
-					testcaseIds,
-					platformFilter: groupPlatforms,
-					logger,
-				})
+			const result = await postTestCasesForSingleGroup({
+				normalizedPromptId,
+				parsedData,
+				testcaseIds,
+				platformFilter: groupPlatforms,
+				logger,
+				projectName,
+			})
 
 				aggTotalPosted += result.totalPosted || 0
 				aggTotalFailed += result.totalFailed || 0
@@ -728,6 +748,7 @@ const postTestCases = async ({ promptId, testcaseIds = [], platformFilter = [], 
 		testcaseIds,
 		platformFilter,
 		logger,
+		projectName,
 	})
 
 	FileReader.writeDataFile(`testcases/${normalizedPromptId}.json`, parsedData)
@@ -740,7 +761,7 @@ const postTestCases = async ({ promptId, testcaseIds = [], platformFilter = [], 
  * Operates on the passed parsedData object (mutates it in place for testrailPost metadata).
  * Does NOT write the file — caller is responsible for persisting.
  */
-const postTestCasesForSingleGroup = async ({ normalizedPromptId, parsedData, testcaseIds, platformFilter, logger }) => {
+const postTestCasesForSingleGroup = async ({ normalizedPromptId, parsedData, testcaseIds, platformFilter, logger, projectName = null }) => {
 	const selectedGroups = buildSelectedSections(parsedData, testcaseIds)
 
 	const normalizedPlatformFilter = Array.isArray(platformFilter)
@@ -888,7 +909,7 @@ const postTestCasesForSingleGroup = async ({ normalizedPromptId, parsedData, tes
 
 		let sectionInfo
 		try {
-			sectionInfo = await ensurePostingSection(effectiveCreds, remoteSections, sectionGroup, platformGroupKey)
+			sectionInfo = await ensurePostingSection(effectiveCreds, remoteSections, sectionGroup, platformGroupKey, projectName)
 		} catch (error) {
 			logger.fail(error, {
 				section: sectionName,

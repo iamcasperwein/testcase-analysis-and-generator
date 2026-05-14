@@ -305,9 +305,11 @@ const editTestCase = async (promptId, testcaseId, payload = {}) => {
 
     if (!targetSection) {
         // Create new section group in the new consolidated format
+        // Always generate a fresh sectionId for new sections to avoid inheriting the source section's ID (which causes duplicate keys and prevents the new section from rendering).
+        const freshSectionId = generateLocalSectionId();
         const newEntry = {
             name: nextSectionName,
-            sectionId: nextSectionMeta.sectionId,
+            sectionId: freshSectionId,
             suiteId: nextSectionMeta.suiteId,
             sectionSource: nextSectionMeta.sectionSource,
         };
@@ -316,6 +318,7 @@ const editTestCase = async (promptId, testcaseId, payload = {}) => {
             testCases: [],
         };
         sectionGroups.push(targetSection);
+        nextSectionMeta.sectionId = freshSectionId;
     }
 
     // Write section meta (non-platform: updates _default)

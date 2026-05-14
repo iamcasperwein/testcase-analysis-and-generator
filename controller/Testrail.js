@@ -44,9 +44,30 @@ const postTestCases = async (req, res) => {
 
 		const result = await TestrailService.postTestCases({ promptId, testcaseIds, platformFilter, platformGroups })
 
-		res.status(200).json({
-			success: true,
-			message: "Test cases posted to TestRail",
+		const totalPosted = Number(result?.totalPosted || 0)
+		const totalFailed = Number(result?.totalFailed || 0)
+		const totalSkipped = Number(result?.totalSkipped || 0)
+
+		let success = true
+		let message = "Test cases posted to TestRail"
+
+		if (totalPosted === 0 && totalFailed > 0) {
+			success = false
+			message = `Failed to post all ${totalFailed} test case(s) to TestRail`
+		} else if (totalFailed > 0) {
+			message = `Partially posted: ${totalPosted} succeeded, ${totalFailed} failed`
+		} else if (totalPosted === 0 && totalSkipped > 0) {
+			message = `All ${totalSkipped} test case(s) were already posted to TestRail`
+		} else if (totalPosted > 0 && totalSkipped > 0) {
+			message = `Posted ${totalPosted} test case(s), skipped ${totalSkipped} already posted`
+		} else if (totalPosted > 0) {
+			message = `Successfully posted ${totalPosted} test case(s) to TestRail`
+		}
+
+		const statusCode = success ? 200 : 207
+		res.status(statusCode).json({
+			success,
+			message,
 			data: result,
 		})
 	} catch (error) {

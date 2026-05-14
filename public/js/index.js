@@ -350,8 +350,8 @@ const PLATFORM_OPTIONS = [
 
 // Granular platform options for edit modal — these are the actual values stored on test cases
 const EDIT_PLATFORM_OPTIONS = [
-  { value: "ios", label: "iOS", icon: "bi-phone" },
-  { value: "android", label: "Android", icon: "bi-phone" },
+  { value: "ios", label: "iOS", icon: "bi-apple" },
+  { value: "android", label: "Android", icon: "bi-android2" },
   { value: "mobile-web", label: "Mobile Web", icon: "bi-globe2" },
   { value: "desktop-web", label: "Desktop Web", icon: "bi-display" },
   { value: "backend", label: "Backend", icon: "bi-hdd-rack" },
@@ -500,8 +500,8 @@ function hasAnyTestrailSource(rawSection) {
 
 // --- Form Platform Options (granular — no "app" group) ---
 const FORM_PLATFORM_OPTIONS = [
-  { value: "ios", label: "iOS", icon: "bi-phone" },
-  { value: "android", label: "Android", icon: "bi-phone" },
+  { value: "ios", label: "iOS", icon: "bi-apple" },
+  { value: "android", label: "Android", icon: "bi-android2" },
   { value: "mobile-web", label: "Mobile Web", icon: "bi-globe2" },
   { value: "desktop-web", label: "Desktop Web", icon: "bi-display" },
   { value: "backend", label: "Backend", icon: "bi-hdd-rack" },
@@ -1535,6 +1535,12 @@ function scrollRowBelowStickyHeader(row, behavior = "smooth") {
 }
 
 function renderAllTestCases() {
+  // Dispose existing platform badge tooltips before re-rendering
+  document.querySelectorAll('.tc-platform-badge[data-bs-toggle="tooltip"]').forEach(el => {
+    const tip = bootstrap.Tooltip.getInstance(el);
+    if (tip) tip.dispose();
+  });
+
   const emptySpan = getVisibleColumnsCount();
 
   if (!allTestCases.length) {
@@ -1726,7 +1732,13 @@ function renderAllTestCases() {
         tcPlatforms.forEach(p => {
           const badge = document.createElement("span");
           badge.className = `tc-platform-badge tc-platform-${p}`;
-          badge.textContent = p === "mobile-web" ? "M-Web" : p === "desktop-web" ? "D-Web" : p.charAt(0).toUpperCase() + p.slice(1);
+          const opt = EDIT_PLATFORM_OPTIONS.find(o => o.value === p);
+          const iconClass = opt ? opt.icon : "bi-question-circle";
+          const label = opt ? opt.label : p;
+          badge.innerHTML = `<i class="bi ${iconClass}"></i>`;
+          badge.setAttribute("data-bs-toggle", "tooltip");
+          badge.setAttribute("data-bs-placement", "top");
+          badge.setAttribute("title", label);
           badgeWrap.appendChild(badge);
         });
         tdTitle.appendChild(badgeWrap);
@@ -1740,6 +1752,11 @@ function renderAllTestCases() {
 
   applyAllViewColumnVisibility();
   updateSelectAllState();
+
+  // Initialize Bootstrap tooltips for platform badges
+  document.querySelectorAll('.tc-platform-badge[data-bs-toggle="tooltip"]').forEach(el => {
+    new bootstrap.Tooltip(el);
+  });
 }
 
 function selectSection(sectionName) {
@@ -1804,8 +1821,9 @@ function renderPlatformFilterChips() {
     chip.addEventListener("click", (e) => {
       e.stopPropagation();
       if (selectedPlatformFilters.has(opt.value)) {
-        selectedPlatformFilters.delete(opt.value);
+        selectedPlatformFilters.clear();
       } else {
+        selectedPlatformFilters.clear();
         selectedPlatformFilters.add(opt.value);
       }
       renderPlatformFilterChips();
@@ -3264,7 +3282,7 @@ function summarizeSelectionForTestrailPosting() {
 
     if (!sectionMap.has(key)) {
       const source = String(tc.sectionSource || "").trim().toLowerCase();
-      const isExisting = tc.sectionId != null || source === "testrail";
+      const isExisting = (tc.sectionId != null && !(typeof tc.sectionId === "string" && tc.sectionId.startsWith("sec_"))) || source === "testrail";
 
       sectionMap.set(key, {
         key,
