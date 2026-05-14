@@ -303,12 +303,19 @@
                 <input type="hidden" id="docTypeSelect" name="docType" value="prd" />
               </div>
 
-              <!-- Platform Selection (multiselect) -->
+              <!-- Platform Selection (multiselect dropdown) -->
               <div class="col-12">
                 <label class="form-label">Target Platforms <span class="text-danger">*</span></label>
-                <div class="platform-multiselect" id="platformMultiselect">
-                  <div class="platform-selected-tags" id="platformSelectedTags"></div>
-                  <div class="platform-options" id="platformOptions"></div>
+                <div class="prompt-select-wrap platform-multiselect-wrap" id="platformSelectWrap">
+                  <div class="prompt-select-trigger" id="platformSelectTrigger" tabindex="0">
+                    <div class="platform-selected-tags" id="platformSelectedTags">
+                      <span class="prompt-select-trigger-text is-placeholder">Select platforms...</span>
+                    </div>
+                    <i class="bi bi-chevron-down" style="font-size:0.75rem;flex-shrink:0;"></i>
+                  </div>
+                  <div class="prompt-select-dropdown" id="platformSelectDropdown">
+                    <div class="prompt-select-options" id="platformSelectOptions"></div>
+                  </div>
                 </div>
                 <input type="hidden" id="platformValueInput" name="platforms" value="" />
                 <div class="form-text">Select the platforms this feature will be implemented on.</div>
@@ -617,6 +624,20 @@
                   Model Catalog
                 </button>
               </li>
+              <li class="nav-item" role="presentation">
+                <button
+                  class="nav-link"
+                  id="settings-testrail-sync-tab"
+                  data-bs-toggle="tab"
+                  data-bs-target="#settings-testrail-sync-pane"
+                  type="button"
+                  role="tab"
+                  aria-controls="settings-testrail-sync-pane"
+                  aria-selected="false"
+                >
+                  TestRail Sync
+                </button>
+              </li>
             </ul>
 
             <div class="tab-content" id="settingsSubTabsContent">
@@ -719,6 +740,49 @@
                       <tbody id="modelCatalogTableBody">
                         <tr>
                           <td colspan="6" class="text-center text-muted small">Catalog not loaded.</td>
+                        </tr>
+                      </tbody>
+                    </table>
+                </div>
+              </div>
+              </div>
+
+              <div
+                class="tab-pane fade"
+                id="settings-testrail-sync-pane"
+                role="tabpanel"
+                aria-labelledby="settings-testrail-sync-tab"
+              >
+                <div class="border rounded p-3 mb-3" style="border-color:#d8e5f8 !important; background:#f8fbff;">
+                  <div class="d-flex justify-content-between align-items-start gap-3 flex-wrap mb-3">
+                    <div>
+                      <h6 class="mb-1">Platform-to-Suite Mapping</h6>
+                      <div class="small text-muted">Map each platform group to a TestRail suite. Test cases are posted to the suite mapped to the active platform filter.</div>
+                    </div>
+                    <div class="d-flex gap-2">
+                      <button class="btn btn-sm btn-outline-primary" id="addSyncConfigBtn" type="button">
+                        <i class="bi bi-plus-lg me-1"></i>Add Mapping
+                      </button>
+                      <button class="btn btn-sm btn-outline-secondary" id="refreshSyncConfigBtn" type="button">
+                        <i class="bi bi-arrow-clockwise me-1"></i>Refresh
+                      </button>
+                    </div>
+                  </div>
+
+                  <div class="table-responsive">
+                    <table class="table table-sm align-middle">
+                      <thead class="table-light">
+                        <tr>
+                          <th style="width: 180px;">Platform Group</th>
+                          <th style="width: 120px;">Suite ID</th>
+                          <th>Suite Name</th>
+                          <th style="width: 170px;">Last Updated</th>
+                          <th style="width: 120px;" class="text-end">Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody id="syncConfigTableBody">
+                        <tr>
+                          <td colspan="5" class="text-center text-muted small">No mappings configured.</td>
                         </tr>
                       </tbody>
                     </table>
@@ -973,7 +1037,7 @@
             <button type="button" class="btn btn-sm btn-outline-primary" id="promptLogRefreshBtn">
               <i class="bi bi-arrow-clockwise me-1"></i>Refresh
             </button>
-            <span style="font-size:0.7rem;color:#94a3b8;">Auto-refreshes every 3s</span>
+            <span style="font-size:0.7rem;color:#94a3b8;">Auto-refreshes every 1s</span>
           </div>
           <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Close</button>
         </div>
@@ -1022,6 +1086,27 @@
           <i class="bi bi-cloud-download me-1"></i>Get from TestRail
         </button>
       </div>
+      <!-- Mode toggle: shown when All Platforms active -->
+      <div id="bulkMoveModeWrap" style="display:none;" class="mb-2">
+        <div class="d-flex gap-2">
+          <button type="button" class="btn btn-sm btn-outline-secondary active" id="bulkMoveModeUnified" data-mode="unified">
+            <i class="bi bi-layers me-1"></i>Same Section (All Platforms)
+          </button>
+          <button type="button" class="btn btn-sm btn-outline-secondary" id="bulkMoveModePerPlatform" data-mode="per-platform">
+            <i class="bi bi-diagram-3 me-1"></i>Per-Platform Sections
+          </button>
+        </div>
+      </div>
+      <!-- Unified picker (existing) -->
+      <div id="bulkMoveUnifiedWrap">
+      <!-- Suite Picker (shown after fetching suites) -->
+      <div class="mb-2" id="bulkSuitePickerWrap" style="display:none;">
+        <label class="form-label small fw-semibold text-secondary mb-1">Test Suite</label>
+        <select class="form-select form-select-sm" id="bulkSuitePicker">
+          <option value="" disabled selected>Select a test suite...</option>
+        </select>
+        <div class="bulk-section-status" id="bulkSuiteStatus"></div>
+      </div>
       <div class="mb-1">
         <div class="prompt-select-wrap" id="bulkEditSectionPickerWrap">
           <div class="prompt-select-trigger" id="bulkEditSectionTrigger" tabindex="0">
@@ -1041,6 +1126,9 @@
           <span class="section-origin-pill origin-user"><i class="bi bi-person"></i>User-created section</span>
         </div>
       </div>
+      </div>
+      <!-- Per-platform pickers (dynamically populated) -->
+      <div id="bulkMovePerPlatformWrap" style="display:none;"></div>
       <div class="settings-dialog-actions">
         <button type="button" class="btn btn-outline-secondary" id="bulkEditSectionCancelBtn">Cancel</button>
         <button type="button" class="btn btn-primary" id="bulkEditSectionConfirmBtn"><i class="bi bi-folder-symlink me-1"></i>Move</button>
@@ -1048,7 +1136,7 @@
     </div>
   </div>
 
-  <!-- Blocked Move Dialog (TestRail-posted cases can't be moved) -->
+  <!-- Blocked Move Dialog (estRail-posted cases can't be moved) -->
   <div id="blockedMoveOverlay" class="settings-dialog-overlay" role="dialog" aria-modal="true" aria-labelledby="blockedMoveTitle">
     <div class="settings-dialog dialog-danger">
       <div class="settings-dialog-icon icon-edit" style="background:#ecfeff;color:#0e7490;"><i class="bi bi-shield-lock"></i></div>
@@ -1088,10 +1176,71 @@
         <li><span>Existing TestRail sections</span><span class="count" id="bulkPostExistingCount">0</span></li>
         <li><span>New sections to create</span><span class="count" id="bulkPostNewCount">0</span></li>
       </ul>
+      <div id="bulkPostPlatformBreakdown" class="mb-2" style="display:none;">
+        <div class="small fw-semibold mb-1" style="color:var(--text-secondary,#6b7280);">Target Test Suites</div>
+        <ul class="bulk-post-summary" id="bulkPostPlatformList"></ul>
+      </div>
       <div class="bulk-section-status text-muted" id="bulkPostTestrailStatus"></div>
       <div class="settings-dialog-actions">
         <button type="button" class="btn btn-outline-secondary" id="bulkPostTestrailCancelBtn">Cancel</button>
         <button type="button" class="btn btn-primary" id="bulkPostTestrailConfirmBtn"><i class="bi bi-cloud-upload me-1"></i>Post</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Sync Config Add/Edit Modal -->
+  <div id="syncConfigOverlay" class="settings-dialog-overlay" role="dialog" aria-modal="true" aria-labelledby="syncConfigTitle">
+    <div class="settings-dialog sync-config-dialog">
+      <div class="settings-dialog-icon icon-edit"><i class="bi bi-link-45deg"></i></div>
+      <div class="settings-dialog-title" id="syncConfigTitle">Add Platform Mapping</div>
+      <div class="settings-dialog-sub" id="syncConfigSub">Map a platform group to a TestRail suite.</div>
+      <form id="syncConfigForm" class="mt-3">
+        <div class="mb-3">
+          <label class="form-label small fw-semibold">Platform Group</label>
+          <div class="prompt-select-wrap" id="syncConfigPlatformWrap">
+            <div class="prompt-select-trigger" id="syncConfigPlatformTrigger" tabindex="0">
+              <span class="prompt-select-trigger-text is-placeholder" id="syncConfigPlatformTriggerText">Select platform group...</span>
+              <i class="bi bi-chevron-down" style="font-size:0.75rem;flex-shrink:0;"></i>
+            </div>
+            <div class="prompt-select-dropdown" id="syncConfigPlatformDropdown">
+              <input type="text" class="prompt-select-search" id="syncConfigPlatformSearch" placeholder="Search platform..." autocomplete="off" />
+              <div class="prompt-select-options" id="syncConfigPlatformOptions"></div>
+            </div>
+          </div>
+          <input type="hidden" id="syncConfigPlatformGroup" />
+        </div>
+        <div class="mb-3">
+          <label class="form-label small fw-semibold">TestRail Suite</label>
+          <div class="prompt-select-wrap" id="syncConfigSuiteWrap">
+            <div class="prompt-select-trigger" id="syncConfigSuiteTrigger" tabindex="0">
+              <span class="prompt-select-trigger-text is-placeholder" id="syncConfigSuiteTriggerText">Select a suite...</span>
+              <i class="bi bi-chevron-down" style="font-size:0.75rem;flex-shrink:0;"></i>
+            </div>
+            <div class="prompt-select-dropdown" id="syncConfigSuiteDropdown">
+              <input type="text" class="prompt-select-search" id="syncConfigSuiteSearch" placeholder="Search suites..." autocomplete="off" />
+              <div class="prompt-select-options" id="syncConfigSuiteOptions"></div>
+            </div>
+          </div>
+          <input type="hidden" id="syncConfigSuiteSelect" />
+          <div class="form-text small text-muted mt-1" id="syncConfigSuiteHelp">Select a suite from your TestRail project.</div>
+        </div>
+        <div class="settings-dialog-actions">
+          <button type="button" class="btn btn-outline-secondary" id="syncConfigCancelBtn">Cancel</button>
+          <button type="submit" class="btn btn-primary" id="syncConfigSaveBtn"><i class="bi bi-save me-1"></i>Save</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Sync Config Delete Confirm Dialog -->
+  <div id="syncConfigDeleteOverlay" class="settings-dialog-overlay" role="dialog" aria-modal="true" aria-labelledby="syncConfigDeleteTitle">
+    <div class="settings-dialog dialog-danger">
+      <div class="settings-dialog-icon icon-delete"><i class="bi bi-trash3"></i></div>
+      <div class="settings-dialog-title" id="syncConfigDeleteTitle">Remove Mapping</div>
+      <div class="settings-dialog-sub" id="syncConfigDeleteSub">Remove the platform-to-suite mapping?</div>
+      <div class="settings-dialog-actions">
+        <button type="button" class="btn btn-outline-secondary" id="syncConfigDeleteCancelBtn">Cancel</button>
+        <button type="button" class="btn btn-danger" id="syncConfigDeleteConfirmBtn"><i class="bi bi-trash3 me-1"></i>Remove</button>
       </div>
     </div>
   </div>

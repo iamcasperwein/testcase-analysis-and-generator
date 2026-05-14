@@ -418,11 +418,47 @@
       color: #6b7f9c;
     }
 
-    /* Platform Multiselect */
-    .platform-multiselect {
-      display: flex;
-      flex-direction: column;
+    /* Platform Multiselect Dropdown (reuses prompt-select styles) */
+    .platform-multiselect-wrap .prompt-select-trigger {
+      min-height: 42px;
+      padding: 6px 12px;
+    }
+
+    .platform-multiselect-wrap .prompt-select-option {
+      flex-direction: row;
+      align-items: center;
       gap: 8px;
+      padding: 0.5rem 0.65rem;
+    }
+
+    .platform-multiselect-wrap .prompt-select-option .platform-check {
+      width: 16px;
+      height: 16px;
+      border-radius: 4px;
+      border: 1.5px solid #c0cfe0;
+      background: #fff;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      transition: all 0.15s;
+    }
+
+    .platform-multiselect-wrap .prompt-select-option.selected .platform-check {
+      border-color: #4a90d9;
+      background: #4a90d9;
+      color: #fff;
+    }
+
+    .platform-multiselect-wrap .prompt-select-option .platform-opt-icon {
+      font-size: 0.85rem;
+      flex-shrink: 0;
+      width: 16px;
+      text-align: center;
+    }
+
+    .platform-multiselect-wrap .prompt-select-option .prompt-select-option-id {
+      font-weight: 500;
     }
 
     .platform-options {
@@ -2341,6 +2377,15 @@
       max-height: 240px;
     }
 
+    .sync-config-dialog {
+      min-width: 560px;
+      max-width: min(720px, 92vw);
+    }
+
+    .sync-config-dialog .prompt-select-options {
+      max-height: 220px;
+    }
+
     .section-create-option {
       background: linear-gradient(90deg, #eef4ff 0%, #f8fbff 100%);
       color: #1d4ed8;
@@ -2477,6 +2522,20 @@
       color: #5575a2;
       min-height: 1rem;
       margin: 0.3rem 0 0;
+    }
+
+    #bulkSuitePickerWrap .form-select {
+      font-size: 0.82rem;
+    }
+
+    #bulkSuitePickerWrap .form-label {
+      font-size: 0.76rem;
+    }
+
+    #bulkSuiteStatus {
+      font-size: 0.76rem;
+      min-height: 1rem;
+      margin: 0.25rem 0 0;
     }
 
     .bulk-section-help {

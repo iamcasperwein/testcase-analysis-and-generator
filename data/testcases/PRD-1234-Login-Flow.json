@@ -14,12 +14,27 @@
                         "Password field is visible."
                     ],
                     "steps": [
-                        "Enter characters into the 'Password' field.",
-                        "Tap the 'show password'/'hide password' icon (e.g., eye icon)."
+                        {
+                            "content": "Enter characters into the 'Password' field.",
+                            "expected": "N/A"
+                        },
+                        {
+                            "content": "Tap the 'show password'/'hide password' icon (e.g., eye icon).",
+                            "expected": "N/A"
+                        }
                     ],
-                    "expectedResult": "The password text toggles between visible plain text and hidden masked characters correctly. The icon changes appropriately to indicate its current state (e.g., open eye for visible, crossed-out eye for hidden)."
+                    "expectedResult": "The password text toggles between visible plain text and hidden masked characters correctly. The icon changes appropriately to indicate its current state (e.g., open eye for visible, crossed-out eye for hidden).",
+                    "platforms": [
+                        "ios",
+                        "android",
+                        "mobile-web",
+                        "desktop-web"
+                    ]
                 }
-            ]
+            ],
+            "sectionId": null,
+            "suiteId": null,
+            "sectionSource": "ai"
         },
         {
             "section": "Forgot Password / Account Recovery",

@@ -1,7 +1,7 @@
 // --- Constants ---
 const AGENTS = Object.freeze([
   { value: "copilot", label: "GitHub Copilot", description: "GitHub Models via Copilot token" },
-  { value: "claude", label: "Claude", description: "Anthropic Claude model" },
+  // { value: "claude", label: "Claude", description: "Anthropic Claude model" },
   // { value: "gemini", label: "Gemini", description: "Google Gemini model" },
 ]);
 
@@ -342,28 +342,219 @@ const docTypePicker = createStaticOptionSelect({
 
 // --- Platform Multiselect ---
 const PLATFORM_OPTIONS = [
+  { value: "app", label: "App", icon: "bi-phone", platforms: ["ios", "android"] },
+  { value: "mobile-web", label: "Mobile Web", icon: "bi-globe2", platforms: ["mobile-web"] },
+  { value: "desktop-web", label: "Desktop Web", icon: "bi-display", platforms: ["desktop-web"] },
+  { value: "backend", label: "Backend", icon: "bi-hdd-rack", platforms: ["backend"] },
+];
+
+// Granular platform options for edit modal — these are the actual values stored on test cases
+const EDIT_PLATFORM_OPTIONS = [
   { value: "ios", label: "iOS", icon: "bi-phone" },
-  { value: "android", label: "Android", icon: "bi-android2" },
+  { value: "android", label: "Android", icon: "bi-phone" },
+  { value: "mobile-web", label: "Mobile Web", icon: "bi-globe2" },
+  { value: "desktop-web", label: "Desktop Web", icon: "bi-display" },
+  { value: "backend", label: "Backend", icon: "bi-hdd-rack" },
+];
+
+// Expand filter values (e.g. "app") to actual platform strings (e.g. ["ios", "android"])
+function expandPlatformFilter(filterSet) {
+  const expanded = new Set();
+  filterSet.forEach(val => {
+    const opt = PLATFORM_OPTIONS.find(o => o.value === val);
+    if (opt && opt.platforms) {
+      opt.platforms.forEach(p => expanded.add(p));
+    } else {
+      expanded.add(val);
+    }
+  });
+  return expanded;
+}
+
+// Derive which PLATFORM_OPTIONS are relevant based on a prompt's granular platforms array
+function getAvailablePlatformGroups(promptPlatforms) {
+  if (!Array.isArray(promptPlatforms) || !promptPlatforms.length) return [...PLATFORM_OPTIONS];
+  const normalizedSet = new Set(promptPlatforms.map(p => String(p || "").trim().toLowerCase()).filter(Boolean));
+  return PLATFORM_OPTIONS.filter(opt =>
+    opt.platforms.some(p => normalizedSet.has(p))
+  );
+}
+
+// Frontend mirror of backend hasPostedToTestrail — checks per-platform-group format with legacy fallback
+function hasPostedToTestrailFrontend(tc, platformGroup) {
+  const tp = tc?.testrailPost;
+  if (!tp || typeof tp !== "object") return false;
+
+  // New per-platform-group format: no root .status means it's a group map
+  if (platformGroup && !tp.status) {
+    const groupPost = tp[platformGroup];
+    if (!groupPost) return false;
+    return groupPost.status === "success" || groupPost.testrailCaseId != null;
+  }
+
+  // Legacy single-object format
+  return tp.status === "success" || tp.testrailCaseId != null;
+}
+
+// Get the relevant testrailPost data for display, considering active platform group
+function getTestrailPostForDisplay(tc) {
+  const tp = tc?.testrailPost;
+  if (!tp || typeof tp !== "object") return null;
+
+  // Per-platform-group format: no root .status
+  if (!tp.status && typeof tp === "object") {
+    // If a platform filter is active, show that group's data
+    if (selectedPlatformFilters.size === 1) {
+      const groupKey = [...selectedPlatformFilters][0];
+      return tp[groupKey] || null;
+    }
+    // No filter: find any posted group
+    for (const key of Object.keys(tp)) {
+      if (tp[key]?.status === "success") return tp[key];
+    }
+    return null;
+  }
+
+  // Legacy format
+  return tp;
+}
+
+// Get list of platform group keys that have been successfully posted
+function getPostedPlatformGroups(tc) {
+  const tp = tc?.testrailPost;
+  if (!tp || typeof tp !== "object") return [];
+  // Per-platform-group format
+  if (!tp.status) {
+    return Object.keys(tp).filter(k => tp[k]?.status === "success");
+  }
+  return [];
+}
+
+
+/**
+ * Get section name from a section group, optionally for a specific platform.
+ */
+function getSectionGroupName(group, platformGroup) {
+  const sec = group?.section;
+  if (sec == null || typeof sec !== "object" || Array.isArray(sec)) return "Uncategorized";
+  if (platformGroup && sec[platformGroup]) {
+    return String(sec[platformGroup].name || "").trim() || "Uncategorized";
+  }
+  if (sec._default) {
+    return String(sec._default.name || "").trim() || "Uncategorized";
+  }
+  const firstKey = Object.keys(sec).find(k => sec[k]?.name);
+  return firstKey ? String(sec[firstKey].name || "").trim() || "Uncategorized" : "Uncategorized";
+}
+
+/**
+ * Get the raw section object from a section group for storage on TCs.
+ */
+function getRawSectionData(group) {
+  return group?.section || {};
+}
+
+/**
+ * Resolve section name + metadata from raw section data for a given platform group.
+ */
+function resolveSectionData(rawSection, platformGroup) {
+  if (!rawSection || typeof rawSection !== "object" || Array.isArray(rawSection)) {
+    return { name: "Uncategorized", sectionId: null, suiteId: null, sectionSource: "ai" };
+  }
+  const entry = (platformGroup && rawSection[platformGroup]) || rawSection._default || null;
+  if (entry) {
+    return {
+      name: String(entry.name || "").trim() || "Uncategorized",
+      sectionId: entry.sectionId ?? null,
+      suiteId: entry.suiteId ?? null,
+      sectionSource: String(entry.sectionSource || "").trim().toLowerCase() || "ai",
+    };
+  }
+  const firstKey = Object.keys(rawSection).find(k => rawSection[k]?.name);
+  if (firstKey) {
+    const e = rawSection[firstKey];
+    return {
+      name: String(e.name || "").trim() || "Uncategorized",
+      sectionId: e.sectionId ?? null,
+      suiteId: e.suiteId ?? null,
+      sectionSource: String(e.sectionSource || "").trim().toLowerCase() || "ai",
+    };
+  }
+  return { name: "Uncategorized", sectionId: null, suiteId: null, sectionSource: "ai" };
+}
+
+function getActivePlatformGroup() {
+  if (selectedPlatformFilters.size === 1) {
+    return [...selectedPlatformFilters][0];
+  }
+  return null;
+}
+
+// Check if any platform group has sectionSource "testrail" on a section group's raw section data
+function hasAnyTestrailSource(rawSection) {
+  if (!rawSection || typeof rawSection !== "object" || Array.isArray(rawSection)) return false;
+  return Object.values(rawSection).some(entry =>
+    entry && String(entry.sectionSource || "").toLowerCase() === "testrail"
+  );
+}
+
+// --- Form Platform Options (granular — no "app" group) ---
+const FORM_PLATFORM_OPTIONS = [
+  { value: "ios", label: "iOS", icon: "bi-phone" },
+  { value: "android", label: "Android", icon: "bi-phone" },
   { value: "mobile-web", label: "Mobile Web", icon: "bi-globe2" },
   { value: "desktop-web", label: "Desktop Web", icon: "bi-display" },
   { value: "backend", label: "Backend", icon: "bi-hdd-rack" },
 ];
 
 const platformSelectedTags = document.getElementById("platformSelectedTags");
-const platformOptionsEl = document.getElementById("platformOptions");
+const platformSelectOptions = document.getElementById("platformSelectOptions");
 const platformValueInput = document.getElementById("platformValueInput");
+const platformSelectTrigger = document.getElementById("platformSelectTrigger");
+const platformSelectDropdown = document.getElementById("platformSelectDropdown");
+const platformSelectWrap = document.getElementById("platformSelectWrap");
 let selectedPlatforms = new Set();
 
+function closePlatformDropdown() {
+  platformSelectDropdown.classList.remove("open");
+  platformSelectTrigger.classList.remove("open");
+}
+
+function togglePlatformDropdown() {
+  const isOpen = platformSelectDropdown.classList.contains("open");
+  if (isOpen) {
+    closePlatformDropdown();
+  } else {
+    platformSelectDropdown.classList.add("open");
+    platformSelectTrigger.classList.add("open");
+  }
+}
+
+platformSelectTrigger.addEventListener("click", (e) => {
+  if (e.target.closest(".platform-tag-remove")) return;
+  togglePlatformDropdown();
+});
+
+document.addEventListener("click", (e) => {
+  if (!e.target.closest("#platformSelectWrap")) {
+    closePlatformDropdown();
+  }
+});
+
 function renderPlatformMultiselect() {
-  // Render option chips
-  platformOptionsEl.innerHTML = "";
-  PLATFORM_OPTIONS.forEach(opt => {
-    const chip = document.createElement("button");
-    chip.type = "button";
-    chip.className = `platform-chip${selectedPlatforms.has(opt.value) ? " platform-chip-selected" : ""}`;
-    chip.dataset.value = opt.value;
-    chip.innerHTML = `<i class="bi ${opt.icon}"></i> ${escapeHtml(opt.label)}`;
-    chip.addEventListener("click", () => {
+  // Render dropdown options
+  platformSelectOptions.innerHTML = "";
+  FORM_PLATFORM_OPTIONS.forEach(opt => {
+    const isSelected = selectedPlatforms.has(opt.value);
+    const optionEl = document.createElement("div");
+    optionEl.className = `prompt-select-option${isSelected ? " selected" : ""}`;
+    optionEl.innerHTML = `
+      <span class="platform-check">${isSelected ? '<i class="bi bi-check2" style="font-size:0.7rem;"></i>' : ""}</span>
+      <i class="bi ${opt.icon} platform-opt-icon"></i>
+      <span class="prompt-select-option-id">${escapeHtml(opt.label)}</span>
+    `;
+    optionEl.addEventListener("mousedown", (e) => {
+      e.preventDefault();
       if (selectedPlatforms.has(opt.value)) {
         selectedPlatforms.delete(opt.value);
       } else {
@@ -371,19 +562,19 @@ function renderPlatformMultiselect() {
       }
       renderPlatformMultiselect();
     });
-    platformOptionsEl.appendChild(chip);
+    platformSelectOptions.appendChild(optionEl);
   });
 
-  // Render selected tags
+  // Render selected tags in trigger
   platformSelectedTags.innerHTML = "";
   if (selectedPlatforms.size === 0) {
     const placeholder = document.createElement("span");
-    placeholder.className = "platform-placeholder";
-    placeholder.textContent = "No platforms selected";
+    placeholder.className = "prompt-select-trigger-text is-placeholder";
+    placeholder.textContent = "Select platforms...";
     platformSelectedTags.appendChild(placeholder);
   } else {
     selectedPlatforms.forEach(val => {
-      const opt = PLATFORM_OPTIONS.find(o => o.value === val);
+      const opt = FORM_PLATFORM_OPTIONS.find(o => o.value === val);
       if (!opt) return;
       const tag = document.createElement("span");
       tag.className = "platform-tag";
@@ -402,7 +593,7 @@ function renderPlatformMultiselect() {
 }
 
 // Initialize with all platforms selected by default
-PLATFORM_OPTIONS.forEach(opt => selectedPlatforms.add(opt.value));
+FORM_PLATFORM_OPTIONS.forEach(opt => selectedPlatforms.add(opt.value));
 renderPlatformMultiselect();
 
 const additionalDocsList = document.getElementById("additionalDocsList");
@@ -937,12 +1128,16 @@ let sections = [];     // derived sections
 let selectedSection = "all";
 let selectedPlatformFilters = new Set(); // empty = show all platforms
 let currentScopePromptId = null;
+let currentPromptPlatformGroups = []; // PLATFORM_OPTIONS filtered by prompt's platforms
 let focusSelectedSectionOnly = true;
 let isSelectMode = false;
 let selectedTcIds = new Set();
 let tcSearchQuery = "";
 let testrailSectionsCache = [];
+let testrailSuitesCache = [];
+let selectedTestrailSuiteId = null;
 let isFetchingTestrailSections = false;
+let isFetchingTestrailSuites = false;
 const TESTRAIL_CASE_URL_BASE = "https://traveloka.testrail.com/index.php?/cases/view/";
 let activeLockedEditPopover = null;
 
@@ -1001,6 +1196,17 @@ function applyAllViewColumnVisibility() {
 async function loadTestScope(promptId) {
   scopeStatus.textContent = "Loading test cases...";
   currentScopePromptId = promptId;
+  // Resolve available platform groups from prompt data
+  const promptEntry = allPrompts.find(p => p.promptId === promptId);
+  currentPromptPlatformGroups = getAvailablePlatformGroups(promptEntry?.platforms);
+  // Clear platform filter if current selection is not valid for this prompt
+  if (selectedPlatformFilters.size > 0) {
+    const validValues = new Set(currentPromptPlatformGroups.map(o => o.value));
+    const toRemove = [...selectedPlatformFilters].filter(v => !validValues.has(v));
+    toRemove.forEach(v => selectedPlatformFilters.delete(v));
+  }
+  renderPlatformFilterChips();
+  updatePlatformFilterLabel();
   allTestCases = [];
   sections = [];
   selectedSection = "all";
@@ -1008,6 +1214,8 @@ async function loadTestScope(promptId) {
   selectedTcIds.clear();
   tcSearchQuery = "";
   testrailSectionsCache = [];
+  testrailSuitesCache = [];
+  selectedTestrailSuiteId = null;
   const _si = document.getElementById("tcSearchInput");
   if (_si) _si.value = "";
   const _sb = document.getElementById("tcSelectModeBtn");
@@ -1030,21 +1238,26 @@ async function loadTestScope(promptId) {
     // }
     const data = await apiRequest(`/testcase/${encodeURIComponent(promptId)}`);
     const rawSections = Array.isArray(data.data.testCases) ? data.data.testCases : [];
-    allTestCases = rawSections.flatMap(group =>
-      (group.testCases || []).map(tc => ({
+    allTestCases = rawSections.flatMap(group => {
+      // Store raw section data (consolidated per-platform object) for per-platform resolution
+      const rawSection = getRawSectionData(group);
+      const defaultName = getSectionGroupName(group);
+
+      return (group.testCases || []).map(tc => ({
         ...tc,
-        section: group.section || "Uncategorized",
-        sectionId: group.sectionId ?? null,
-        suiteId: group.suiteId ?? null,
-        sectionSource: group.sectionSource || (group.sectionId != null ? "testrail" : "ai"),
+        section: defaultName,
+        _rawSection: rawSection,
         platforms: Array.isArray(tc.platforms) ? tc.platforms : [],
         preconditions: Array.isArray(tc.preconditions)
           ? tc.preconditions.join("\n")
           : (tc.preconditions || ""),
         steps: Array.isArray(tc.steps) ? tc.steps : (tc.steps || ""),
         expected: tc.expectedResult || tc.expected || "",
-      }))
-    );
+      }));
+    });
+
+    // Resolve per-platform section meta based on active filter
+    resolveAllTestCaseSectionMeta();
 
     if (!allTestCases.length) {
       scopeStatus.textContent = "No test cases found for this Prompt ID.";
@@ -1071,6 +1284,7 @@ async function loadTestScope(promptId) {
           sectionId: tc.sectionId ?? null,
           suiteId: tc.suiteId ?? null,
           source: tc.sectionSource || (tc.sectionId != null ? "testrail" : "ai"),
+          _rawSection: tc._rawSection ?? null,
           testcases: [],
         });
       }
@@ -1110,6 +1324,7 @@ function buildSectionsFromCases() {
         sectionId: tc.sectionId ?? null,
         suiteId: tc.suiteId ?? null,
         source: tc.sectionSource || (tc.sectionId != null ? "testrail" : "ai"),
+        _rawSection: tc._rawSection ?? null,
         testcases: [],
       });
     }
@@ -1119,16 +1334,48 @@ function buildSectionsFromCases() {
   sections = Array.from(sectionMap.values());
 }
 
+/**
+ * Resolve per-platform section meta on all test cases based on the active platform filter.
+ * Sets tc.section, tc.sectionId, tc.suiteId, tc.sectionSource from tc._rawSection.
+ * Must be called after loading and whenever platform filter changes.
+ */
+function resolveAllTestCaseSectionMeta() {
+  const pg = getActivePlatformGroup();
+  allTestCases.forEach(tc => {
+    if (tc._rawSection) {
+      const resolved = resolveSectionData(tc._rawSection, pg);
+      tc.section = resolved.name;
+      tc.sectionId = resolved.sectionId;
+      tc.suiteId = resolved.suiteId;
+      tc.sectionSource = resolved.sectionSource;
+    }
+  });
+}
+
 function renderSections() {
   sectionListEl.innerHTML = "";
 
+  // Filter sections based on active platform filter
+  const expandedPlatformsForSections = selectedPlatformFilters.size > 0 ? expandPlatformFilter(selectedPlatformFilters) : null;
+  const filteredSections = expandedPlatformsForSections
+    ? sections.map(sec => ({
+        ...sec,
+        filteredCount: sec.testcases.filter(tc => {
+          const tcPlatforms = Array.isArray(tc.platforms) ? tc.platforms : [];
+          return tcPlatforms.some(p => expandedPlatformsForSections.has(p));
+        }).length,
+      })).filter(sec => sec.filteredCount > 0)
+    : sections.map(sec => ({ ...sec, filteredCount: sec.testcases.length }));
+
+  const totalFilteredCount = filteredSections.reduce((sum, sec) => sum + sec.filteredCount, 0);
+
   const allItem = document.createElement("div");
   allItem.className = `section-item ${selectedSection === "all" ? "active" : ""}`;
-  allItem.textContent = `All Sections (${allTestCases.length})`;
+  allItem.textContent = `All Sections (${totalFilteredCount})`;
   allItem.addEventListener("click", () => selectSection("all"));
   sectionListEl.appendChild(allItem);
 
-  sections.forEach(sec => {
+  filteredSections.forEach(sec => {
     const div = document.createElement("div");
     div.className = "section-item";
     if (sec.name === selectedSection) {
@@ -1139,7 +1386,7 @@ function renderSections() {
     const sourceLabel = sectionSource === "testrail" ? "TestRail" : sectionSource === "user" ? "User" : "AI";
     div.innerHTML = `
       <div class="d-flex align-items-center justify-content-between gap-2">
-        <span class="text-truncate">${escapeHtml(sec.name)} (${sec.testcases.length})</span>
+        <span class="text-truncate">${escapeHtml(sec.name)} (${sec.filteredCount})</span>
         <span class="section-origin-pill origin-${sectionSource}">${sourceLabel}</span>
       </div>
     `;
@@ -1154,7 +1401,8 @@ function renderSections() {
 function createActionButtons(tc) {
   const tdActions = document.createElement("td");
   tdActions.className = "text-end";
-  const isPostedToTestrail = tc?.testrailPost?.status === "success" && tc?.testrailPost?.testrailCaseId != null;
+  const platformGroupKey = selectedPlatformFilters.size === 1 ? [...selectedPlatformFilters][0] : null;
+  const isPostedToTestrail = hasPostedToTestrailFrontend(tc, platformGroupKey);
   tdActions.innerHTML = `
     <button class="btn btn-sm btn-outline-secondary icon-action-btn" title="See detail" aria-label="See detail">
       <i class="bi bi-eye"></i>
@@ -1190,7 +1438,8 @@ function closeLockedEditPopover() {
 }
 
 function buildLockedEditPopoverContent(tc = {}) {
-  const caseId = tc?.testrailPost?.testrailCaseId;
+  const displayPost = getTestrailPostForDisplay(tc);
+  const caseId = displayPost?.testrailCaseId;
   const href = getTestrailCaseUrl(caseId);
   const escapedCaseId = escapeHtml(caseId);
 
@@ -1299,13 +1548,14 @@ function renderAllTestCases() {
     : sections;
 
   const query = tcSearchQuery.toLowerCase().trim();
+  const expandedPlatforms = selectedPlatformFilters.size > 0 ? expandPlatformFilter(selectedPlatformFilters) : null;
   const filteredSections = sectionsToRender.map(section => ({
     ...section,
     testcases: section.testcases.filter(tc => {
       // Platform filter
-      if (selectedPlatformFilters.size > 0) {
+      if (expandedPlatforms) {
         const tcPlatforms = Array.isArray(tc.platforms) ? tc.platforms : [];
-        if (!tcPlatforms.some(p => selectedPlatformFilters.has(p))) return false;
+        if (!tcPlatforms.some(p => expandedPlatforms.has(p))) return false;
       }
       // Search filter
       if (query) {
@@ -1381,8 +1631,9 @@ function renderAllTestCases() {
     namePart.textContent = `${section.name} (${section.testcases.length})`;
     sectionNameSpan.appendChild(namePart);
 
-    // Edit section name button
-    if (sectionSource !== "testrail") {
+    // Edit section name button (block if any platform group has testrail source)
+    const blockRename = sectionSource === "testrail" || hasAnyTestrailSource(section._rawSection);
+    if (!blockRename) {
       const editSectionBtn = document.createElement("button");
       editSectionBtn.className = "btn btn-sm section-action-btn section-edit-btn";
       editSectionBtn.title = "Rename section";
@@ -1438,7 +1689,8 @@ function renderAllTestCases() {
 
       const tdId = document.createElement("td");
       tdId.dataset.col = "id";
-      const trCaseId = tc.testrailPost?.testrailCaseId;
+      const displayPost = getTestrailPostForDisplay(tc);
+      const trCaseId = displayPost?.testrailCaseId;
       if (trCaseId != null) {
         tdId.textContent = `C${trCaseId}`;
         tdId.title = `Local ID: ${tc.id || ""}`;
@@ -1449,14 +1701,17 @@ function renderAllTestCases() {
 
       const tdTitle = document.createElement("td");
       tdTitle.dataset.col = "title";
-      if (tc.testrailPost?.status === "success") {
+      if (displayPost?.status === "success") {
         const titleSpan = document.createElement("span");
         titleSpan.textContent = tc.title || "";
         const icon = document.createElement("span");
         icon.className = "tr-posted-badge";
-        const caseId = tc.testrailPost.testrailCaseId ?? "?";
-        const postedDate = tc.testrailPost.lastAttemptAt ? new Date(tc.testrailPost.lastAttemptAt).toLocaleDateString() : null;
-        icon.dataset.tooltip = `TestRail Case #${caseId}${postedDate ? " · Posted " + postedDate : ""}`;
+        const caseId = displayPost.testrailCaseId ?? "?";
+        const postedDate = displayPost.lastAttemptAt ? new Date(displayPost.lastAttemptAt).toLocaleDateString() : null;
+        // Show which platform group(s) are posted
+        const postedGroups = getPostedPlatformGroups(tc);
+        const groupLabel = postedGroups.length ? ` · ${postedGroups.join(", ")}` : "";
+        icon.dataset.tooltip = `TestRail Case #${caseId}${postedDate ? " · Posted " + postedDate : ""}${groupLabel}`;
         icon.innerHTML = '<i class="bi bi-cloud-check-fill"></i>';
         tdTitle.appendChild(titleSpan);
         tdTitle.appendChild(icon);
@@ -1539,7 +1794,8 @@ const tcPlatformFilterLabel = document.getElementById("tcPlatformFilterLabel");
 
 function renderPlatformFilterChips() {
   tcPlatformFilterChips.innerHTML = "";
-  PLATFORM_OPTIONS.forEach(opt => {
+  const availableGroups = currentPromptPlatformGroups.length ? currentPromptPlatformGroups : PLATFORM_OPTIONS;
+  availableGroups.forEach(opt => {
     const chip = document.createElement("button");
     chip.type = "button";
     chip.className = `platform-chip${selectedPlatformFilters.has(opt.value) ? " platform-chip-selected" : ""}`;
@@ -1554,7 +1810,11 @@ function renderPlatformFilterChips() {
       }
       renderPlatformFilterChips();
       updatePlatformFilterLabel();
+      resolveAllTestCaseSectionMeta();
+      buildSectionsFromCases();
+      renderSections();
       renderAllTestCases();
+      updateBulkBar();
     });
     tcPlatformFilterChips.appendChild(chip);
   });
@@ -1565,7 +1825,8 @@ function updatePlatformFilterLabel() {
     tcPlatformFilterLabel.textContent = "All Platforms";
   } else if (selectedPlatformFilters.size === 1) {
     const val = [...selectedPlatformFilters][0];
-    const opt = PLATFORM_OPTIONS.find(o => o.value === val);
+    const availableGroups = currentPromptPlatformGroups.length ? currentPromptPlatformGroups : PLATFORM_OPTIONS;
+    const opt = availableGroups.find(o => o.value === val) || PLATFORM_OPTIONS.find(o => o.value === val);
     tcPlatformFilterLabel.textContent = opt ? opt.label : val;
   } else {
     tcPlatformFilterLabel.textContent = `${selectedPlatformFilters.size} Platforms`;
@@ -1594,7 +1855,11 @@ document.getElementById("tcPlatformFilterReset").addEventListener("click", (e) =
   selectedPlatformFilters.clear();
   renderPlatformFilterChips();
   updatePlatformFilterLabel();
+  resolveAllTestCaseSectionMeta();
+  buildSectionsFromCases();
+  renderSections();
   renderAllTestCases();
+  updateBulkBar();
 });
 
 // --- Select mode toggle ---
@@ -1867,13 +2132,13 @@ function formatSectionTriggerText(selection = {}, isNew = false) {
   return `<span class="section-selected-badge ${badgeClass}"><i class="bi ${badgeIcon}"></i>${badgeText}</span><span class="prompt-select-trigger-text">${escapeHtml(text)}</span>`;
 }
 
-function createSectionPicker({ wrapId, triggerId, triggerTextId, dropdownId, searchId, optionsId, valueId }) {
-  const wrapEl = document.getElementById(wrapId);
-  const triggerEl = document.getElementById(triggerId);
-  const dropdownEl = document.getElementById(dropdownId);
-  const searchEl = document.getElementById(searchId);
-  const optionsEl = document.getElementById(optionsId);
-  const valueEl = document.getElementById(valueId);
+function createSectionPicker({ wrapId, triggerId, triggerTextId, dropdownId, searchId, optionsId, valueId, wrapEl: _wrapEl, triggerEl: _triggerEl, dropdownEl: _dropdownEl, searchEl: _searchEl, optionsEl: _optionsEl, valueEl: _valueEl }) {
+  const wrapEl = _wrapEl || document.getElementById(wrapId);
+  const triggerEl = _triggerEl || document.getElementById(triggerId);
+  const dropdownEl = _dropdownEl || document.getElementById(dropdownId);
+  const searchEl = _searchEl || document.getElementById(searchId);
+  const optionsEl = _optionsEl || document.getElementById(optionsId);
+  const valueEl = _valueEl || document.getElementById(valueId);
 
   let allOptions = [];
   let selectedValue = "";
@@ -2108,6 +2373,126 @@ const bulkSectionPicker = createSectionPicker({
   valueId: "bulkEditSectionValue",
 });
 
+// --- Per-platform section pickers for "All Platforms" Move Section ---
+let bulkMoveMode = "unified"; // "unified" or "per-platform"
+let perPlatformPickers = []; // { groupKey, label, picker, container, suiteId }
+
+function buildPerPlatformPickers() {
+  const wrap = document.getElementById("bulkMovePerPlatformWrap");
+  if (!wrap) return;
+  wrap.innerHTML = "";
+  perPlatformPickers = [];
+
+  const groups = currentPromptPlatformGroups.length ? currentPromptPlatformGroups : [];
+  groups.forEach((opt) => {
+    const mapping = (syncConfigData.mappings || []).find(m => m.platformGroup === opt.value);
+    const suiteName = mapping?.suiteName || (mapping?.suiteId ? "Suite " + mapping.suiteId : "No suite mapped");
+
+    const container = document.createElement("div");
+    container.className = "mb-2 per-platform-picker-group";
+    container.innerHTML = `
+      <div class="d-flex align-items-center gap-2 mb-1">
+        <span class="platform-chip platform-chip-selected" style="pointer-events:none;font-size:0.75rem;padding:2px 8px;"><i class="bi ${opt.icon}"></i> ${escapeHtml(opt.label)}</span>
+        <span class="text-muted small">${escapeHtml(suiteName)}</span>
+      </div>
+      <div class="prompt-select-wrap">
+        <div class="prompt-select-trigger" tabindex="0">
+          <span class="prompt-select-trigger-text is-placeholder">Search or create section...</span>
+          <i class="bi bi-chevron-down" style="font-size:0.75rem;flex-shrink:0;"></i>
+        </div>
+        <div class="prompt-select-dropdown">
+          <input type="text" class="prompt-select-search" placeholder="Search section..." autocomplete="off" />
+          <div class="prompt-select-options"></div>
+        </div>
+      </div>
+      <input type="hidden" />
+    `;
+
+    wrap.appendChild(container);
+
+    const wrapEl = container.querySelector(".prompt-select-wrap");
+    const triggerEl = wrapEl.querySelector(".prompt-select-trigger");
+    const dropdownEl = wrapEl.querySelector(".prompt-select-dropdown");
+    const searchEl = wrapEl.querySelector(".prompt-select-search");
+    const optionsEl = wrapEl.querySelector(".prompt-select-options");
+    const valueEl = container.querySelector('input[type="hidden"]');
+
+    const picker = createSectionPicker({
+      wrapEl, triggerEl, dropdownEl, searchEl, optionsEl, valueEl,
+    });
+
+    perPlatformPickers.push({
+      groupKey: opt.value,
+      label: opt.label,
+      picker,
+      container,
+      suiteId: mapping?.suiteId || null,
+    });
+  });
+}
+
+async function loadPerPlatformSections() {
+  for (const pp of perPlatformPickers) {
+    if (!pp.suiteId) {
+      // No suite mapped: show only AI/User sections
+      const aiUserSections = getSectionOptions().filter(o => o.source !== "testrail");
+      pp.picker.setOptions(aiUserSections);
+      continue;
+    }
+    try {
+      const queryParam = `?suiteId=${encodeURIComponent(pp.suiteId)}`;
+      const response = await apiRequest(`/testrail/getsections${queryParam}`);
+      const payload = response?.data ?? response;
+      const remoteSections = Array.isArray(payload?.sections) ? payload.sections : [];
+      const normalized = remoteSections.map(section => normalizeSectionOption({
+        name: section?.name,
+        sectionId: section?.id,
+        suiteId: section?.suite_id,
+        source: "testrail",
+        depth: section?.depth,
+        parentId: section?.parent_id,
+      })).filter(item => item.name);
+
+      // Merge AI/User sections with this platform's TestRail sections
+      const aiUserSections = getSectionOptions().filter(o => o.source !== "testrail");
+      pp.picker.setOptions(dedupeSectionOptions([...aiUserSections, ...normalized]));
+    } catch (error) {
+      // On error, still show AI/User sections
+      const aiUserSections = getSectionOptions().filter(o => o.source !== "testrail");
+      pp.picker.setOptions(aiUserSections);
+    }
+  }
+}
+
+function setBulkMoveMode(mode) {
+  bulkMoveMode = mode;
+  const unifiedWrap = document.getElementById("bulkMoveUnifiedWrap");
+  const perPlatformWrap = document.getElementById("bulkMovePerPlatformWrap");
+  const modeUnifiedBtn = document.getElementById("bulkMoveModeUnified");
+  const modePerPlatformBtn = document.getElementById("bulkMoveModePerPlatform");
+
+  if (mode === "per-platform") {
+    if (unifiedWrap) unifiedWrap.style.display = "none";
+    if (perPlatformWrap) perPlatformWrap.style.display = "";
+    if (modeUnifiedBtn) modeUnifiedBtn.classList.remove("active");
+    if (modePerPlatformBtn) modePerPlatformBtn.classList.add("active");
+  } else {
+    if (unifiedWrap) unifiedWrap.style.display = "";
+    if (perPlatformWrap) perPlatformWrap.style.display = "none";
+    if (modeUnifiedBtn) modeUnifiedBtn.classList.add("active");
+    if (modePerPlatformBtn) modePerPlatformBtn.classList.remove("active");
+  }
+}
+
+document.getElementById("bulkMoveModeUnified")?.addEventListener("click", () => setBulkMoveMode("unified"));
+document.getElementById("bulkMoveModePerPlatform")?.addEventListener("click", () => {
+  setBulkMoveMode("per-platform");
+  if (perPlatformPickers.length === 0) {
+    buildPerPlatformPickers();
+    loadPerPlatformSections();
+  }
+});
+
 // --- INLINE SECTION RENAME ---
 function startInlineEditSection(sectionRow, section, namePart) {
   // Prevent multiple inline edits at once
@@ -2245,7 +2630,7 @@ function openAddTestCaseModal(section) {
   document.getElementById("editTcExpected").value = "";
 
   // Default all platforms selected for new test cases
-  renderEditModalPlatformChips(PLATFORM_OPTIONS.map(o => o.value));
+  renderEditModalPlatformChips(EDIT_PLATFORM_OPTIONS.map(o => o.value));
 
   editTestCaseModal.show();
 }
@@ -2276,7 +2661,7 @@ function renderEditModalPlatformChips(selectedPlatforms = []) {
   if (!container) return;
   container.innerHTML = "";
   const selected = new Set(selectedPlatforms);
-  PLATFORM_OPTIONS.forEach(opt => {
+  EDIT_PLATFORM_OPTIONS.forEach(opt => {
     const chip = document.createElement("span");
     chip.className = "platform-chip" + (selected.has(opt.value) ? " platform-chip-selected" : "");
     chip.dataset.value = opt.value;
@@ -2351,6 +2736,7 @@ editTestCaseForm.addEventListener("submit", async (e) => {
       sectionId: resolvedSelection.sectionId,
       suiteId: resolvedSelection.suiteId,
       sectionSource: resolvedSelection.source,
+      platformGroup: getActivePlatformGroup() || undefined,
       title: title,
       preconditions: document.getElementById("editTcPreconditions").value.trim(),
       steps: steps,
@@ -2365,27 +2751,11 @@ editTestCaseForm.addEventListener("submit", async (e) => {
         body: JSON.stringify(newTc),
       });
 
-      // Add to local data
+      // Reload full scope to get updated per-platform section meta from backend
       const added = result?.data?.addedTestCase || {};
-      allTestCases.push({
-        ...added,
-        section: added.section || resolvedSection,
-        sectionId: added.sectionId ?? resolvedSelection.sectionId,
-        suiteId: added.suiteId ?? resolvedSelection.suiteId,
-        sectionSource: added.sectionSource || resolvedSelection.source,
-        preconditions: Array.isArray(added.preconditions)
-          ? added.preconditions.join("\n")
-          : (added.preconditions || ""),
-        steps: Array.isArray(added.steps) ? added.steps : [],
-        expected: added.expectedResult || added.expected || "",
-        platforms: Array.isArray(added.platforms) ? added.platforms : [],
-      });
+      await loadTestScope(promptId);
 
       const prevSection = selectedSection;
-      buildSectionsFromCases();
-      renderSections();
-      renderAllTestCases();
-
       const sectionNames = sections.map(s => s.name);
       if (prevSection && prevSection !== "all" && sectionNames.includes(prevSection)) {
         selectSection(prevSection);
@@ -2410,6 +2780,7 @@ editTestCaseForm.addEventListener("submit", async (e) => {
     sectionId: resolvedSelection.sectionId,
     suiteId: resolvedSelection.suiteId,
     sectionSource: resolvedSelection.source,
+    platformGroup: getActivePlatformGroup() || undefined,
     preconditions: document.getElementById("editTcPreconditions").value.trim(),
     steps: steps,
     expected: document.getElementById("editTcExpected").value.trim(),
@@ -2422,13 +2793,10 @@ editTestCaseForm.addEventListener("submit", async (e) => {
       body: JSON.stringify(updated),
     });
 
-    allTestCases = allTestCases.map(tc => tc.id === tcId ? { ...tc, ...updated } : tc);
+    // Reload full scope to get updated per-platform section meta from backend
+    await loadTestScope(promptId);
 
     const prevSection = selectedSection;
-    buildSectionsFromCases();
-    renderSections();
-    renderAllTestCases();
-
     const sectionNames = sections.map(s => s.name);
     if (prevSection && prevSection !== "all" && sectionNames.includes(prevSection)) {
       selectSection(prevSection);
@@ -2513,6 +2881,14 @@ function updateBulkBar() {
   const bulkCount = document.getElementById("tcBulkCount");
   if (bulkCount) bulkCount.textContent = count + " selected";
   if (bulkBar) bulkBar.style.display = (isSelectMode && count > 0) ? "flex" : "none";
+
+  // Post to TestRail is always enabled when a prompt is loaded (both single platform and "All" modes)
+  const postBtn = document.getElementById("tcBulkPostTestrailBtn");
+  if (postBtn) {
+    const noPrompt = !currentScopePromptId;
+    postBtn.disabled = noPrompt;
+    postBtn.title = noPrompt ? "Select a prompt before posting to TestRail" : "Post to TestRail";
+  }
 }
 
 function updateSelectAllState() {
@@ -2572,18 +2948,79 @@ function getSectionOptions() {
   return dedupeSectionOptions([...(fromSections || []), ...(fromCases || []), ...(testrailSectionsCache || [])]);
 }
 
-async function fetchTestrailSectionsForPicker() {
+async function fetchTestrailSuitesForPicker() {
+  if (isFetchingTestrailSuites) return;
+
+  isFetchingTestrailSuites = true;
+  bulkFetchTestrailBtn.disabled = true;
+  bulkFetchTestrailBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1" role="status"></span>Fetching...';
+  setBulkSectionStatus("Fetching test suites from TestRail...", "muted");
+
+  const suitePickerWrap = document.getElementById("bulkSuitePickerWrap");
+  const suitePicker = document.getElementById("bulkSuitePicker");
+  const suiteStatus = document.getElementById("bulkSuiteStatus");
+
+  try {
+    const response = await apiRequest("/testrail/getsuites");
+    const payload = response?.data ?? response;
+    const suites = Array.isArray(payload?.suites) ? payload.suites : [];
+
+    testrailSuitesCache = suites;
+
+    if (!suites.length) {
+      // Single-suite project or no suites — skip suite picker, fetch sections directly
+      suitePickerWrap.style.display = "none";
+      setBulkSectionStatus("Fetching sections...", "muted");
+      await fetchTestrailSectionsForSuite("");
+      return;
+    }
+
+    // Populate suite dropdown
+    suitePicker.innerHTML = '<option value="" disabled selected>Select a test suite...</option>';
+    suites.forEach((suite) => {
+      const opt = document.createElement("option");
+      opt.value = String(suite.id);
+      opt.textContent = suite.name + (suite.is_master ? " (Master)" : "");
+      suitePicker.appendChild(opt);
+    });
+
+    // Restore previous selection if available
+    if (selectedTestrailSuiteId) {
+      suitePicker.value = String(selectedTestrailSuiteId);
+    }
+
+    suitePickerWrap.style.display = "";
+    if (suiteStatus) {
+      suiteStatus.innerHTML = `<span class="text-muted small">${suites.length} suite(s) found. Select one to load its sections.</span>`;
+    }
+    setBulkSectionStatus("Select a test suite to load its sections.", "muted");
+  } catch (error) {
+    setBulkSectionStatus(`Failed to fetch TestRail suites: ${error.message}`, "danger");
+    suitePickerWrap.style.display = "none";
+  } finally {
+    isFetchingTestrailSuites = false;
+    bulkFetchTestrailBtn.disabled = false;
+    bulkFetchTestrailBtn.innerHTML = '<i class="bi bi-cloud-download me-1"></i>Get from TestRail';
+  }
+}
+
+async function fetchTestrailSectionsForSuite(suiteId) {
   if (isFetchingTestrailSections) return;
 
   isFetchingTestrailSections = true;
-  bulkFetchTestrailBtn.disabled = true;
-  bulkFetchTestrailBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1" role="status"></span>Fetching...';
+  const suiteStatus = document.getElementById("bulkSuiteStatus");
+  if (suiteStatus) {
+    suiteStatus.innerHTML = '<span class="text-muted small"><span class="spinner-border spinner-border-sm me-1" role="status"></span>Loading sections...</span>';
+  }
   setBulkSectionStatus("Fetching sections from TestRail...", "muted");
 
   try {
-    const response = await apiRequest("/testrail/getsections");
+    const queryParam = suiteId ? `?suiteId=${encodeURIComponent(suiteId)}` : "";
+    const response = await apiRequest(`/testrail/getsections${queryParam}`);
     const payload = response?.data ?? response;
     const remoteSections = Array.isArray(payload?.sections) ? payload.sections : [];
+
+    selectedTestrailSuiteId = suiteId;
 
     testrailSectionsCache = remoteSections
       .map((section) => normalizeSectionOption({
@@ -2597,31 +3034,96 @@ async function fetchTestrailSectionsForPicker() {
       .filter((item) => item.name);
 
     bulkSectionPicker.setOptions(getSectionOptions());
-    setBulkSectionStatus(`Loaded ${testrailSectionsCache.length} section(s) from TestRail.`, "success");
+
+    const suiteName = testrailSuitesCache.find((s) => String(s.id) === String(suiteId))?.name || `Suite ${suiteId}`;
+    if (suiteStatus) {
+      suiteStatus.innerHTML = `<span class="text-success small"><i class="bi bi-check-circle me-1"></i>${remoteSections.length} section(s) loaded.</span>`;
+    }
+    setBulkSectionStatus(`Loaded ${testrailSectionsCache.length} section(s) from "${suiteName}".`, "success");
   } catch (error) {
-    setBulkSectionStatus(`Failed to fetch TestRail sections: ${error.message}`, "danger");
+    setBulkSectionStatus(`Failed to fetch sections: ${error.message}`, "danger");
+    if (suiteStatus) {
+      suiteStatus.innerHTML = `<span class="text-danger small">${error.message}</span>`;
+    }
   } finally {
     isFetchingTestrailSections = false;
-    bulkFetchTestrailBtn.disabled = false;
-    bulkFetchTestrailBtn.innerHTML = '<i class="bi bi-cloud-download me-1"></i>Get from TestRail';
   }
 }
 
+// Wire up suite picker change event
+document.getElementById("bulkSuitePicker").addEventListener("change", (e) => {
+  const suiteId = e.target.value;
+  if (suiteId) {
+    fetchTestrailSectionsForSuite(suiteId);
+  }
+});
+
 if (bulkFetchTestrailBtn) {
-  bulkFetchTestrailBtn.addEventListener("click", fetchTestrailSectionsForPicker);
+  bulkFetchTestrailBtn.addEventListener("click", fetchTestrailSuitesForPicker);
 }
 
 function openBulkEditSectionDialog(sectionNames) {
-  return new Promise(function(resolve) {
+  return new Promise(async function(resolve) {
     const overlay    = document.getElementById("bulkEditSectionOverlay");
     const sub        = document.getElementById("bulkEditSectionSub");
     const confirmBtn = document.getElementById("bulkEditSectionConfirmBtn");
     const cancelBtn  = document.getElementById("bulkEditSectionCancelBtn");
+    const modeWrap   = document.getElementById("bulkMoveModeWrap");
+
+    const isAllPlatforms = selectedPlatformFilters.size === 0;
+    const hasMultiplePlatforms = currentPromptPlatformGroups.length > 1;
 
     sub.textContent = "Move " + selectedTcIds.size + " test case(s) to a section";
-    bulkSectionPicker.setOptions(sectionNames || []);
+
+    // Reset mode state
+    bulkMoveMode = "unified";
+    perPlatformPickers = [];
+    setBulkMoveMode("unified");
+
+    // Show mode toggle only when All Platforms is active AND multiple platform groups exist
+    if (modeWrap) {
+      modeWrap.style.display = (isAllPlatforms && hasMultiplePlatforms) ? "" : "none";
+    }
+
+    // For unified mode: when All Platforms is active, filter out TestRail sections
+    const unifiedOptions = (isAllPlatforms && hasMultiplePlatforms)
+      ? sectionNames.filter(o => o.source !== "testrail")
+      : sectionNames;
+    bulkSectionPicker.setOptions(unifiedOptions);
     bulkSectionPicker.setValue("");
 setBulkSectionStatus("click \"Get from TestRail\" to sync remote sections.", "muted");
+
+    // Reset suite picker if no suites fetched yet
+    const suitePickerWrap = document.getElementById("bulkSuitePickerWrap");
+    if (suitePickerWrap && !testrailSuitesCache.length) {
+      suitePickerWrap.style.display = "none";
+    }
+
+    // Hide "Get from TestRail" button and suite picker when All Platforms + multiple groups (unified mode shows only AI/User)
+    const fetchBtn = document.getElementById("bulkFetchTestrailBtn");
+    if (isAllPlatforms && hasMultiplePlatforms) {
+      if (fetchBtn) fetchBtn.style.display = "none";
+      if (suitePickerWrap) suitePickerWrap.style.display = "none";
+    } else {
+      if (fetchBtn) fetchBtn.style.display = "";
+    }
+
+    // Auto-load mapped suite if single platform filter is active
+    if (selectedPlatformFilters.size === 1) {
+      const groupKey = [...selectedPlatformFilters][0];
+      const mapping = (syncConfigData.mappings || []).find(m => m.platformGroup === groupKey);
+      if (mapping?.suiteId) {
+        await fetchTestrailSuitesForPicker();
+        const suitePicker = document.getElementById("bulkSuitePicker");
+        if (suitePicker) {
+          suitePicker.value = String(mapping.suiteId);
+          await fetchTestrailSectionsForSuite(mapping.suiteId);
+          const groupLabel = PLATFORM_OPTIONS.find(o => o.value === groupKey)?.label || groupKey;
+          setBulkSectionStatus(`Auto-loaded sections from "${mapping.suiteName || "Suite " + mapping.suiteId}" (mapped to ${groupLabel}).`, "info");
+        }
+      }
+    }
+
     overlay.classList.add("open");
     setTimeout(function(){ bulkSectionPicker.focusSearch(); }, 50);
 
@@ -2631,11 +3133,31 @@ setBulkSectionStatus("click \"Get from TestRail\" to sync remote sections.", "mu
       cancelBtn.removeEventListener("click", onCancel);
       overlay.removeEventListener("click", onBackdrop);
       document.removeEventListener("keydown", onKeydown);
+      // Reset per-platform pickers
+      const ppWrap = document.getElementById("bulkMovePerPlatformWrap");
+      if (ppWrap) ppWrap.innerHTML = "";
+      perPlatformPickers = [];
+      // Restore fetch button visibility
+      if (fetchBtn) fetchBtn.style.display = "";
     }
     function onConfirm()  {
-      const resolved = bulkSectionPicker.getSelection();
-      cleanup();
-      resolve(resolved && resolved.name ? resolved : null);
+      if (bulkMoveMode === "per-platform" && perPlatformPickers.length > 0) {
+        // Resolve per-platform selections
+        const perPlatformSelections = perPlatformPickers.map(pp => {
+          const sel = pp.picker.getSelection();
+          return {
+            groupKey: pp.groupKey,
+            label: pp.label,
+            selection: sel && sel.name ? sel : null,
+          };
+        }).filter(pp => pp.selection);
+        cleanup();
+        resolve({ mode: "per-platform", perPlatformSelections });
+      } else {
+        const resolved = bulkSectionPicker.getSelection();
+        cleanup();
+        resolve(resolved && resolved.name ? { mode: "unified", selection: resolved } : null);
+      }
     }
     function onCancel()   { cleanup(); resolve(null); }
     function onBackdrop(e){ if (e.target === overlay) onCancel(); }
@@ -2686,10 +3208,54 @@ function getSelectedTestCases() {
 
 function summarizeSelectionForTestrailPosting() {
   const selectedCases = getSelectedTestCases();
-  const eligibleCases = selectedCases.filter((tc) => !(tc.testrailPost?.status === "success" || tc.testrailPost?.testrailCaseId != null));
-  const skippedCases = selectedCases.filter((tc) => tc.testrailPost?.status === "success" || tc.testrailPost?.testrailCaseId != null);
-  const sectionMap = new Map();
+  const isAllPlatforms = selectedPlatformFilters.size === 0;
+  const activeGroups = isAllPlatforms
+    ? currentPromptPlatformGroups.map(o => o.value)
+    : [...selectedPlatformFilters];
 
+  // Build per-platform-group breakdown
+  const platformBreakdown = activeGroups.map(groupKey => {
+    const opt = PLATFORM_OPTIONS.find(o => o.value === groupKey);
+    const groupPlatforms = opt ? opt.platforms : [groupKey];
+    const groupPlatformSet = new Set(groupPlatforms);
+    const mapping = (syncConfigData.mappings || []).find(m => m.platformGroup === groupKey);
+
+    const matchingCases = selectedCases.filter(tc => {
+      const tcPlatforms = Array.isArray(tc.platforms) ? tc.platforms : [];
+      return tcPlatforms.some(p => groupPlatformSet.has(p));
+    });
+
+    const eligible = matchingCases.filter(tc => !hasPostedToTestrailFrontend(tc, groupKey));
+    const skipped = matchingCases.filter(tc => hasPostedToTestrailFrontend(tc, groupKey));
+
+    return {
+      groupKey,
+      label: opt?.label || groupKey,
+      suiteName: mapping?.suiteName || ("Suite " + (mapping?.suiteId || "?")),
+      suiteId: mapping?.suiteId || null,
+      totalCases: matchingCases.length,
+      eligibleCount: eligible.length,
+      skippedCount: skipped.length,
+    };
+  });
+
+  // For backward-compat: compute overall eligible/skipped from union of all groups
+  // Use the single-group logic when only one group active
+  const platformGroupKey = activeGroups.length === 1 ? activeGroups[0] : null;
+  const eligibleCases = selectedCases.filter((tc) => {
+    if (platformGroupKey) return !hasPostedToTestrailFrontend(tc, platformGroupKey);
+    // Multi-platform: eligible if not posted to ALL active groups
+    return activeGroups.some(gk => {
+      const opt = PLATFORM_OPTIONS.find(o => o.value === gk);
+      const gPlatforms = opt ? new Set(opt.platforms) : new Set([gk]);
+      const tcPlatforms = Array.isArray(tc.platforms) ? tc.platforms : [];
+      const matchesPlatform = tcPlatforms.some(p => gPlatforms.has(p));
+      return matchesPlatform && !hasPostedToTestrailFrontend(tc, gk);
+    });
+  });
+  const skippedCases = selectedCases.filter((tc) => !eligibleCases.includes(tc));
+
+  const sectionMap = new Map();
   eligibleCases.forEach((tc) => {
     const sectionName = String(tc.section || "Uncategorized").trim() || "Uncategorized";
     const key = tc.sectionId != null
@@ -2719,6 +3285,8 @@ function summarizeSelectionForTestrailPosting() {
     selectedSections,
     existingSections,
     newSections,
+    platformBreakdown,
+    isAllPlatforms,
   };
 }
 
@@ -2740,10 +3308,26 @@ function openBulkPostToTestrailDialog(summary) {
     if (existingCountEl) existingCountEl.textContent = String(summary.existingSections.length);
     if (newCountEl) newCountEl.textContent = String(summary.newSections.length);
 
+    // Render platform breakdown
+    const breakdownWrap = document.getElementById("bulkPostPlatformBreakdown");
+    const breakdownList = document.getElementById("bulkPostPlatformList");
+    if (breakdownWrap && breakdownList && summary.platformBreakdown && summary.platformBreakdown.length > 0) {
+      breakdownList.innerHTML = summary.platformBreakdown.map(pb => {
+        const badge = pb.skippedCount > 0
+          ? `<span class="small text-muted ms-1">(${pb.skippedCount} already posted)</span>`
+          : "";
+        return `<li><span><strong>${escapeHtml(pb.label)}</strong> <span class="text-muted small">${escapeHtml(pb.suiteName)}</span></span><span class="count">${pb.eligibleCount}${badge}</span></li>`;
+      }).join("");
+      breakdownWrap.style.display = "";
+    } else if (breakdownWrap) {
+      breakdownWrap.style.display = "none";
+    }
+
     if (sub) {
+      const platformNote = summary.isAllPlatforms ? " across all platform suites" : "";
       sub.textContent = summary.skippedCases.length
-        ? `Post ${summary.eligibleCases.length} test case(s) to TestRail. Skip ${summary.skippedCases.length} already posted.`
-        : `Post ${summary.eligibleCases.length} selected test case(s) to TestRail.`;
+        ? `Post ${summary.eligibleCases.length} test case(s) to TestRail${platformNote}. Skip ${summary.skippedCases.length} already posted.`
+        : `Post ${summary.eligibleCases.length} selected test case(s) to TestRail${platformNote}.`;
     }
 
     if (status) {
@@ -2803,6 +3387,21 @@ async function handleBulkPostToTestrail() {
     return;
   }
 
+  // Determine which platform groups will be posted to
+  const activeGroups = selectedPlatformFilters.size > 0
+    ? [...selectedPlatformFilters]
+    : currentPromptPlatformGroups.map(o => o.value);
+
+  // Check sync config exists for all active platform groups
+  const missingConfigs = activeGroups.filter(groupKey =>
+    !(syncConfigData.mappings || []).some(m => m.platformGroup === groupKey)
+  );
+  if (missingConfigs.length > 0) {
+    const labels = missingConfigs.map(k => PLATFORM_OPTIONS.find(o => o.value === k)?.label || k).join(", ");
+    showBanner(`No TestRail sync config found for: ${labels}. Configure platform-to-suite mappings in Settings > TestRail Sync before posting.`, "danger");
+    return;
+  }
+
   const summary = summarizeSelectionForTestrailPosting();
   if (!summary.selectedCases.length) {
     showBanner("No valid test cases selected for posting.", "danger");
@@ -2819,10 +3418,15 @@ async function handleBulkPostToTestrail() {
 
   try {
     setPageBlockingOverlay(true, "Posting selected test cases to TestRail...");
+    const isAllPlatforms = selectedPlatformFilters.size === 0;
+    const platformGroups = isAllPlatforms
+      ? currentPromptPlatformGroups.map(o => o.value)
+      : [...selectedPlatformFilters];
     const payload = {
       promptId: currentScopePromptId,
       testcaseIds: Array.from(selectedTcIds),
-      platformFilter: selectedPlatformFilters.size > 0 ? Array.from(selectedPlatformFilters) : [],
+      platformFilter: Array.from(expandPlatformFilter(new Set(platformGroups))),
+      platformGroups: platformGroups,
     };
 
     const response = await apiRequest("/testrail/posttestcases", {
@@ -2897,8 +3501,12 @@ async function handleBulkEditSection() {
 
   // Separate posted (blocked) from movable test cases
   const selectedCases = getSelectedTestCases();
-  const blockedCases  = selectedCases.filter(tc => tc.testrailPost?.status === "success");
-  const movableCases  = selectedCases.filter(tc => tc.testrailPost?.status !== "success");
+  const activePg = getActivePlatformGroup();
+  const blockedCases  = selectedCases.filter(tc => {
+    if (activePg) return hasPostedToTestrailFrontend(tc, activePg);
+    return tc.testrailPost?.status === "success";
+  });
+  const movableCases  = selectedCases.filter(tc => !blockedCases.includes(tc));
 
   if (blockedCases.length > 0) {
     const proceed = await openBlockedMoveDialog(blockedCases, movableCases.length);
@@ -2909,44 +3517,80 @@ async function handleBulkEditSection() {
     if (!selectedTcIds.size) return;
   }
 
-  const newSelection = await openBulkEditSectionDialog(getSectionOptions());
-  if (!newSelection) return;
+  const dialogResult = await openBulkEditSectionDialog(getSectionOptions());
+  if (!dialogResult) return;
 
-  const newSection = String(newSelection.name || "").trim();
   const ids = Array.from(selectedTcIds);
   let ok = 0, fail = 0;
-  for (const tcId of ids) {
-    const tc = allTestCases.find(t => t.id === tcId);
-    if (!tc) continue;
-    try {
-      await apiRequest("/testcase/edit?testcaseId=" + encodeURIComponent(tcId) + "&promptID=" + encodeURIComponent(currentScopePromptId), {
-        method: "POST",
-        body: JSON.stringify(Object.assign({}, tc, {
-          section: newSection,
-          sectionId: newSelection.sectionId,
-          suiteId: newSelection.suiteId,
-          sectionSource: newSelection.source,
-        })),
-      });
-      const idx = allTestCases.findIndex(t => t.id === tcId);
-      if (idx !== -1) {
-        allTestCases[idx] = Object.assign({}, allTestCases[idx], {
+
+  if (dialogResult.mode === "per-platform" && dialogResult.perPlatformSelections) {
+    // Per-platform mode: send one edit call per platform group per test case
+    for (const tcId of ids) {
+      const tc = allTestCases.find(t => t.id === tcId);
+      if (!tc) continue;
+      let tcOk = false;
+      for (const pp of dialogResult.perPlatformSelections) {
+        try {
+          const payload = Object.assign({}, tc, {
+            section: String(pp.selection.name || "").trim(),
+            sectionId: pp.selection.sectionId,
+            suiteId: pp.selection.suiteId,
+            sectionSource: pp.selection.source,
+            platformGroup: pp.groupKey,
+          });
+          await apiRequest("/testcase/edit?testcaseId=" + encodeURIComponent(tcId) + "&promptID=" + encodeURIComponent(currentScopePromptId), {
+            method: "POST",
+            body: JSON.stringify(payload),
+          });
+          tcOk = true;
+        } catch(e) { /* individual platform failure, continue */ }
+      }
+      if (tcOk) ok++; else fail++;
+    }
+    selectedTcIds.clear();
+    await loadTestScope(currentScopePromptId);
+    updateBulkBar();
+    if (ok)   showBanner(ok + " test case(s) sections updated per platform.", "success");
+    if (fail) showBanner(fail + " test case(s) failed to update.", "danger");
+  } else {
+    // Unified mode: same as original behavior
+    const newSelection = dialogResult.selection || dialogResult;
+    const newSection = String(newSelection.name || "").trim();
+    for (const tcId of ids) {
+      const tc = allTestCases.find(t => t.id === tcId);
+      if (!tc) continue;
+      try {
+        const payload = Object.assign({}, tc, {
           section: newSection,
           sectionId: newSelection.sectionId,
           suiteId: newSelection.suiteId,
           sectionSource: newSelection.source,
         });
-      }
-      ok++;
-    } catch(e) { fail++; }
+        if (activePg) payload.platformGroup = activePg;
+
+        await apiRequest("/testcase/edit?testcaseId=" + encodeURIComponent(tcId) + "&promptID=" + encodeURIComponent(currentScopePromptId), {
+          method: "POST",
+          body: JSON.stringify(payload),
+        });
+        const idx = allTestCases.findIndex(t => t.id === tcId);
+        if (idx !== -1) {
+          allTestCases[idx] = Object.assign({}, allTestCases[idx], {
+            section: newSection,
+            sectionId: newSelection.sectionId,
+            suiteId: newSelection.suiteId,
+            sectionSource: newSelection.source,
+          });
+        }
+        ok++;
+      } catch(e) { fail++; }
+    }
+    selectedTcIds.clear();
+    // Reload full scope to get updated per-platform section meta
+    await loadTestScope(currentScopePromptId);
+    updateBulkBar();
+    if (ok)   showBanner(ok + ' test case(s) moved to "' + newSection + '".', "success");
+    if (fail) showBanner(fail + " test case(s) failed to move.", "danger");
   }
-  selectedTcIds.clear();
-  buildSectionsFromCases();
-  renderSections();
-  renderAllTestCases();
-  updateBulkBar();
-  if (ok)   showBanner(ok + ' test case(s) moved to "' + newSection + '".', "success");
-  if (fail) showBanner(fail + " test case(s) failed to move.", "danger");
 }
 
 async function handleBulkDelete() {
@@ -3678,6 +4322,375 @@ refreshModelCatalogBtn?.addEventListener("click", async () => {
 });
 document.getElementById("settings-tab").addEventListener("shown.bs.tab", loadSettingsPageData);
 
+// --- TESTRAIL SYNC CONFIG ---
+let syncConfigData = { mappings: [], availablePlatformGroups: [] };
+let syncConfigSuites = []; // cached suites for the modal
+
+async function loadSyncConfig() {
+  try {
+    const response = await apiRequest("/testrail/syncconfig");
+    syncConfigData = response?.data || { mappings: [], availablePlatformGroups: [] };
+  } catch (error) {
+    syncConfigData = { mappings: [], availablePlatformGroups: [] };
+  }
+  renderSyncConfigTable();
+}
+
+function renderSyncConfigTable() {
+  const tbody = document.getElementById("syncConfigTableBody");
+  if (!tbody) return;
+  const mappings = syncConfigData.mappings || [];
+  if (!mappings.length) {
+    tbody.innerHTML = '<tr><td colspan="5" class="text-center text-muted small">No mappings configured.</td></tr>';
+    return;
+  }
+  tbody.innerHTML = "";
+  mappings.forEach(m => {
+    const tr = document.createElement("tr");
+
+    const tdGroup = document.createElement("td");
+    const groupInfo = syncConfigData.availablePlatformGroups?.find(g => g.key === m.platformGroup);
+    const label = groupInfo?.label || m.platformGroup;
+    const platformList = groupInfo?.platforms?.join(", ") || "";
+    tdGroup.innerHTML = `<span class="fw-semibold">${escapeHtml(label)}</span>${platformList ? `<br><span class="text-muted small">${escapeHtml(platformList)}</span>` : ""}`;
+    tr.appendChild(tdGroup);
+
+    const tdSuiteId = document.createElement("td");
+    tdSuiteId.textContent = m.suiteId != null ? `S${m.suiteId}` : "—";
+    tr.appendChild(tdSuiteId);
+
+    const tdSuiteName = document.createElement("td");
+    tdSuiteName.textContent = m.suiteName || "—";
+    tr.appendChild(tdSuiteName);
+
+    const tdUpdated = document.createElement("td");
+    tdUpdated.textContent = m.updatedAt ? new Date(m.updatedAt).toLocaleString() : "—";
+    tdUpdated.className = "text-muted small";
+    tr.appendChild(tdUpdated);
+
+    const tdActions = document.createElement("td");
+    tdActions.className = "text-end";
+    tdActions.innerHTML = `
+      <button class="btn btn-sm btn-outline-primary icon-action-btn sync-config-edit-btn" title="Edit" data-platform-group="${escapeHtml(m.platformGroup)}">
+        <i class="bi bi-pencil-square"></i>
+      </button>
+      <button class="btn btn-sm btn-outline-danger icon-action-btn sync-config-delete-btn" title="Remove" data-platform-group="${escapeHtml(m.platformGroup)}">
+        <i class="bi bi-trash"></i>
+      </button>
+    `;
+    tr.appendChild(tdActions);
+    tbody.appendChild(tr);
+  });
+
+  // Attach edit/delete handlers
+  tbody.querySelectorAll(".sync-config-edit-btn").forEach(btn => {
+    btn.addEventListener("click", () => openSyncConfigModal(btn.dataset.platformGroup));
+  });
+  tbody.querySelectorAll(".sync-config-delete-btn").forEach(btn => {
+    btn.addEventListener("click", () => openSyncConfigDeleteDialog(btn.dataset.platformGroup));
+  });
+}
+
+async function loadSyncConfigSuites() {
+  if (syncConfigSuites.length > 0) return syncConfigSuites;
+  try {
+    const response = await apiRequest("/testrail/getsuites");
+    const payload = response?.data ?? response;
+    syncConfigSuites = Array.isArray(payload?.suites) ? payload.suites : (Array.isArray(payload) ? payload : []);
+  } catch (error) {
+    syncConfigSuites = [];
+  }
+  return syncConfigSuites;
+}
+
+// --- Sync Config bloom dropdown helpers ---
+function renderSyncConfigPlatformOptions(filter) {
+  const optionsEl = document.getElementById("syncConfigPlatformOptions");
+  if (!optionsEl) return;
+  const q = (filter || "").toLowerCase();
+  const allGroups = window._syncConfigModalGroups || [];
+  optionsEl.innerHTML = "";
+  allGroups.forEach(g => {
+    const label = `${g.label} (${g.platforms.join(", ")})`;
+    if (q && !label.toLowerCase().includes(q)) return;
+    const optEl = document.createElement("div");
+    optEl.className = "prompt-select-option";
+    optEl.innerHTML = `<span class="prompt-select-option-id">${escapeHtml(g.label)}</span><span class="prompt-select-option-name">${escapeHtml(g.platforms.join(", "))}</span>`;
+    optEl.dataset.value = g.key;
+    optEl.addEventListener("click", () => {
+      document.getElementById("syncConfigPlatformGroup").value = g.key;
+      document.getElementById("syncConfigPlatformTriggerText").textContent = label;
+      document.getElementById("syncConfigPlatformTriggerText").classList.remove("is-placeholder");
+      document.getElementById("syncConfigPlatformDropdown").classList.remove("open");
+      document.getElementById("syncConfigPlatformTrigger").classList.remove("open");
+    });
+    optionsEl.appendChild(optEl);
+  });
+  if (!optionsEl.children.length) {
+    optionsEl.innerHTML = '<div class="text-muted small p-2">No platform groups available</div>';
+  }
+}
+
+function renderSyncConfigSuiteOptions(filter) {
+  const optionsEl = document.getElementById("syncConfigSuiteOptions");
+  if (!optionsEl) return;
+  const q = (filter || "").toLowerCase();
+  const suites = window._syncConfigModalSuites || [];
+  optionsEl.innerHTML = "";
+  suites.forEach(s => {
+    const label = `S${s.id} — ${s.name || "Untitled"}`;
+    if (q && !label.toLowerCase().includes(q) && !String(s.id).includes(q)) return;
+    const optEl = document.createElement("div");
+    optEl.className = "prompt-select-option";
+    optEl.innerHTML = `<span class="prompt-select-option-id">S${escapeHtml(String(s.id))}</span><span class="prompt-select-option-name">${escapeHtml(s.name || "Untitled")}</span>`;
+    optEl.dataset.value = s.id;
+    optEl.addEventListener("click", () => {
+      document.getElementById("syncConfigSuiteSelect").value = String(s.id);
+      document.getElementById("syncConfigSuiteTriggerText").textContent = label;
+      document.getElementById("syncConfigSuiteTriggerText").classList.remove("is-placeholder");
+      document.getElementById("syncConfigSuiteDropdown").classList.remove("open");
+      document.getElementById("syncConfigSuiteTrigger").classList.remove("open");
+    });
+    optionsEl.appendChild(optEl);
+  });
+  if (!optionsEl.children.length) {
+    const msg = suites.length === 0 ? "No suites available (check TestRail config)" : "No matching suites";
+    optionsEl.innerHTML = `<div class="text-muted small p-2">${msg}</div>`;
+  }
+}
+
+// Wire bloom dropdown toggle + search for both pickers (once, at load)
+(function initSyncConfigDropdowns() {
+  // Platform picker
+  const pTrigger = document.getElementById("syncConfigPlatformTrigger");
+  const pDropdown = document.getElementById("syncConfigPlatformDropdown");
+  const pSearch = document.getElementById("syncConfigPlatformSearch");
+  if (pTrigger && pDropdown) {
+    pTrigger.addEventListener("click", () => {
+      if (pTrigger.dataset.disabled === "true") return;
+      const isOpen = pDropdown.classList.contains("open");
+      pDropdown.classList.toggle("open", !isOpen);
+      pTrigger.classList.toggle("open", !isOpen);
+      if (!isOpen) { pSearch.value = ""; renderSyncConfigPlatformOptions(""); pSearch.focus(); }
+    });
+    pTrigger.addEventListener("keydown", (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); pTrigger.click(); } });
+    pSearch.addEventListener("input", () => renderSyncConfigPlatformOptions(pSearch.value));
+    pSearch.addEventListener("keydown", (e) => { if (e.key === "Escape") { pDropdown.classList.remove("open"); pTrigger.classList.remove("open"); } });
+  }
+
+  // Suite picker
+  const sTrigger = document.getElementById("syncConfigSuiteTrigger");
+  const sDropdown = document.getElementById("syncConfigSuiteDropdown");
+  const sSearch = document.getElementById("syncConfigSuiteSearch");
+  if (sTrigger && sDropdown) {
+    sTrigger.addEventListener("click", () => {
+      const isOpen = sDropdown.classList.contains("open");
+      sDropdown.classList.toggle("open", !isOpen);
+      sTrigger.classList.toggle("open", !isOpen);
+      if (!isOpen) { sSearch.value = ""; renderSyncConfigSuiteOptions(""); sSearch.focus(); }
+    });
+    sTrigger.addEventListener("keydown", (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); sTrigger.click(); } });
+    sSearch.addEventListener("input", () => renderSyncConfigSuiteOptions(sSearch.value));
+    sSearch.addEventListener("keydown", (e) => { if (e.key === "Escape") { sDropdown.classList.remove("open"); sTrigger.classList.remove("open"); } });
+  }
+})();
+
+// Close sync config dropdowns on outside click
+document.addEventListener("click", (event) => {
+  if (event.target.closest("#syncConfigPlatformWrap")) return;
+  document.getElementById("syncConfigPlatformDropdown")?.classList.remove("open");
+  document.getElementById("syncConfigPlatformTrigger")?.classList.remove("open");
+
+  if (event.target.closest("#syncConfigSuiteWrap")) return;
+  document.getElementById("syncConfigSuiteDropdown")?.classList.remove("open");
+  document.getElementById("syncConfigSuiteTrigger")?.classList.remove("open");
+});
+
+async function openSyncConfigModal(editPlatformGroup) {
+  const overlay = document.getElementById("syncConfigOverlay");
+  const titleEl = document.getElementById("syncConfigTitle");
+  const platformHidden = document.getElementById("syncConfigPlatformGroup");
+  const suiteHidden = document.getElementById("syncConfigSuiteSelect");
+  const form = document.getElementById("syncConfigForm");
+  const pTrigger = document.getElementById("syncConfigPlatformTrigger");
+  const pTriggerText = document.getElementById("syncConfigPlatformTriggerText");
+  const sTriggerText = document.getElementById("syncConfigSuiteTriggerText");
+
+  const isEdit = !!editPlatformGroup;
+  titleEl.textContent = isEdit ? "Edit Platform Mapping" : "Add Platform Mapping";
+
+  // Reset hidden values
+  platformHidden.value = "";
+  suiteHidden.value = "";
+
+  // Close any open dropdowns
+  document.getElementById("syncConfigPlatformDropdown")?.classList.remove("open");
+  document.getElementById("syncConfigPlatformTrigger")?.classList.remove("open");
+  document.getElementById("syncConfigSuiteDropdown")?.classList.remove("open");
+  document.getElementById("syncConfigSuiteTrigger")?.classList.remove("open");
+
+  // Populate platform group options
+  const allGroups = syncConfigData.availablePlatformGroups || [];
+  const existingGroups = new Set((syncConfigData.mappings || []).map(m => m.platformGroup));
+  window._syncConfigModalGroups = allGroups.filter(g => {
+    if (!isEdit && existingGroups.has(g.key)) return false;
+    if (isEdit && g.key !== editPlatformGroup && existingGroups.has(g.key)) return false;
+    return true;
+  });
+
+  if (isEdit) {
+    const editGroup = allGroups.find(g => g.key === editPlatformGroup);
+    platformHidden.value = editPlatformGroup;
+    pTriggerText.textContent = editGroup ? `${editGroup.label} (${editGroup.platforms.join(", ")})` : editPlatformGroup;
+    pTriggerText.classList.remove("is-placeholder");
+    pTrigger.dataset.disabled = "true";
+    pTrigger.style.opacity = "0.65";
+    pTrigger.style.pointerEvents = "none";
+  } else {
+    pTriggerText.textContent = "Select platform group...";
+    pTriggerText.classList.add("is-placeholder");
+    pTrigger.dataset.disabled = "false";
+    pTrigger.style.opacity = "";
+    pTrigger.style.pointerEvents = "";
+  }
+  renderSyncConfigPlatformOptions("");
+
+  // Reset suite picker
+  sTriggerText.textContent = "Loading suites...";
+  sTriggerText.classList.add("is-placeholder");
+
+  // Show overlay immediately
+  overlay.classList.add("open");
+
+  // Load suites
+  let suites = [];
+  try {
+    suites = await loadSyncConfigSuites();
+  } catch (e) { /* TestRail may not be configured */ }
+  window._syncConfigModalSuites = suites;
+
+  if (!suites.length) {
+    sTriggerText.textContent = "No suites available (check TestRail config)";
+  } else {
+    sTriggerText.textContent = "Select a suite...";
+  }
+  renderSyncConfigSuiteOptions("");
+
+  // Pre-select suite if editing
+  if (isEdit) {
+    const existing = (syncConfigData.mappings || []).find(m => m.platformGroup === editPlatformGroup);
+    if (existing?.suiteId) {
+      suiteHidden.value = String(existing.suiteId);
+      const suite = suites.find(s => String(s.id) === String(existing.suiteId));
+      sTriggerText.textContent = suite ? `S${suite.id} — ${suite.name || "Untitled"}` : `S${existing.suiteId}`;
+      sTriggerText.classList.remove("is-placeholder");
+    }
+  }
+
+  // Handle form submission
+  const onSubmit = async (e) => {
+    e.preventDefault();
+    const platformGroup = platformHidden.value;
+    const suiteId = Number(suiteHidden.value);
+    const suite = (window._syncConfigModalSuites || []).find(s => String(s.id) === String(suiteId));
+    const suiteName = suite?.name || "";
+
+    if (!platformGroup || !suiteId) {
+      showBanner("Please select both a platform group and a suite.", "danger");
+      return;
+    }
+
+    try {
+      await apiRequest("/testrail/syncconfig", {
+        method: "POST",
+        body: JSON.stringify({ platformGroup, suiteId, suiteName }),
+      });
+      showBanner(`Mapping saved: ${platformGroup} → S${suiteId}`, "success");
+      syncConfigSuites = []; // bust cache
+      await loadSyncConfig();
+    } catch (error) {
+      showBanner("Failed to save mapping: " + error.message, "danger");
+    }
+
+    cleanup();
+  };
+
+  const onCancel = () => cleanup();
+  const onBackdrop = (e) => { if (e.target === overlay) cleanup(); };
+  const onKeydown = (e) => { if (e.key === "Escape") cleanup(); };
+
+  function cleanup() {
+    overlay.classList.remove("open");
+    form.removeEventListener("submit", onSubmit);
+    document.getElementById("syncConfigCancelBtn").removeEventListener("click", onCancel);
+    overlay.removeEventListener("click", onBackdrop);
+    document.removeEventListener("keydown", onKeydown);
+    pTrigger.dataset.disabled = "false";
+    pTrigger.style.opacity = "";
+    pTrigger.style.pointerEvents = "";
+  }
+
+  form.addEventListener("submit", onSubmit);
+  document.getElementById("syncConfigCancelBtn").addEventListener("click", onCancel);
+  overlay.addEventListener("click", onBackdrop);
+  document.addEventListener("keydown", onKeydown);
+}
+
+function openSyncConfigDeleteDialog(platformGroup) {
+  const overlay = document.getElementById("syncConfigDeleteOverlay");
+  const subEl = document.getElementById("syncConfigDeleteSub");
+  const mapping = (syncConfigData.mappings || []).find(m => m.platformGroup === platformGroup);
+  subEl.textContent = `Remove the mapping for "${mapping?.platformGroup || platformGroup}"${mapping?.suiteName ? ` (Suite: ${mapping.suiteName})` : ""}?`;
+
+  overlay.classList.add("open");
+
+  const confirmBtn = document.getElementById("syncConfigDeleteConfirmBtn");
+  const cancelBtn = document.getElementById("syncConfigDeleteCancelBtn");
+
+  const onConfirm = async () => {
+    try {
+      await apiRequest(`/testrail/syncconfig/${encodeURIComponent(platformGroup)}`, { method: "DELETE" });
+      showBanner(`Mapping removed: ${platformGroup}`, "success");
+      await loadSyncConfig();
+    } catch (error) {
+      showBanner("Failed to remove mapping: " + error.message, "danger");
+    }
+    cleanup();
+  };
+
+  const onCancel = () => cleanup();
+  const onBackdrop = (e) => { if (e.target === overlay) cleanup(); };
+  const onKeydown = (e) => { if (e.key === "Escape") cleanup(); };
+
+  function cleanup() {
+    overlay.classList.remove("open");
+    confirmBtn.removeEventListener("click", onConfirm);
+    cancelBtn.removeEventListener("click", onCancel);
+    overlay.removeEventListener("click", onBackdrop);
+    document.removeEventListener("keydown", onKeydown);
+  }
+
+  confirmBtn.addEventListener("click", onConfirm);
+  cancelBtn.addEventListener("click", onCancel);
+  overlay.addEventListener("click", onBackdrop);
+  document.addEventListener("keydown", onKeydown);
+}
+
+document.getElementById("addSyncConfigBtn")?.addEventListener("click", () => openSyncConfigModal());
+document.getElementById("refreshSyncConfigBtn")?.addEventListener("click", async () => {
+  const btn = document.getElementById("refreshSyncConfigBtn");
+  btn.classList.add("btn-spin");
+  btn.disabled = true;
+  syncConfigSuites = []; // bust cache
+  await loadSyncConfig();
+  setTimeout(() => { btn.classList.remove("btn-spin"); btn.disabled = false; }, 500);
+});
+
+// Load sync config when the TestRail Sync sub-tab is shown
+document.getElementById("settings-testrail-sync-tab")?.addEventListener("shown.bs.tab", () => {
+  loadSyncConfig();
+});
+
 // --- PROMPT DROPDOWN ---
 let allPrompts = []; // [{promptId, projectName}]
 
@@ -3783,6 +4796,7 @@ async function loadAllPrompts() {
 
 // Load prompts on startup and refresh dropdowns when tabs are shown
 loadAllPrompts();
+loadSyncConfig(); // Pre-load sync config for Move Section auto-suite selection
 document.getElementById("test-analysis-tab").addEventListener("shown.bs.tab", loadAllPrompts);
 document.getElementById("test-scope-tab").addEventListener("shown.bs.tab", loadAllPrompts);
 
@@ -3915,7 +4929,7 @@ async function openPromptLogModal(promptId) {
   clearInterval(_logAutoRefreshTimer);
   _logAutoRefreshTimer = setInterval(() => {
     if (_logCurrentPromptId) fetchAndRenderLog(_logCurrentPromptId);
-  }, 3000);
+  }, 1500);
 }
 
 // Stop auto-refresh when modal closes
@@ -3931,7 +4945,7 @@ if (promptLogRefreshBtn) {
     if (!_logCurrentPromptId) return;
     promptLogRefreshBtn.disabled = true;
     fetchAndRenderLog(_logCurrentPromptId).finally(() => {
-      setTimeout(() => { promptLogRefreshBtn.disabled = false; }, 150);
+      setTimeout(() => { promptLogRefreshBtn.disabled = false; }, 300);
     });
   });
 }

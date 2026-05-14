@@ -14,6 +14,7 @@ const getPromptList = async () => {
     return prompts.map(p => ({
         promptId:    p.promptId,
         projectName: p.projectName || null,
+        platforms:   Array.isArray(p.platforms) ? p.platforms : [],
     }));
 };
 

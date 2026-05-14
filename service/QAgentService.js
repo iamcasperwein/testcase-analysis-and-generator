@@ -192,12 +192,17 @@ const extractJsonPayload = (text = "") => {
     }
 };
 
-const normalizeGeneratedTestCases = (generated, featureFallback = "") => {
+const normalizeGeneratedTestCases = (generated, featureFallback = "", targetPlatforms = []) => {
     const testCaseSections = Array.isArray(generated?.testCases)
         ? generated.testCases
         : Array.isArray(generated?.testcases)
             ? generated.testcases
             : [];
+
+    // If target platforms are specified, filter TC platforms against them; otherwise allow all valid platforms
+    const allowedPlatforms = targetPlatforms.length > 0
+        ? new Set(targetPlatforms)
+        : new Set(VALID_PLATFORMS);
 
     const normalizedSections = testCaseSections.map((section) => {
         const sectionCases = Array.isArray(section?.testCases)
@@ -206,18 +211,22 @@ const normalizeGeneratedTestCases = (generated, featureFallback = "") => {
                 ? section.testcases
                 : [];
 
-        // Normalize platforms on each test case
         const normalizedCases = sectionCases.map(tc => ({
             ...tc,
             platforms: Array.isArray(tc?.platforms)
-                ? tc.platforms.filter(p => VALID_PLATFORMS.includes(p))
+                ? tc.platforms.filter(p => allowedPlatforms.has(p))
                 : [],
         }));
 
         return {
-            section: String(section?.section || "Uncategorized").trim() || "Uncategorized",
-            sectionId: String(section?.sectionId || "").trim() || `sec_${ulid()}`,
-            sectionSource: "ai",
+            section: {
+                _default: {
+                    name: String(section?.section || "Uncategorized").trim() || "Uncategorized",
+                    sectionId: String(section?.sectionId || "").trim() || `sec_${ulid()}`,
+                    suiteId: null,
+                    sectionSource: "ai",
+                },
+            },
             "testCases": normalizedCases,
         };
     });
@@ -235,7 +244,11 @@ const createInitialRecord = ({ promptId, payload, agent, model }) => ({
     status: "RECEIVED",
     agent,
     model: String(model || payload?.model || "").trim() || null,
-    platforms: Array.isArray(payload.platforms) ? payload.platforms : [],
+    platforms: Array.isArray(payload.platforms)
+        ? payload.platforms
+        : (typeof payload.platforms === "string" && payload.platforms.trim()
+            ? payload.platforms.split(",").map(s => s.trim().toLowerCase()).filter(Boolean)
+            : []),
     docType: String(payload.docType || "").trim() || null,
     prdUrl: String(payload.prdUrl || payload.documents?.prd?.name || "").trim() || null,
     rfcUrl: String(payload.rfcUrl || payload.documents?.rfc?.name || "").trim() || null,
@@ -557,7 +570,7 @@ const processSubmission = async (payload = {}, { isRetry = false } = {}) => {
         // --- STEP 3: Parse & Save ---
         logger.step("Step 3/3 - Parsing generated test case JSON");
         const parsed = extractJsonPayload(generatedText);
-        const normalizedTestCases = normalizeGeneratedTestCases(parsed, validatedPayload.feature || validatedPayload.projectName || "");
+        const normalizedTestCases = normalizeGeneratedTestCases(parsed, validatedPayload.feature || validatedPayload.projectName || "", validatedPayload.platforms || []);
         logger.success("Step 3/3 - Parsing completed", { sections: normalizedTestCases.testCases?.length || 0 });
 
         FileReader.writeDataFile(`testcases/${promptId}.json`, normalizedTestCases);

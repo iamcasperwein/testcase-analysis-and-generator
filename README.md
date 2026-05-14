@@ -43,8 +43,9 @@ The **QE Test Case Generator** is a Node.js / Express backend that ingests produ
 - **CRUD on Test Cases** — Edit, move between sections, and delete generated test cases.
 - **Dashboard Analytics** — Aggregate counts, turnaround time, and failure notes.
 - **Runtime Settings** — Manage application secrets (API keys, ports) via a REST surface backed by `.env`.
-- **TestRail Integration** — Fetch sections, auto-create missing sections, and post selected test cases to TestRail.
-- **Platform Support** — Each test case carries a `platforms` array (`ios`, `android`, `mobile-web`, `desktop-web`, `backend`). The generation form lets users select target platforms (multiselect chips). Test cases display platform badges in the table and view modal. A multiselect platform filter in the toolbar lets users narrow the displayed test cases by one or more platforms. When posting to TestRail, only the currently visible (filtered/selected) test cases are sent.
+- **TestRail Integration** — Fetch test suites and sections from TestRail, select a target suite, auto-create missing sections, and post selected test cases to the correct suite. Multi-suite support allows routing test cases to different suites (e.g. App, Web, Mobile Web, Backend) based on their assigned sections.
+- **Platform-Aware TestRail Sync** — Platform groups (`app`, `mobile-web`, `desktop-web`, `backend`) can each be mapped to a dedicated TestRail suite via a persistent sync config (`data/testrail-sync-config.json`). When posting, the active platform filter determines which suite receives the test cases. Supports both single-platform and **all-platform posting**: when "All Platforms" is active, the system validates that every platform group available in the prompt has a sync config mapping, then iterates over each group and posts to its respective suite independently. Test cases already posted to a specific platform suite are skipped for that platform but still posted to other platforms where they haven't been posted yet (per-platform skip logic). The confirmation dialog shows a per-platform breakdown with target suite names and eligible/skipped counts. If any platform group is missing a sync config mapping, posting is aborted for all platforms with an error listing the missing mappings. The `testrailPost` field on each test case is stored per-platform-group (e.g. `testrailPost.app`, `testrailPost["desktop-web"]`), with legacy single-object format supported via fallback. The Settings page includes a "TestRail Sync" sub-tab for managing platform-to-suite mappings (add, edit, remove). The Move Section dialog auto-loads sections from the mapped suite when a platform filter is active.
+- **Platform Support** — Each test case carries a `platforms` array (`ios`, `android`, `mobile-web`, `desktop-web`, `backend`). The generation form lets users select target platforms (multiselect chips). Test cases display platform badges in the table and view modal. A multiselect platform filter in the toolbar lets users narrow the displayed test cases by one or more platforms — the available filter options are **dynamically derived from the prompt's `platforms` array**, so only relevant platform groups are shown (e.g. a prompt with only `["ios", "android"]` will show only the "App" chip). The section sidebar dynamically updates to show only sections with matching test cases when a platform filter is active. When posting to TestRail, the active platform filter is applied server-side to ensure only matching test cases are posted.
 
 ---
 
@@ -77,7 +78,7 @@ The **QE Test Case Generator** is a Node.js / Express backend that ingests produ
 - **Google Gemini API** — Configurable model (default `models/gemini-2.5-flash`) with system instruction and `temperature=0.2` for deterministic output
 - **Anthropic Claude API** — Configurable model (default `claude-sonnet-4-6`) with dedicated `system` prompt field and `temperature=0.2`
 - **GitHub Models API** — Configurable model (default `openai/gpt-5-chat`) with system message and `temperature=0.2`
-- **TestRail API** — Sections + Cases sync (`get_sections`, `add_section`, `add_cases` / `add_case` fallback)
+- **TestRail API** — Suites, Sections + Cases sync (`get_suites`, `get_sections`, `add_section`, `add_cases` / `add_case` fallback)
 
 ---
 
@@ -346,8 +347,12 @@ The service exposes the following routes (mounted in [app.js](app.js)):
 | `POST` | `/settings/` | [controller/Settings.js](controller/Settings.js) | Create new settings |
 | `PUT` | `/settings/:key` | [controller/Settings.js](controller/Settings.js) | Update a single setting |
 | `DELETE` | `/settings/:key` | [controller/Settings.js](controller/Settings.js) | Delete a setting |
-| `GET` | `/testrail/getsections` | [controller/Testrail.js](controller/Testrail.js) | Fetch sections from TestRail |
-| `POST` | `/testrail/posttestcases` | [controller/Testrail.js](controller/Testrail.js) | Post selected prompt test cases to TestRail |
+| `GET` | `/testrail/getsuites` | [controller/Testrail.js](controller/Testrail.js) | Fetch test suites for the configured project |
+| `GET` | `/testrail/getsections` | [controller/Testrail.js](controller/Testrail.js) | Fetch sections from TestRail (accepts `?suiteId=` query param) |
+| `POST` | `/testrail/posttestcases` | [controller/Testrail.js](controller/Testrail.js) | Post selected prompt test cases to TestRail (supports `platformFilter`, `platformGroups` for multi-suite routing, and all-platform posting) |
+| `GET` | `/testrail/syncconfig` | [controller/TestrailSyncConfig.js](controller/TestrailSyncConfig.js) | List all platform-to-suite sync mappings |
+| `POST` | `/testrail/syncconfig` | [controller/TestrailSyncConfig.js](controller/TestrailSyncConfig.js) | Create or update a platform-to-suite mapping |
+| `DELETE` | `/testrail/syncconfig/:platformGroup` | [controller/TestrailSyncConfig.js](controller/TestrailSyncConfig.js) | Remove a platform-to-suite mapping |
 
 ### API Contracts
 
@@ -358,7 +363,7 @@ See [API_CONTRACT.md](API_CONTRACT.md) for full request/response documentation o
 When posting test cases to TestRail, section metadata in [data/testcases/](data/testcases/) is updated so future syncs can reuse the right TestRail section:
 
 - `sectionId`: overwritten from the local `sec_<ULID>` to the numeric TestRail section ID
-- `suiteId`: TestRail suite ID from environment
+- `suiteId`: TestRail suite ID from the section assignment (user-selected suite, falls back to environment default)
 - `sectionSource`: set to `testrail` after successful section resolution (previously `ai` or `user`)
 - `testrailPost`: section-level posting audit object:
     - `status`: `success` / `partial` / `failed`
@@ -367,6 +372,23 @@ When posting test cases to TestRail, section metadata in [data/testcases/](data/
     - `targetSectionId`, `targetSectionName`, `sectionMode`
 
 Each posted test case also gets a `testrailPost` object with per-case status and returned `testrailCaseId` when available.
+
+#### Per-Platform-Group `testrailPost` Format
+
+When a `platformGroupKey` is provided during posting (i.e. a platform filter was active), the `testrailPost` field is written in per-platform-group format:
+
+```json
+{
+  "testrailPost": {
+    "app": { "status": "success", "testrailCaseId": 12345, "lastAttemptAt": "..." },
+    "desktop-web": { "status": "success", "testrailCaseId": 12346, "lastAttemptAt": "..." }
+  }
+}
+```
+
+The frontend uses `hasPostedToTestrailFrontend(tc, platformGroup)` to check post status, with legacy fallback for cases that have the old single-object format (`{ status, testrailCaseId, ... }` at the root).
+
+**Detection logic:** If `testrailPost` has no root `.status` property, it is treated as a per-platform-group map. If `.status` exists at the root, it is treated as legacy format.
 
 ### TestRail Case Payload Mapping
 
@@ -677,7 +699,7 @@ sequenceDiagram
     Ctrl->>Svc: getPromptList()
     Svc->>FR: readDataFile(promptdata.json)
     FR-->>Svc: raw JSON
-    Svc->>Svc: map → { promptId, projectName }
+    Svc->>Svc: map → { promptId, projectName, platforms }
     Svc-->>Ctrl: list
     Ctrl-->>Client: 200 { success, data: list }
 ```
@@ -810,7 +832,31 @@ sequenceDiagram
 
 ---
 
-### 12. `GET /testrail/getsections` — Fetch TestRail Sections
+### 12a. `GET /testrail/getsuites` — Fetch TestRail Test Suites
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant Client
+    participant Router as testrailRouter
+    participant Ctrl as Testrail.getSuites
+    participant Svc as TestrailService
+    participant TR as TestRail API
+
+    Client->>Router: GET /testrail/getsuites
+    Router->>Ctrl: forward
+    Ctrl->>Svc: getSuites()
+    Svc->>Svc: read TESTRAIL_* env (url, user, password/api key, project)
+    Svc->>TR: GET get_suites/{projectId}
+    TR-->>Svc: suites payload
+    Svc->>Svc: normalize suite fields
+    Svc-->>Ctrl: { suites[] }
+    Ctrl-->>Client: 200 { success, data }
+```
+
+---
+
+### 12b. `GET /testrail/getsections` — Fetch TestRail Sections
 
 ```mermaid
 sequenceDiagram
@@ -821,11 +867,12 @@ sequenceDiagram
     participant Svc as TestrailService
     participant TR as TestRail API
 
-    Client->>Router: GET /testrail/getsections
+    Client->>Router: GET /testrail/getsections?suiteId={optional}
     Router->>Ctrl: forward
-    Ctrl->>Svc: getSections()
+    Ctrl->>Svc: getSections(suiteId)
     Svc->>Svc: read TESTRAIL_* env (url, user, password/api key, project, suite)
-    Svc->>TR: GET get_sections/{projectId}&suite_id={suiteId}
+    Svc->>Svc: use suiteId param if provided, else fall back to env TESTRAIL_TESTSUITE_ID
+    Svc->>TR: GET get_sections/{projectId}&suite_id={effectiveSuiteId}
     TR-->>Svc: sections payload
     Svc->>Svc: normalize section fields
     Svc-->>Ctrl: { offset, limit, sections[] }
@@ -843,44 +890,78 @@ sequenceDiagram
     participant Router as testrailRouter
     participant Ctrl as Testrail.postTestCases
     participant Svc as TestrailService
+    participant Sync as TestrailSyncConfigService
     participant FR as FileReader
     participant TR as TestRail API
     participant FS as data/testcases/{promptId}.json
 
-    Client->>Router: POST /testrail/posttestcases { promptId, testcaseIds[] }
+    Client->>Router: POST /testrail/posttestcases { promptId, testcaseIds[], platformFilter[], platformGroups[] }
     Router->>Ctrl: forward
     Ctrl->>Svc: postTestCases(payload)
-    Svc->>FR: readDataFile(testcases/{promptId}.json)
-    FR-->>Svc: parsed section groups + test cases
-    Svc->>TR: GET get_sections + GET get_case_fields
-    TR-->>Svc: sections + field metadata
 
-    loop each selected section
-        alt section already mapped to TestRail
-            Svc->>Svc: reuse sectionId
-        else AI/User section
-            Svc->>TR: POST add_section (ensure "AI generated" root)
-            TR-->>Svc: created/located section id
+    alt platformGroups has multiple entries (All Platforms mode)
+        Svc->>Sync: validate all groups have sync config mappings
+        alt missing mappings
+            Sync-->>Svc: missing group list
+            Svc-->>Ctrl: 400 { error: "Missing sync config for: ..." }
+            Ctrl-->>Client: 400 { error }
+        end
+        Svc->>FR: readDataFile(testcases/{promptId}.json)
+        FR-->>Svc: parsed section groups + test cases
+
+        loop each platform group (e.g. app, mobile-web, desktop-web)
+            Note over Svc: Per-platform skip: cases already posted to THIS group are skipped
+            Svc->>Svc: postTestCasesForSingleGroup(groupPlatforms)
+            Svc->>Svc: filter cases matching group platforms
+            Svc->>Svc: skip cases with testrailPost[groupKey].status === success
+            Svc->>TR: GET get_sections, POST add_section, POST add_case (per section)
+            TR-->>Svc: results
+            Svc->>Svc: writeTestrailPost per-platform-group on each case
         end
 
-        Svc->>TR: POST add_cases (bulk)
-        alt bulk success
-            TR-->>Svc: created cases[]
-        else bulk failure
-            Svc->>TR: GET get_cases (same section)
-            TR-->>Svc: existing section cases[]
-            Svc->>Svc: signature match to detect already-created cases
-            loop unmatched cases only
-                Svc->>TR: POST add_case
-                TR-->>Svc: created case
+        Svc->>FR: writeDataFile (once after all groups)
+        Svc-->>Ctrl: aggregated { totalPosted, totalFailed, totalSkipped, perGroupResults[] }
+    else single platform group or legacy
+        Svc->>FR: readDataFile(testcases/{promptId}.json)
+        FR-->>Svc: parsed section groups + test cases
+        Svc->>Svc: apply platformFilter (exclude cases not matching selected platforms)
+        Svc->>Svc: collect unique suiteIds from section groups (fall back to env default)
+
+        loop each suite in use
+            Svc->>TR: GET get_sections/{projectId}&suite_id={suiteId}
+            TR-->>Svc: remote sections for suite
+        end
+        Svc->>TR: GET get_case_fields
+        TR-->>Svc: field metadata
+
+        loop each selected section
+            Svc->>Svc: resolve effective suiteId from section data or env default
+            alt section already mapped to TestRail
+                Svc->>Svc: reuse sectionId
+            else AI/User section
+                Svc->>TR: POST add_section (ensure "AI generated" root)
+                TR-->>Svc: created/located section id
             end
+
+            Svc->>TR: POST add_cases (bulk)
+            alt bulk success
+                TR-->>Svc: created cases[]
+            else bulk failure
+                Svc->>TR: GET get_cases (same section)
+                TR-->>Svc: existing section cases[]
+                Svc->>Svc: signature match to detect already-created cases
+                loop unmatched cases only
+                    Svc->>TR: POST add_case
+                    TR-->>Svc: created case
+                end
+            end
+
+            Svc->>Svc: write section/testcase testrailPost status
         end
 
-        Svc->>Svc: write section/testcase testrailPost status
+        Svc->>FR: writeDataFile(testcases/{promptId}.json, updated)
+        Svc-->>Ctrl: summary { totalPosted, totalFailed, sections[] }
     end
-
-    Svc->>FR: writeDataFile(testcases/{promptId}.json, updated)
-    Svc-->>Ctrl: summary { totalPosted, totalFailed, sections[] }
     Ctrl-->>Client: 200 { success, data }
 ```
 
@@ -996,7 +1077,8 @@ qe-test-case-generator/
 │   ├── TestCase.js
 │   ├── Dashboard.js
 │   ├── Settings.js
-│   └── Testrail.js
+│   ├── Testrail.js
+│   └── TestrailSyncConfig.js
 ├── service/                 # Business logic
 │   ├── QAgentService.js     # Orchestrates the AI pipeline
 │   ├── ClaudeService.js     # Anthropic Claude integration
@@ -1005,7 +1087,8 @@ qe-test-case-generator/
 │   ├── TestCaseService.js   # CRUD on generated test cases
 │   ├── DashboardService.js
 │   ├── SettingsService.js   # .env management
-│   └── TestrailService.js
+│   ├── TestrailService.js
+│   └── TestrailSyncConfigService.js  # Platform-to-suite sync config CRUD
 ├── routes/                  # Express routers
 ├── prompts/                 # LLM prompt templates
 │   ├── index.js
@@ -1017,6 +1100,7 @@ qe-test-case-generator/
 │   ├── FileReader.js        # Read/write under data/
 │   └── TokenEstimator.js    # Token estimation & context limit validation
 ├── data/                    # Persisted artifacts (job records, analyses, test cases)
+│   └── testrail-sync-config.json  # Platform-to-suite mappings (runtime-managed)
 └── public/                  # Static frontend (HTML/CSS/JS)
 ```
 

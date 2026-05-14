@@ -1,8 +1,25 @@
 const TestrailService = require("../service/TestrailService")
 
-const getSections = async (req, res) => {
+const getSuites = async (req, res) => {
 	try {
-		const result = await TestrailService.getSections()
+		const result = await TestrailService.getSuites()
+
+		res.status(200).json({
+			success: true,
+			data: result,
+		})
+	} catch (error) {
+		const statusCode = error.statusCode || 500
+		res.status(statusCode).json({ success: false, error: error.message })
+	}
+}
+
+const getSections = async (req, res) => {
+	console.log("DEBUGG: Testrail Router: Req Body:", req.body, "Query:", req.query);
+	
+	try {
+		const suiteId = req.query?.suiteId || req.query?.suite_id || null
+		const result = await TestrailService.getSections(suiteId)
 
 		res.status(200).json({
 			success: true,
@@ -19,12 +36,13 @@ const postTestCases = async (req, res) => {
 		const promptId = String(req.body?.promptId || req.body?.promptID || req.query?.promptId || req.query?.promptID || "").trim()
 		const testcaseIds = Array.isArray(req.body?.testcaseIds) ? req.body.testcaseIds : []
 		const platformFilter = Array.isArray(req.body?.platformFilter) ? req.body.platformFilter : []
+		const platformGroups = Array.isArray(req.body?.platformGroups) ? req.body.platformGroups : []
 
 		if (!promptId) {
 			return res.status(400).json({ success: false, error: "promptId is required" })
 		}
 
-		const result = await TestrailService.postTestCases({ promptId, testcaseIds, platformFilter })
+		const result = await TestrailService.postTestCases({ promptId, testcaseIds, platformFilter, platformGroups })
 
 		res.status(200).json({
 			success: true,
@@ -38,6 +56,7 @@ const postTestCases = async (req, res) => {
 }
 
 module.exports = {
+	getSuites,
 	getSections,
 	postTestCases,
 }
