@@ -1,6 +1,7 @@
 const axios = require("axios")
 const FileReader = require("../utils/FileReader")
 const { createActionLogger } = require("../utils/AppLogger")
+const TestrailSyncConfigService = require("./TestrailSyncConfigService")
 
 const createValidationError = (message, statusCode = 400) => {
 	const error = new Error(message)
@@ -19,7 +20,7 @@ const normalizeOptionalNumber = (value) => {
 	return Number.isFinite(asNumber) ? asNumber : null
 }
 
-const pickCredentials = () => {
+const pickCredentials = ({ requireSuiteId = true } = {}) => {
 	const username = String(process.env.TESTRAIL_USERNAME || "").trim()
 	const password = String(process.env.TESTRAIL_PASSWORD || process.env.TESTRAIL_API_KEY || "").trim()
 	const projectId = String(process.env.TESTRAIL_PROJECT_ID || "").trim()
@@ -42,7 +43,7 @@ const pickCredentials = () => {
 		throw createValidationError("TESTRAIL_PROJECT_ID is required", 400)
 	}
 
-	if (!suiteId) {
+	if (requireSuiteId && !suiteId) {
 		throw createValidationError("TESTRAIL_TESTSUITE_ID is required", 400)
 	}
 
@@ -110,7 +111,47 @@ const mapTestrailSection = (section = {}) => ({
 	source: "testrail",
 })
 
-const getSections = async () => {
+const getSuites = async () => {
+	const logger = createActionLogger({
+		service: "TestrailService",
+		action: "getSuites",
+		fileName: "runtime/testrail-suites.txt",
+	})
+	logger.start("Fetching test suites from TestRail")
+
+	const creds = pickCredentials({ requireSuiteId: false })
+	const url = buildApiUrl(creds, `get_suites/${encodeURIComponent(creds.projectId)}`)
+
+	try {
+		const response = await axios.get(url, createAuthConfig(creds, { timeout: 15000 }))
+		const rawSuites = Array.isArray(response.data)
+			? response.data
+			: Array.isArray(response.data?.suites)
+				? response.data.suites
+				: []
+		const suites = rawSuites.map((suite) => ({
+			id: suite.id,
+			name: String(suite.name || "").trim(),
+			description: suite.description ?? null,
+			url: suite.url ?? null,
+			is_master: suite.is_master ?? false,
+			is_baseline: suite.is_baseline ?? false,
+			is_completed: suite.is_completed ?? false,
+		}))
+
+		logger.success("Suites fetched", {
+			projectId: creds.projectId,
+			count: suites.length,
+		})
+
+		return { suites }
+	} catch (error) {
+		logger.fail(error, { projectId: creds.projectId })
+		throw extractApiError(error)
+	}
+}
+
+const getSections = async (overrideSuiteId) => {
 	const logger = createActionLogger({
 		service: "TestrailService",
 		action: "getSections",
@@ -119,10 +160,13 @@ const getSections = async () => {
 	logger.start("Fetching sections from TestRail")
 
 	const creds = pickCredentials()
+	const effectiveSuiteId = overrideSuiteId != null && String(overrideSuiteId).trim()
+		? String(overrideSuiteId).trim()
+		: creds.suiteId
 	const requestUrl = buildSectionsUrl({
 		baseUrl: creds.baseUrl,
 		projectId: creds.projectId,
-		suiteId: creds.suiteId,
+		suiteId: effectiveSuiteId,
 	})
 
 	try {
@@ -131,7 +175,7 @@ const getSections = async () => {
 		const sections = Array.isArray(payload?.sections) ? payload.sections.map(mapTestrailSection) : []
 		logger.success("Sections fetched", {
 			projectId: creds.projectId,
-			suiteId: creds.suiteId,
+			suiteId: effectiveSuiteId,
 			count: sections.length,
 		})
 
@@ -317,15 +361,101 @@ const buildCasePayload = (testCase = {}, sectionId) => {
 	return payload
 }
 
-const normalizeSectionSource = (section = {}) => {
-	const raw = String(section.sectionSource || section.source || "").trim().toLowerCase()
-	if (raw === "testrail" || raw === "ai" || raw === "user") return raw
-	return section.sectionId != null ? "testrail" : "ai"
+/**
+ * Section group format (consolidated per-platform):
+ *   section: { _default: { name, sectionId, suiteId, sectionSource }, "mobile-web": { ... }, ... }
+ *
+ * No separate sectionId/suiteId/sectionSource fields on section groups.
+ */
+
+const isPerPlatformMeta = (sectionGroup = {}) => {
+	return sectionGroup?.section != null && typeof sectionGroup.section === "object" && !Array.isArray(sectionGroup.section)
+}
+
+/**
+ * Get section name for a given platform group from a section group.
+ */
+const getSectionName = (sectionGroup = {}, platformGroup = null) => {
+	const sec = sectionGroup?.section
+	if (sec == null || typeof sec !== "object" || Array.isArray(sec)) return "Uncategorized"
+	if (platformGroup && sec[platformGroup]) {
+		return String(sec[platformGroup].name || "").trim() || "Uncategorized"
+	}
+	if (sec._default) {
+		return String(sec._default.name || "").trim() || "Uncategorized"
+	}
+	const firstKey = Object.keys(sec).find(k => sec[k]?.name)
+	return firstKey ? String(sec[firstKey].name || "").trim() || "Uncategorized" : "Uncategorized"
+}
+
+/**
+ * Normalize a section ID — preserves both numeric and string-based (sec_xxx) IDs.
+ */
+const normalizeOptionalId = (value) => {
+	if (value == null || value === "") return null
+	if (typeof value === "string" && value.startsWith("sec_")) return value
+	const asNumber = Number(value)
+	return Number.isFinite(asNumber) ? asNumber : null
+}
+
+/**
+ * Get section metadata (sectionId, suiteId, sectionSource) for a given platform group.
+ */
+const getSectionMeta = (sectionGroup = {}, platformGroup = null) => {
+	const sec = sectionGroup?.section
+	if (sec == null || typeof sec !== "object" || Array.isArray(sec)) {
+		return { sectionId: null, suiteId: null, sectionSource: "ai" }
+	}
+	const entry = (platformGroup && sec[platformGroup]) || sec._default || null
+	if (entry) {
+		return {
+			sectionId: normalizeOptionalId(entry.sectionId) ?? null,
+			suiteId: normalizeOptionalNumber(entry.suiteId) ?? null,
+			sectionSource: String(entry.sectionSource || "").trim().toLowerCase() || "ai",
+		}
+	}
+	return { sectionId: null, suiteId: null, sectionSource: "ai" }
+}
+
+/**
+ * Set section metadata for a platform group.
+ * sectionGroup.section must already be an object (new format).
+ */
+const setSectionMeta = (sectionGroup, platformGroup, { sectionId, suiteId, sectionSource, name }) => {
+	const entry = {
+		name: name || getSectionName(sectionGroup, platformGroup),
+		sectionId: sectionId ?? null,
+		suiteId: suiteId ?? null,
+		sectionSource: sectionSource || "ai",
+	}
+
+	if (!sectionGroup.section || typeof sectionGroup.section !== "object") {
+		sectionGroup.section = {}
+	}
+
+	const key = platformGroup || "_default"
+	sectionGroup.section[key] = entry
+
+	// Keep _default in sync: if setting a platform and no _default exists, set it
+	if (platformGroup && !sectionGroup.section._default) {
+		sectionGroup.section._default = { ...entry }
+	}
 }
 
 const readPromptTestCases = (promptId) => {
 	const raw = FileReader.readDataFile(`testcases/${promptId}.json`)
 	return JSON.parse(raw)
+}
+
+const getProjectNameForPrompt = (promptId) => {
+	try {
+		const raw = FileReader.readDataFile("promptdata.json")
+		const records = JSON.parse(raw)
+		const entry = Array.isArray(records) ? records.find(r => String(r.promptId || "") === String(promptId)) : null
+		return entry?.projectName || null
+	} catch {
+		return null
+	}
 }
 
 const buildSelectedSections = (parsedData = {}, testcaseIds = []) => {
@@ -364,10 +494,35 @@ const buildSelectedSections = (parsedData = {}, testcaseIds = []) => {
 	return selectedGroups
 }
 
-const hasPostedToTestrail = (testCase = {}) => {
-	const status = String(testCase?.testrailPost?.status || "").trim().toLowerCase()
-	const testrailCaseId = normalizeOptionalNumber(testCase?.testrailPost?.testrailCaseId)
+const hasPostedToTestrail = (testCase = {}, platformGroup = null) => {
+	const testrailPost = testCase?.testrailPost
+
+	// New per-platform-group format
+	if (platformGroup && testrailPost && typeof testrailPost === "object" && !testrailPost.status) {
+		const groupPost = testrailPost[platformGroup]
+		if (!groupPost) return false
+		const status = String(groupPost.status || "").trim().toLowerCase()
+		const testrailCaseId = normalizeOptionalNumber(groupPost.testrailCaseId)
+		return status === "success" || testrailCaseId != null
+	}
+
+	// Legacy single-object format
+	const status = String(testrailPost?.status || "").trim().toLowerCase()
+	const testrailCaseId = normalizeOptionalNumber(testrailPost?.testrailCaseId)
 	return status === "success" || testrailCaseId != null
+}
+
+const writeTestrailPost = (testCase, platformGroup, postData) => {
+	if (platformGroup) {
+		// Per-platform-group format: preserve existing group posts
+		const existing = testCase.testrailPost && typeof testCase.testrailPost === "object" && !testCase.testrailPost.status
+			? { ...testCase.testrailPost }
+			: {}
+		existing[platformGroup] = postData
+		testCase.testrailPost = existing
+	} else {
+		testCase.testrailPost = postData
+	}
 }
 
 const findSectionByName = (sections = [], sectionName = "", parentId = undefined) => {
@@ -389,28 +544,35 @@ const findSectionByName = (sections = [], sectionName = "", parentId = undefined
 	}) || null
 }
 
-const ensureAiGeneratedRootSection = async (creds, remoteSections) => {
-	const existing = findSectionByName(remoteSections, "AI generated", null)
+const ensureAiGeneratedRootSection = async (creds, remoteSections, projectName = null) => {
+	const rootName = projectName ? `AIGen - ${projectName}` : "AI generated"
+	const existing = findSectionByName(remoteSections, rootName, null)
 	if (existing) {
 		return existing
 	}
 
 	const created = await createSection(creds, {
-		name: "AI generated",
+		name: rootName,
 		suite_id: Number(creds.suiteId),
-		description: "",
+		description: projectName
+			? `Auto-generated test cases for ${projectName}.`
+			: "",
 	})
 
 	remoteSections.push(created)
 	return created
 }
 
-const ensurePostingSection = async (creds, remoteSections, sectionGroup = {}) => {
-	const sectionName = String(sectionGroup?.section || "").trim() || "Uncategorized"
-	const sectionId = normalizeOptionalNumber(sectionGroup?.sectionId)
-	const source = normalizeSectionSource(sectionGroup)
+const ensurePostingSection = async (creds, remoteSections, sectionGroup = {}, platformGroup = null, projectName = null) => {
+	const sectionName = getSectionName(sectionGroup, platformGroup)
+	const meta = getSectionMeta(sectionGroup, platformGroup)
+	const sectionId = meta.sectionId
+	const source = meta.sectionSource || "ai"
 
-	if (sectionId != null) {
+	// Only short-circuit for numeric TestRail IDs — local "sec_xxx" strings
+	// must fall through to name-based lookup / creation
+	const isNumericTestrailId = sectionId != null && !(typeof sectionId === "string" && sectionId.startsWith("sec_"))
+	if (isNumericTestrailId) {
 		return {
 			sectionId,
 			mode: "existing",
@@ -431,7 +593,7 @@ const ensurePostingSection = async (creds, remoteSections, sectionGroup = {}) =>
 		}
 	}
 
-	const rootSection = await ensureAiGeneratedRootSection(creds, remoteSections)
+	const rootSection = await ensureAiGeneratedRootSection(creds, remoteSections, projectName)
 	const existingChild = findSectionByName(remoteSections, sectionName, rootSection.id)
 
 	if (existingChild?.id != null) {
@@ -460,17 +622,24 @@ const ensurePostingSection = async (creds, remoteSections, sectionGroup = {}) =>
 	}
 }
 
-const postTestCases = async ({ promptId, testcaseIds = [] } = {}) => {
+const postTestCases = async ({ promptId, testcaseIds = [], platformFilter = [], platformGroups = [] } = {}) => {
 	const normalizedPromptId = String(promptId || "").trim()
 	const logger = createActionLogger({
-		service: "TestrailService",
+		service: "TerrailService",
 		action: "postTestCases",
 		promptId: normalizedPromptId || "unknown",
 		fileName: normalizedPromptId ? `analyze/${normalizedPromptId}.txt` : "runtime/testrail-posting.txt",
 	})
+
+	const normalizedGroups = Array.isArray(platformGroups)
+		? platformGroups.map((g) => String(g || "").trim().toLowerCase()).filter(Boolean)
+		: []
+
 	logger.start("Post test cases requested", {
 		promptId: normalizedPromptId || null,
 		selectedCount: Array.isArray(testcaseIds) ? testcaseIds.length : 0,
+		platformFilter: platformFilter.length > 0 ? platformFilter : "all",
+		platformGroups: normalizedGroups.length > 0 ? normalizedGroups : "single",
 	})
 
 	if (!normalizedPromptId) {
@@ -478,27 +647,169 @@ const postTestCases = async ({ promptId, testcaseIds = [] } = {}) => {
 		throw createValidationError("promptId is required", 400)
 	}
 
+	const projectName = getProjectNameForPrompt(normalizedPromptId)
+
+	// Multi-platform group posting: validate all groups have sync config, then loop per group
+	if (normalizedGroups.length > 1) {
+		// Validate all platform groups have sync config mappings
+		const missingGroups = normalizedGroups.filter(
+			(groupKey) => !TestrailSyncConfigService.getByPlatformGroup(groupKey)
+		)
+		if (missingGroups.length > 0) {
+			const missingLabels = missingGroups.map((g) => {
+				const def = TestrailSyncConfigService.VALID_PLATFORM_GROUPS[g]
+				return def ? def.label : g
+			}).join(", ")
+			logger.fail("Missing sync config for platform groups: " + missingLabels)
+			throw createValidationError(
+				`Missing TestRail sync config for: ${missingLabels}. Please configure all platform-to-suite mappings in Settings > TestRail Sync before posting.`,
+				400
+			)
+		}
+
+		logger.info("Multi-platform posting: iterating over groups", { groups: normalizedGroups })
+
+		const parsedData = readPromptTestCases(normalizedPromptId)
+
+		// Aggregate results across all groups
+		let aggTotalPosted = 0
+		let aggTotalFailed = 0
+		let aggTotalSkipped = 0
+		let aggTotalSections = 0
+		let aggExistingSectionCount = 0
+		let aggNewSectionCount = 0
+		const aggSections = []
+		const aggSkippedCases = []
+		const perGroupResults = []
+
+		for (const groupKey of normalizedGroups) {
+			const groupDef = TestrailSyncConfigService.VALID_PLATFORM_GROUPS[groupKey]
+			const groupPlatforms = groupDef ? groupDef.platforms : [groupKey]
+
+			logger.info(`Processing platform group: ${groupKey}`, { platforms: groupPlatforms })
+
+			try {
+			const result = await postTestCasesForSingleGroup({
+				normalizedPromptId,
+				parsedData,
+				testcaseIds,
+				platformFilter: groupPlatforms,
+				logger,
+				projectName,
+			})
+
+				aggTotalPosted += result.totalPosted || 0
+				aggTotalFailed += result.totalFailed || 0
+				aggTotalSkipped += result.totalSkipped || 0
+				aggTotalSections += result.totalSections || 0
+				aggExistingSectionCount += result.existingSectionCount || 0
+				aggNewSectionCount += result.newSectionCount || 0
+				aggSections.push(...(result.sections || []))
+				aggSkippedCases.push(...(result.skippedCases || []))
+				perGroupResults.push({ platformGroup: groupKey, ...result })
+			} catch (groupError) {
+				logger.fail(`Failed posting for group ${groupKey}: ${groupError.message}`)
+				perGroupResults.push({ platformGroup: groupKey, error: groupError.message })
+				// Don't throw — continue to next group and report partial results
+			}
+		}
+
+		// Write the file once after all groups processed
+		FileReader.writeDataFile(`testcases/${normalizedPromptId}.json`, parsedData)
+
+		logger.success("Multi-platform posting completed", {
+			groups: normalizedGroups,
+			totalPosted: aggTotalPosted,
+			totalFailed: aggTotalFailed,
+			totalSkipped: aggTotalSkipped,
+		})
+
+		return {
+			promptId: normalizedPromptId,
+			totalSections: aggTotalSections,
+			existingSectionCount: aggExistingSectionCount,
+			newSectionCount: aggNewSectionCount,
+			totalSelectedCases: testcaseIds.length,
+			totalEligibleCases: aggTotalPosted + aggTotalFailed,
+			totalSkipped: aggTotalSkipped,
+			totalPosted: aggTotalPosted,
+			totalFailed: aggTotalFailed,
+			sections: aggSections,
+			skippedCases: aggSkippedCases,
+			perGroupResults,
+		}
+	}
+
+	// Single platform group posting (original flow)
 	const parsedData = readPromptTestCases(normalizedPromptId)
-	const selectedGroups = buildSelectedSections(parsedData, testcaseIds)
-	logger.info("Selected groups resolved", {
-		groups: selectedGroups.length,
-		totalSelectedCases: selectedGroups.reduce((sum, item) => sum + item.selectedCases.length, 0),
+	const result = await postTestCasesForSingleGroup({
+		normalizedPromptId,
+		parsedData,
+		testcaseIds,
+		platformFilter,
+		logger,
+		projectName,
 	})
 
-	if (!selectedGroups.length) {
+	FileReader.writeDataFile(`testcases/${normalizedPromptId}.json`, parsedData)
+
+	return result
+}
+
+/**
+ * Posts test cases to TestRail for a single platform group.
+ * Operates on the passed parsedData object (mutates it in place for testrailPost metadata).
+ * Does NOT write the file — caller is responsible for persisting.
+ */
+const postTestCasesForSingleGroup = async ({ normalizedPromptId, parsedData, testcaseIds, platformFilter, logger, projectName = null }) => {
+	const selectedGroups = buildSelectedSections(parsedData, testcaseIds)
+
+	const normalizedPlatformFilter = Array.isArray(platformFilter)
+		? platformFilter.map((p) => String(p || "").trim().toLowerCase()).filter(Boolean)
+		: []
+	const platformFilterSet = normalizedPlatformFilter.length > 0 ? new Set(normalizedPlatformFilter) : null
+
+	const platformFilteredGroups = platformFilterSet
+		? selectedGroups.reduce((acc, group) => {
+			const filteredCases = group.selectedCases.filter(({ testCase }) => {
+				const tcPlatforms = Array.isArray(testCase?.platforms) ? testCase.platforms : []
+				return tcPlatforms.some((p) => platformFilterSet.has(String(p || "").trim().toLowerCase()))
+			})
+
+			if (filteredCases.length) {
+				acc.push({ ...group, selectedCases: filteredCases })
+			}
+
+			return acc
+		}, [])
+		: selectedGroups
+
+	logger.info("Selected groups resolved", {
+		groups: platformFilteredGroups.length,
+		totalSelectedCases: platformFilteredGroups.reduce((sum, item) => sum + item.selectedCases.length, 0),
+		platformFilter: platformFilterSet ? normalizedPlatformFilter : "all",
+	})
+
+	if (!platformFilteredGroups.length) {
 		logger.fail("No test cases found for posting")
 		throw createValidationError("No test cases found for posting", 404)
 	}
 
+	// Resolve suite from sync config based on platform filter (needed before skip check)
+	const syncMapping = normalizedPlatformFilter.length > 0
+		? TestrailSyncConfigService.resolveSuiteForPlatformFilter(normalizedPlatformFilter)
+		: null
+	const platformGroupKey = syncMapping?.platformGroup || null
+
 	const skippedCases = []
-	const postableGroups = selectedGroups.reduce((acc, group) => {
+	const postableGroups = platformFilteredGroups.reduce((acc, group) => {
 		const eligibleCases = []
 
 		group.selectedCases.forEach((selectedCase) => {
-			if (hasPostedToTestrail(selectedCase.testCase)) {
+			if (hasPostedToTestrail(selectedCase.testCase, platformGroupKey)) {
 				skippedCases.push({
 					testcaseId: selectedCase.testcaseId,
-					section: String(group.sectionGroup?.section || "").trim() || "Uncategorized",
+					section: getSectionName(group.sectionGroup, platformGroupKey),
 					testrailCaseId: normalizeOptionalNumber(selectedCase.testCase?.testrailPost?.testrailCaseId),
 				})
 				return
@@ -519,7 +830,7 @@ const postTestCases = async ({ promptId, testcaseIds = [] } = {}) => {
 
 	if (!postableGroups.length) {
 		logger.success("No-op: all selected test cases already posted", {
-			totalSelectedCases: selectedGroups.reduce((sum, item) => sum + item.selectedCases.length, 0),
+			totalSelectedCases: platformFilteredGroups.reduce((sum, item) => sum + item.selectedCases.length, 0),
 			totalSkipped: skippedCases.length,
 		})
 		return {
@@ -527,7 +838,7 @@ const postTestCases = async ({ promptId, testcaseIds = [] } = {}) => {
 			totalSections: 0,
 			existingSectionCount: 0,
 			newSectionCount: 0,
-			totalSelectedCases: selectedGroups.reduce((sum, item) => sum + item.selectedCases.length, 0),
+			totalSelectedCases: platformFilteredGroups.reduce((sum, item) => sum + item.selectedCases.length, 0),
 			totalEligibleCases: 0,
 			totalSkipped: skippedCases.length,
 			totalPosted: 0,
@@ -539,13 +850,35 @@ const postTestCases = async ({ promptId, testcaseIds = [] } = {}) => {
 	}
 
 	const creds = pickCredentials()
-	const remote = await getSections()
-	const remoteSections = Array.isArray(remote?.sections) ? [...remote.sections] : []
+
+	// Determine the effective suite: sync config > section group > env default
+	const configSuiteId = syncMapping ? String(syncMapping.suiteId) : null
+
+	// Collect unique suite IDs from section groups; use config suite, then section suiteId (per-platform), then env default
+	const suiteIdsInUse = new Set()
+	postableGroups.forEach((group) => {
+		if (configSuiteId) {
+			suiteIdsInUse.add(configSuiteId)
+		} else {
+			const groupMeta = getSectionMeta(group.sectionGroup, platformGroupKey)
+			const groupSuiteId = groupMeta.suiteId
+			suiteIdsInUse.add(groupSuiteId != null ? String(groupSuiteId) : creds.suiteId)
+		}
+	})
+
+	// Fetch remote sections for each suite in use
+	const remoteSectionsBySuite = new Map()
+	for (const sid of suiteIdsInUse) {
+		const remote = await getSections(sid)
+		remoteSectionsBySuite.set(sid, Array.isArray(remote?.sections) ? [...remote.sections] : [])
+	}
+
 	await getCaseFields(creds)
 	logger.info("Initialized TestRail posting context", {
 		projectId: creds.projectId,
-		suiteId: creds.suiteId,
-		remoteSections: remoteSections.length,
+		defaultSuiteId: creds.suiteId,
+		suitesInUse: Array.from(suiteIdsInUse),
+		totalRemoteSections: Array.from(remoteSectionsBySuite.values()).reduce((sum, s) => sum + s.length, 0),
 		totalSkipped: skippedCases.length,
 		eligibleGroups: postableGroups.length,
 	})
@@ -559,15 +892,24 @@ const postTestCases = async ({ promptId, testcaseIds = [] } = {}) => {
 	for (const group of postableGroups) {
 		const sectionGroup = group.sectionGroup
 		const nowIso = new Date().toISOString()
-		const sectionName = String(sectionGroup?.section || "").trim() || "Uncategorized"
+		const sectionName = getSectionName(sectionGroup, platformGroupKey)
+
+		// Resolve the suite for this group: sync config > section group (per-platform) > env default
+		const groupMeta = getSectionMeta(sectionGroup, platformGroupKey)
+		const groupSuiteId = groupMeta.suiteId
+		const effectiveSuiteId = configSuiteId || (groupSuiteId != null ? String(groupSuiteId) : creds.suiteId)
+		const effectiveCreds = { ...creds, suiteId: effectiveSuiteId }
+		const remoteSections = remoteSectionsBySuite.get(effectiveSuiteId) || []
+
 		logger.step("Posting section started", {
 			section: sectionName,
+			suiteId: effectiveSuiteId,
 			selectedCases: group.selectedCases.length,
 		})
 
 		let sectionInfo
 		try {
-			sectionInfo = await ensurePostingSection(creds, remoteSections, sectionGroup)
+			sectionInfo = await ensurePostingSection(effectiveCreds, remoteSections, sectionGroup, platformGroupKey, projectName)
 		} catch (error) {
 			logger.fail(error, {
 				section: sectionName,
@@ -583,11 +925,11 @@ const postTestCases = async ({ promptId, testcaseIds = [] } = {}) => {
 			}
 
 			group.selectedCases.forEach(({ testCase }) => {
-				testCase.testrailPost = {
+				writeTestrailPost(testCase, platformGroupKey, {
 					status: "failed",
 					lastAttemptAt: nowIso,
 					message: error.message,
-				}
+				})
 			})
 
 			totalFailed += group.selectedCases.length
@@ -607,16 +949,19 @@ const postTestCases = async ({ promptId, testcaseIds = [] } = {}) => {
 			existingSectionCount += 1
 		}
 
-		sectionGroup.sectionId = sectionInfo.sectionId
-		sectionGroup.suiteId = Number(creds.suiteId)
-		sectionGroup.sectionSource = "testrail"
+		setSectionMeta(sectionGroup, platformGroupKey, {
+			sectionId: sectionInfo.sectionId,
+			suiteId: Number(effectiveSuiteId),
+			sectionSource: "testrail",
+			name: sectionInfo.sectionName || sectionName,
+		})
 
 		const casePayloads = group.selectedCases.map(({ testCase }) => buildCasePayload(testCase, sectionInfo.sectionId))
 		const caseStatuses = []
 
 		let postedCases = new Array(group.selectedCases.length).fill(null)
 		try {
-			const batchedCases = await addCases(creds, sectionInfo.sectionId, casePayloads)
+			const batchedCases = await addCases(effectiveCreds, sectionInfo.sectionId, casePayloads)
 			postedCases = group.selectedCases.map((_, index) => batchedCases[index] || null)
 			logger.success("Bulk add_cases completed", {
 				section: sectionName,
@@ -632,7 +977,7 @@ const postTestCases = async ({ promptId, testcaseIds = [] } = {}) => {
 			})
 			let existingCaseIdsBySignature = new Map()
 			try {
-				const sectionCasesAfterBulk = await getCasesBySection(creds, sectionInfo.sectionId)
+				const sectionCasesAfterBulk = await getCasesBySection(effectiveCreds, sectionInfo.sectionId)
 				existingCaseIdsBySignature = sectionCasesAfterBulk.reduce((acc, sectionCase) => {
 					const signature = buildCaseSignatureFromTestrailCase(sectionCase)
 					if (!signature) return acc
@@ -686,7 +1031,7 @@ const postTestCases = async ({ promptId, testcaseIds = [] } = {}) => {
 				}
 
 				try {
-					const posted = await addSingleCase(creds, sectionInfo.sectionId, payload)
+					const posted = await addSingleCase(effectiveCreds, sectionInfo.sectionId, payload)
 					postedCases[index] = posted
 				} catch (singleError) {
 					logger.warn("Single add_case failed", {
@@ -724,11 +1069,11 @@ const postTestCases = async ({ promptId, testcaseIds = [] } = {}) => {
 
 				group.selectedCases.forEach(({ testCase }, index) => {
 					const failedItem = caseStatuses.find((item) => item.index === index)
-					testCase.testrailPost = {
+					writeTestrailPost(testCase, platformGroupKey, {
 						status: "failed",
 						lastAttemptAt: nowIso,
 						message: failedItem?.error || message,
-					}
+					})
 				})
 
 				totalFailed += group.selectedCases.length
@@ -753,23 +1098,23 @@ const postTestCases = async ({ promptId, testcaseIds = [] } = {}) => {
 
 			if (posted?.id != null) {
 				postedCount += 1
-				testCase.testrailPost = {
+				writeTestrailPost(testCase, platformGroupKey, {
 					status: "success",
 					lastAttemptAt: nowIso,
 					message: isExistingFromBulk ? "Already created in TestRail during bulk attempt" : "Posted to TestRail",
 					sectionId: sectionInfo.sectionId,
 					testrailCaseId: posted.id,
-				}
+				})
 				return
 			}
 
 			failedCount += 1
-			testCase.testrailPost = {
+			writeTestrailPost(testCase, platformGroupKey, {
 				status: "failed",
 				lastAttemptAt: nowIso,
 				message: failedItem?.error || "Failed to post case to TestRail",
 				sectionId: sectionInfo.sectionId,
-			}
+			})
 
 			if (!failedItem) {
 				caseStatuses.push({
@@ -820,10 +1165,9 @@ const postTestCases = async ({ promptId, testcaseIds = [] } = {}) => {
 		})
 	}
 
-	FileReader.writeDataFile(`testcases/${normalizedPromptId}.json`, parsedData)
 	logger.success("Posting operation completed", {
 		totalSections: postableGroups.length,
-		totalSelectedCases: selectedGroups.reduce((sum, item) => sum + item.selectedCases.length, 0),
+		totalSelectedCases: platformFilteredGroups.reduce((sum, item) => sum + item.selectedCases.length, 0),
 		totalEligibleCases: postableGroups.reduce((sum, item) => sum + item.selectedCases.length, 0),
 		totalSkipped: skippedCases.length,
 		totalPosted,
@@ -835,7 +1179,7 @@ const postTestCases = async ({ promptId, testcaseIds = [] } = {}) => {
 		totalSections: postableGroups.length,
 		existingSectionCount,
 		newSectionCount,
-		totalSelectedCases: selectedGroups.reduce((sum, item) => sum + item.selectedCases.length, 0),
+		totalSelectedCases: platformFilteredGroups.reduce((sum, item) => sum + item.selectedCases.length, 0),
 		totalEligibleCases: postableGroups.reduce((sum, item) => sum + item.selectedCases.length, 0),
 		totalSkipped: skippedCases.length,
 		totalPosted,
@@ -846,6 +1190,11 @@ const postTestCases = async ({ promptId, testcaseIds = [] } = {}) => {
 }
 
 module.exports = {
+	getSuites,
 	getSections,
 	postTestCases,
+	getSectionMeta,
+	setSectionMeta,
+	getSectionName,
+	isPerPlatformMeta,
 }

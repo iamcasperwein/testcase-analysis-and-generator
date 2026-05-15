@@ -1,7 +1,9 @@
 .env
+.vscode/
 
 node_modules/
 data/uploads/
 data/runtime/
 data/promptdata.lock
 zmd/
+.vscode/

@@ -1,8 +1,32 @@
 const axios = require("axios")
 const { SYSTEM_PROMPT } = require("../prompts")
+const { estimateTokens } = require("../utils/TokenEstimator")
 
 const COPILOT_API_URL = String(process.env.GITHUB_MODELS_API_URL || "https://models.github.ai/inference/chat/completions").trim()
-const DEFAULT_MODEL = String(process.env.GITHUB_MODEL || "openai/gpt-5-chat").trim()
+const DEFAULT_MODEL = String(process.env.GITHUB_MODEL || "openai/gpt-4.1").trim()
+
+const MODEL_INPUT_LIMITS = Object.freeze({
+	"openai/gpt-5": 4000,
+	"openai/gpt-5-chat": 4000,
+	"openai/o3": 4000,
+	"openai/o4-mini": 16000,
+	"openai/gpt-4.1": 1000000,
+	"openai/gpt-4.1-mini": 1000000,
+	"openai/gpt-4.1-nano": 1000000,
+	"openai/gpt-4o": 128000,
+	"openai/gpt-4o-mini": 128000,
+})
+
+const DEFAULT_INPUT_LIMIT = 128000
+
+const getModelInputLimit = (model) => {
+	const key = String(model || "").trim().toLowerCase()
+	if (MODEL_INPUT_LIMITS[key] != null) return MODEL_INPUT_LIMITS[key]
+	for (const [knownModel, limit] of Object.entries(MODEL_INPUT_LIMITS)) {
+		if (key.includes(knownModel) || knownModel.includes(key)) return limit
+	}
+	return DEFAULT_INPUT_LIMIT
+}
 
 const getApiKey = () => {
 	const apiKey = String(process.env.GITHUB_TOKEN || process.env.GH_TOKEN || "").trim()
@@ -49,14 +73,32 @@ const generateFromPrompt = async (prompt, options = {}) => {
 		throw error
 	}
 
+	// Token guard: estimate input size and reject if it exceeds model limit
+	const fullInput = SYSTEM_PROMPT + "\n" + messagePrompt
+	const estimatedInputTokens = estimateTokens(fullInput)
+	const modelInputLimit = getModelInputLimit(model)
+
+	if (estimatedInputTokens > modelInputLimit) {
+		const error = new Error(
+			`Input too large for model "${model}": ~${estimatedInputTokens} tokens estimated, limit is ${modelInputLimit}. ` +
+			`Try a model with a higher context window (e.g. openai/gpt-4.1) or reduce the input size.`
+		)
+		error.statusCode = 413
+		throw error
+	}
+
 	let response
 	try {
+		const isReasoningModel = /\b(gpt-5|o[1-9]|o3|o4)\b/i.test(model)
+
 		response = await axios.post(
 			COPILOT_API_URL,
 			{
 				model,
-				temperature: 0.2,
-				max_tokens: 8192,
+				...(isReasoningModel ? {} : { temperature: 0.2 }),
+				...(isReasoningModel
+					? { max_completion_tokens: 16384 }
+					: { max_tokens: 16384 }),
 				messages: [
 					{
 						role: "system",
@@ -73,7 +115,7 @@ const generateFromPrompt = async (prompt, options = {}) => {
 					"Content-Type": "application/json",
 					Authorization: `Bearer ${apiKey}`,
 				},
-				timeout: 120000,
+				timeout: 300000,
 			},
 		)
 	} catch (err) {

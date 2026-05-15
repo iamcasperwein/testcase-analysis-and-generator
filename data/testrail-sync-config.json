@@ -1,0 +1,35 @@
+{
+    "mappings": [
+        {
+            "platformGroup": "app",
+            "label": "App",
+            "platforms": [
+                "ios",
+                "android"
+            ],
+            "suiteId": 67624,
+            "suiteName": "[TC Generator Testing] App",
+            "updatedAt": "2026-05-12T16:33:44.435Z"
+        },
+        {
+            "platformGroup": "mobile-web",
+            "label": "Mobile Web",
+            "platforms": [
+                "mobile-web"
+            ],
+            "suiteId": 68520,
+            "suiteName": "[TC Generator Testing] Mweb",
+            "updatedAt": "2026-05-12T16:33:59.466Z"
+        },
+        {
+            "platformGroup": "desktop-web",
+            "label": "Desktop Web",
+            "platforms": [
+                "desktop-web"
+            ],
+            "suiteId": 68521,
+            "suiteName": "[TC Generator Testing] Dweb",
+            "updatedAt": "2026-05-12T16:34:12.984Z"
+        }
+    ]
+}

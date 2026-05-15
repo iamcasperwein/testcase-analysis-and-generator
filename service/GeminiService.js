@@ -30,6 +30,7 @@ const getModel = (modelName) => {
         generationConfig: {
             temperature: 0.2,
             topP: 0.95,
+            maxOutputTokens: 16384,
         },
     });
 };

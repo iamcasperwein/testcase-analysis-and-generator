@@ -10,6 +10,7 @@ Your core principles:
 const DEFAULT_TEST_CASE_INPUT = Object.freeze({
     feature: "login/register flow",
     platform: "mobile",
+    platforms: Object.freeze(["ios", "android", "mobile-web", "desktop-web"]),
     prdText:
         "The User Experience (UX) and UI flow must prioritize a minimalist, conversion-focused design that guides users through authentication with zero ambiguity. The interface should utilize a progressive disclosure approach—where complex fields are hidden until needed—and provide instant, inline feedback for form validation to prevent error fatigue. For mobile users, the flow must be optimized for thumb-reachability, featuring high-contrast primary action buttons and clearly separated alternative login methods (e.g., social login buttons with recognizable brand logos). Key UI/UX Patterns: Inline Validation: Real-time feedback for password strength and email format directly beneath the input field, Contextual Assistance: Helpful tooltips for password requirements that disappear as conditions are met. Seamless Transitions: Smooth animations between Sign In and Sign Up states to keep the user oriented. Error Recovery: A direct path to the Forgot Password flow from any failed login attempt.",
     additionalContext: "",
@@ -19,6 +20,8 @@ const DEFAULT_TEST_CASE_INPUT = Object.freeze({
         figma: Object.freeze({ name: "", content: "" }),
     }),
 });
+
+const VALID_PLATFORMS = ["ios", "android", "mobile-web", "desktop-web", "backend"];
 
 const TEST_CASE_OUTPUT_SCHEMA = `{
     "feature": "string",
@@ -30,6 +33,7 @@ const TEST_CASE_OUTPUT_SCHEMA = `{
                 {
                     "id": "TC-001",
                     "title": "string",
+                    "platforms": ["ios", "android", "mobile-web", "desktop-web", "backend"],
                     "type": "positive|negative|edge",
                     "priority": "high|medium|low",
                     "preconditions": ["string"],
@@ -53,6 +57,20 @@ const DOCUMENT_LABELS = {
 };
 
 const normalizeText = (value) => String(value || "").trim();
+
+const normalizePlatforms = (value) => {
+    if (typeof value === "string") {
+        // Handle comma-separated string or single value
+        const parsed = value.split(",").map(s => s.trim().toLowerCase()).filter(Boolean);
+        const valid = parsed.filter(p => VALID_PLATFORMS.includes(p));
+        return valid.length > 0 ? valid : [...DEFAULT_TEST_CASE_INPUT.platforms];
+    }
+    if (Array.isArray(value) && value.length > 0) {
+        const valid = value.map(s => String(s || "").trim().toLowerCase()).filter(p => VALID_PLATFORMS.includes(p));
+        return valid.length > 0 ? valid : [...DEFAULT_TEST_CASE_INPUT.platforms];
+    }
+    return [...DEFAULT_TEST_CASE_INPUT.platforms];
+};
 
 const normalizeDocument = (value, fallbackName = "") => {
     if (typeof value === "string") {
@@ -300,6 +318,7 @@ const normalizePromptInput = (input = {}) => {
     return {
         feature: normalizeText(input.feature || DEFAULT_TEST_CASE_INPUT.feature),
         platform: normalizeText(input.platform || DEFAULT_TEST_CASE_INPUT.platform),
+        platforms: normalizePlatforms(input.platforms),
         prdText: documents.prd.content,
         additionalContext: [
             normalizeText(input.additionalContext || DEFAULT_TEST_CASE_INPUT.additionalContext),
@@ -312,19 +331,20 @@ const normalizePromptInput = (input = {}) => {
 };
 
 const buildTestCaseGenerationPrompt = (input = {}) => {
-    const { feature, platform, additionalContext, documents, additionalDocuments } = normalizePromptInput(input);
+    const { feature, platform, platforms, additionalContext, documents, additionalDocuments } = normalizePromptInput(input);
     const analysisContext = String(input.analysisContext || "").trim();
     const attachedLabels = getAttachedDocumentLabels(documents, input);
     const documentInventory = buildDocumentInventory(documents, additionalDocuments);
+    const platformList = platforms.join(", ");
 
     const lines = [
-        "Generate test cases for a mobile or web application in valid JSON only.",
+        "Generate test cases for an application in valid JSON only.",
         "Use the PRD as the primary source of truth. Use RFC and Figma content when provided to refine workflows, business rules, UI states, and edge cases.",
         "Group related cases into sections and keep each test case precise, executable, and review-friendly.",
         "",
         "Product Context:", 
         `- Feature: ${feature}`,
-        `- Platform: ${platform}`,
+        `- Target Platforms: ${platformList}`,
         `- Additional Context: ${additionalContext || "N/A"}`,
         `- Attached Documents: ${attachedLabels.join(", ") || "PRD only / fallback context"}`,
         "- Some attached files may be binary (PDF/image). Use attached file context in addition to extracted text sections.",
@@ -371,6 +391,19 @@ const buildTestCaseGenerationPrompt = (input = {}) => {
         "- Prefer stable section names that group related scenarios.",
         '- Each section MUST include a unique "sectionId" string. Use the format "sec_001", "sec_002", etc. Every sectionId must be unique across all sections in the output.',
         "",
+        "Platform Tagging Rules:",
+        `- The target platforms for this feature are: ${platformList}.`,
+        '- Each test case MUST include a "platforms" array listing which of the target platforms it applies to.',
+        `- ONLY use platforms from the target list: ${platformList}. Do NOT include platforms outside this list.`,
+        "- A test case may apply to multiple platforms if the behavior is identical across them (e.g., a UI button that exists on all frontends).",
+        "- Consider platform-specific differences in behavior and implementation:",
+        "  - iOS and Android may have different native controls, gestures, permissions, and lifecycle behaviors.",
+        "  - mobile-web and desktop-web share web technologies but differ in viewport, touch vs. mouse, responsive layouts, and browser APIs.",
+        "  - backend test cases cover API contracts, authentication flows, data validation, and server-side logic — they have no UI.",
+        "- If a test case only applies to specific platforms (e.g., biometric login for iOS/Android only, keyboard shortcuts for desktop-web only), tag it with only those platforms.",
+        "- Do NOT include a platform in the platforms array if the test case does not apply to it.",
+        `- Only use these platform values in the "platforms" array: ${platformList}. Any other values will be rejected.`,
+        "",
         "Test Case Title Convention:",
         "- Every test case title MUST follow the pattern: Object + Expectation + Condition",
         "- Format: '[Object] should [expectation] when [condition]' or 'Verify [object] should [expectation] when [condition]'",
@@ -388,6 +421,7 @@ const buildTestCaseGenerationPrompt = (input = {}) => {
         JSON.stringify({
             "id": "TC-001",
             "title": "Login form should display error message when user enters invalid email format",
+            "platforms": ["ios", "android", "mobile-web", "desktop-web"],
             "type": "negative",
             "priority": "high",
             "preconditions": [
@@ -417,6 +451,7 @@ const buildTestCaseGenerationPrompt = (input = {}) => {
         JSON.stringify({
             "id": "TC-001",
             "title": "Test login",
+            "platforms": [],
             "type": "positive",
             "priority": "medium",
             "preconditions": ["User exists"],
@@ -424,7 +459,7 @@ const buildTestCaseGenerationPrompt = (input = {}) => {
             "expectedResult": "Should show error"
         }, null, 4),
         "```",
-        "Problems with the above: vague title, unclear steps, no specific test data, ambiguous expected results.",
+        "Problems with the above: vague title, missing platforms, unclear steps, no specific test data, ambiguous expected results.",
         "",
         "Before returning your response, verify each test case against this checklist:",
         "- Every test case has at least 2 steps",
@@ -433,6 +468,8 @@ const buildTestCaseGenerationPrompt = (input = {}) => {
         "- Each section has at least one negative or edge case",
         "- Test case titles follow the Object + Expectation + Condition pattern",
         "- No test case references information not present in the source documents",
+        "- Every test case has a non-empty platforms array containing only valid target platforms",
+        "- Platform-specific behaviors (e.g., biometrics, keyboard shortcuts, native gestures) are tagged to the correct platforms only",
         "If any check fails, revise the affected test cases before responding."
     );
 
@@ -440,9 +477,10 @@ const buildTestCaseGenerationPrompt = (input = {}) => {
 };
 
 const buildTestAnalysisPrompt = (input = {}) => {
-    const { feature, platform, additionalContext, documents, additionalDocuments } = normalizePromptInput(input);
+    const { feature, platform, platforms, additionalContext, documents, additionalDocuments } = normalizePromptInput(input);
     const attachedLabels = getAttachedDocumentLabels(documents, input);
     const documentInventory = buildDocumentInventory(documents, additionalDocuments);
+    const platformList = platforms.join(", ");
 
     return [
         "Create a testing analysis document in well-structured Markdown format.",
@@ -450,7 +488,7 @@ const buildTestAnalysisPrompt = (input = {}) => {
         "",
         "Product Context:",
         `- Feature: ${feature}`,
-        `- Platform: ${platform}`,
+        `- Target Platforms: ${platformList}`,
         `- Additional Context: ${additionalContext || "N/A"}`,
         `- Attached Documents: ${attachedLabels.join(", ") || "PRD only / fallback context"}`,
         "- Some attached files may be binary (PDF/image). Use attached file context in addition to extracted text sections.",
@@ -467,7 +505,7 @@ const buildTestAnalysisPrompt = (input = {}) => {
         "Required document structure (use exactly these markdown headings):",
         "",
         "# Testing Analysis Document",
-        "(Include metadata: Feature, Platform, Primary Source, RFC, Figma, Additional Sources)",
+        "(Include metadata: Feature, Target Platforms, Primary Source, RFC, Figma, Additional Sources)",
         "",
         "## 1. Summary / Overview",
         "(Brief overview of what the feature does and the testing goal)",
@@ -504,10 +542,12 @@ const buildTestAnalysisPrompt = (input = {}) => {
 
 module.exports = {
     SYSTEM_PROMPT,
+    VALID_PLATFORMS,
     DEFAULT_TEST_CASE_INPUT,
     buildTestAnalysisPrompt,
     buildTestCaseGenerationPrompt,
     formatDocumentSection,
     normalizePromptInput,
+    normalizePlatforms,
     parseRawContentDocuments,
 };

@@ -30,7 +30,7 @@ const generateFromPrompt = async (prompt, options = {}) => {
 		CLAUDE_API_URL,
 		{
 			model,
-			max_tokens: 8192,
+			max_tokens: 16384,
 			temperature: 0.2,
 			system: SYSTEM_PROMPT,
 			messages: [
@@ -49,9 +49,9 @@ const generateFromPrompt = async (prompt, options = {}) => {
 			headers: {
 				"Content-Type": "application/json",
 				"x-api-key": apiKey,
-				"anthropic-version": "2026-05-01",
+				"anthropic-version": "2023-06-01",
 			},
-			timeout: 120000,
+			timeout: 300000,
 		},
 	)
 
