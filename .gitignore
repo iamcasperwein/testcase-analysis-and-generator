@@ -7,5 +7,6 @@ data/runtime/
 data/analyze/
 data/testcases/
 data/promptdata.lock
+data/promptdata.json
 zmd/
 .vscode/
