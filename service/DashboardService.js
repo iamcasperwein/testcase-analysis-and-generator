@@ -5,6 +5,9 @@ const getPromptData = async () => {
         const raw = FileReader.readDataFile("promptdata.json");
         return JSON.parse(raw);
     } catch (error) {
+        if (error.code === "ENOENT") {
+            return [];
+        }
         throw error;
     }
 };
