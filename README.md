@@ -43,9 +43,9 @@ The **QE Test Case Generator** is a Node.js / Express backend that ingests produ
 - **CRUD on Test Cases** — Edit, move between sections, and delete generated test cases.
 - **Dashboard Analytics** — Aggregate counts, turnaround time, and failure notes.
 - **Runtime Settings** — Manage application secrets (API keys, ports) via a REST surface backed by `.env`.
-- **TestRail Integration** — Fetch test suites and sections from TestRail, select a target suite, auto-create missing sections, and post selected test cases to the correct suite. Multi-suite support allows routing test cases to different suites (e.g. App, Web, Mobile Web, Backend) based on their assigned sections.
+- **TestRail Integration** — Fetch test suites and sections from TestRail, select a target suite, auto-create missing sections, and post selected test cases to the correct suite. Multi-suite support allows routing test cases to different suites (e.g. App, Web, Mobile Web, Backend) based on their assigned sections. When posting AI/user-created sections, the root section in TestRail is named **`AIGen - {projectName}`** (e.g. `AIGen - User Authentication`), derived from the prompt's `projectName` in `promptdata.json`. This isolates sections per feature/project, preventing cross-project pollution. Falls back to `"AI generated"` if no project name is available. Local `sec_xxx` section IDs are resolved via name-based lookup against TestRail (not passed directly to the API), ensuring only numeric TestRail IDs are used in API calls. The API response now returns context-aware messages reflecting actual posting results (success, partial, all-failed, all-skipped) with HTTP 207 for complete failures.
 - **Platform-Aware TestRail Sync** — Platform groups (`app`, `mobile-web`, `desktop-web`, `backend`) can each be mapped to a dedicated TestRail suite via a persistent sync config (`data/testrail-sync-config.json`). When posting, the active platform filter determines which suite receives the test cases. Supports both single-platform and **all-platform posting**: when "All Platforms" is active, the system validates that every platform group available in the prompt has a sync config mapping, then iterates over each group and posts to its respective suite independently. Test cases already posted to a specific platform suite are skipped for that platform but still posted to other platforms where they haven't been posted yet (per-platform skip logic). The confirmation dialog shows a per-platform breakdown with target suite names and eligible/skipped counts. If any platform group is missing a sync config mapping, posting is aborted for all platforms with an error listing the missing mappings. The `testrailPost` field on each test case is stored per-platform-group (e.g. `testrailPost.app`, `testrailPost["desktop-web"]`), with legacy single-object format supported via fallback. The Settings page includes a "TestRail Sync" sub-tab for managing platform-to-suite mappings (add, edit, remove). The Move Section dialog auto-loads sections from the mapped suite when a platform filter is active.
-- **Platform Support** — Each test case carries a `platforms` array (`ios`, `android`, `mobile-web`, `desktop-web`, `backend`). The generation form lets users select target platforms (multiselect chips). Test cases display platform badges in the table and view modal. A multiselect platform filter in the toolbar lets users narrow the displayed test cases by one or more platforms — the available filter options are **dynamically derived from the prompt's `platforms` array**, so only relevant platform groups are shown (e.g. a prompt with only `["ios", "android"]` will show only the "App" chip). The section sidebar dynamically updates to show only sections with matching test cases when a platform filter is active. When posting to TestRail, the active platform filter is applied server-side to ensure only matching test cases are posted.
+- **Platform Support** — Each test case carries a `platforms` array (`ios`, `android`, `mobile-web`, `desktop-web`, `backend`). The generation form lets users select target platforms (multiselect chips). Test cases display compact **platform icon badges** (Bootstrap Icons: `bi-apple` for iOS, `bi-android2` for Android, `bi-phone` for Mobile Web, `bi-display` for Desktop Web, `bi-hdd-rack` for Backend) with Bootstrap tooltips on hover showing the platform name. A **single-select** platform filter in the toolbar lets users narrow the displayed test cases by one platform at a time — clicking a selected chip deselects it (returning to "All Platforms"), clicking a different chip switches to that platform. The available filter options are **dynamically derived from the prompt's `platforms` array**, so only relevant platform groups are shown (e.g. a prompt with only `["ios", "android"]` will show only the "App" chip). The section sidebar dynamically updates to show only sections with matching test cases when a platform filter is active. When posting to TestRail, the active platform filter is applied server-side to ensure only matching test cases are posted.
 
 ---
 
@@ -282,7 +282,7 @@ Every section carries a `sectionId` that uniquely identifies it, preventing conf
 | Source | `sectionId` format | Example | Assigned by |
 |---|---|---|---|
 | **AI-generated** | `sec_NNN` (string, from AI output) | `sec_001`, `sec_002` | AI model via prompt schema; fallback to `sec_<ULID>` if AI omits it |
-| **User-created** | `sec_<ULID>` (string) | `sec_01KR4A0Y3HRZK8UOWQ71N2EFGH` | `addTestCase()` in [`TestCaseService.js`](service/TestCaseService.js) when creating a new section |
+| **User-created** | `sec_<ULID>` (string) | `sec_01KR4A0Y3HRZK8UOWQ71N2EFGH` | `addTestCase()` or `editTestCase()` (move to new section) in [`TestCaseService.js`](service/TestCaseService.js) — always generates a fresh ULID to avoid inheriting the source section's ID |
 | **TestRail-synced** | Numeric (integer) | `12345` | TestRail API response, written back by [`TestrailService.js`](service/TestrailService.js) on post |
 
 **Lifecycle:** When an AI or user section is posted to TestRail, its local string `sectionId` is overwritten with the numeric TestRail section ID, and `sectionSource` is set to `"testrail"`. This ensures subsequent syncs reuse the correct TestRail section.
@@ -936,10 +936,11 @@ sequenceDiagram
 
         loop each selected section
             Svc->>Svc: resolve effective suiteId from section data or env default
-            alt section already mapped to TestRail
+            alt section already mapped to TestRail (numeric sectionId)
                 Svc->>Svc: reuse sectionId
-            else AI/User section
-                Svc->>TR: POST add_section (ensure "AI generated" root)
+            else AI/User section (local sec_xxx ID or no ID)
+                Svc->>Svc: lookup projectName from promptdata.json
+                Svc->>TR: POST add_section (ensure "AIGen - {projectName}" root)
                 TR-->>Svc: created/located section id
             end
 
@@ -1008,6 +1009,7 @@ sequenceDiagram
 | `200` | Successful read / mutation | `{ success: true, data: ... }` |
 | `201` | Setting(s) created | `{ success: true, message: "Settings saved successfully", data }` |
 | `202` | AI job accepted (async) | `{ success: true, data: { promptId, status: "QUEUED" } }` |
+| `207` | TestRail posting: all cases failed | `{ success: false, message: "Failed to post all N test case(s) to TestRail", data }` |
 | `400` | Missing `promptId` / `testcaseId`, invalid setting key, missing PRD | `{ success: false, error: "<message>" }` |
 | `404` | Test case file not found, analyze data missing, setting key not found, test case ID not found | `{ success: false, error: "<message>" }` |
 | `409` | Attempting to create a setting that already exists | `{ success: false, error: "Setting X already exists" }` |
