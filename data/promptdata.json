@@ -80,5 +80,54 @@
         "additionalDocuments": [],
         "failureNote": null,
         "errorMessage": null
+    },
+    {
+        "promptId": "01KRNH018DWJZZ2T4HBKYQ8WYW",
+        "projectName": "Retention Pop Up",
+        "status": "COMPLETED",
+        "agent": "copilot",
+        "model": "openai/gpt-4.1",
+        "platforms": [
+            "ios",
+            "android",
+            "mobile-web",
+            "desktop-web",
+            "backend"
+        ],
+        "docType": "prd",
+        "prdUrl": "PRD-Retention Pop Up.pdf",
+        "rfcUrl": null,
+        "figmaUrl": null,
+        "createdAt": "2026-05-15T09:55:30.727Z",
+        "startAt": "2026-05-15T09:55:30.732Z",
+        "endAt": "2026-05-15T09:56:19.291Z",
+        "testCaseCount": 20,
+        "resultAnalysis": "analyze/01KRNH018DWJZZ2T4HBKYQ8WYW.md",
+        "resultTestCases": "testcases/01KRNH018DWJZZ2T4HBKYQ8WYW.json",
+        "additionalDocuments": [
+            {
+                "docType": "OTHER",
+                "name": "RFC App and Web",
+                "filename": "",
+                "originalName": "RFC-Retention Pop Up.pdf",
+                "path": "/Users/casper.weinberger/Documents/github/qe-test-case-generator/data/uploads/01KRNH018DWJZZ2T4HBKYQ8WYW_OTHER_0.pdf"
+            },
+            {
+                "docType": "FIGMA",
+                "name": "Figma - App.pdf",
+                "filename": "",
+                "originalName": "Figma - App.pdf",
+                "path": "/Users/casper.weinberger/Documents/github/qe-test-case-generator/data/uploads/01KRNH018DWJZZ2T4HBKYQ8WYW_FIGMA_1.pdf"
+            },
+            {
+                "docType": "FIGMA",
+                "name": "Figma - Web.pdf",
+                "filename": "",
+                "originalName": "Figma - Web.pdf",
+                "path": "/Users/casper.weinberger/Documents/github/qe-test-case-generator/data/uploads/01KRNH018DWJZZ2T4HBKYQ8WYW_FIGMA_2.pdf"
+            }
+        ],
+        "failureNote": null,
+        "errorMessage": null
     }
 ]
