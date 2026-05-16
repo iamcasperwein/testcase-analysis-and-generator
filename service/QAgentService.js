@@ -28,7 +28,7 @@ const AGENTS = Object.freeze({
 });
 
 const DEFAULT_MODELS = Object.freeze({
-    copilot: String(process.env.GITHUB_MODEL || "openai/gpt-5-chat").trim(),
+    copilot: String(process.env.GITHUB_MODEL || "openai/gpt-4.1").trim(),
     claude: String(process.env.CLAUDE_MODEL || "claude-sonnet-4-6").trim(),
     gemini: String(process.env.GEMINI_MODEL || "models/gemini-2.5-flash").trim(),
 });

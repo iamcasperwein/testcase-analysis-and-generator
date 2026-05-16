@@ -11,14 +11,16 @@ const MODEL_CONTEXT_LIMITS = Object.freeze({
     "models/gemini-2.5-pro": 1_000_000,
     "models/gemini-1.5-flash": 1_000_000,
     "models/gemini-1.5-pro": 2_000_000,
+    
     // Claude
-    "claude-sonnet-4-6": 200_000,
+    "claude-sonnet-4-6": 1_000_000,
     "claude-opus-4-5": 200_000,
     "claude-haiku-3-5": 200_000,
+    
     // GitHub Copilot / OpenAI
     "openai/gpt-5-chat": 128_000,
-    "openai/gpt-4.1": 128_000,
-    "openai/gpt-4.1-mini": 128_000,
+    "openai/gpt-4.1": 1_000_000,     
+    "openai/gpt-4.1-mini": 1_000_000,
     "openai/gpt-4o": 128_000,
     "openai/gpt-4o-mini": 128_000,
 });

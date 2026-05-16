@@ -4,6 +4,8 @@
 node_modules/
 data/uploads/
 data/runtime/
+data/analyze/
+data/testcases/
 data/promptdata.lock
 zmd/
 .vscode/

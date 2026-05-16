@@ -7,23 +7,20 @@ const ENV_FILE_PATH = path.join(__dirname, "../.env")
 const GITHUB_MODELS_CATALOG_URL = "https://models.github.ai/catalog/models"
 
 const DEFAULT_SETTING_KEYS = [
-	{ key: "PORT", confidential: false },
-	{ key: "GEMINI_API_KEY", confidential: true },
-	{ key: "GEMINI_MODEL", confidential: false },
+	// { key: "GEMINI_API_KEY", confidential: true },
+	// { key: "GEMINI_MODEL", confidential: false },
 	{ key: "GITHUB_TOKEN", confidential: true },
 	{ key: "GITHUB_MODEL", confidential: false },
-	{ key: "GITHUB_MODELS_API_URL", confidential: false },
-	{ key: "CLAUDE_MODEL", confidential: false },
-	{ key: "TESTRAIL_API_KEY", confidential: true },
+	// { key: "GITHUB_MODELS_API_URL", confidential: false },
+	// { key: "CLAUDE_MODEL", confidential: false },
+	// { key: "TESTRAIL_API_KEY", confidential: true },
 	{ key: "TESTRAIL_PASSWORD", confidential: true },
 	{ key: "TESTRAIL_URL", confidential: false },
 	{ key: "TESTRAIL_USERNAME", confidential: true },
 	{ key: "TESTRAIL_PROJECT_ID", confidential: false },
-	{ key: "TESTRAIL_TESTSUITE_ID", confidential: false },
-	{ key: "TESTRAIL_SUITE_ID", confidential: false },
-	{ key: "OPENAI_API_KEY", confidential: true },
+	// { key: "OPENAI_API_KEY", confidential: true },
 	// { key: "NODE_ENV", confidential: false },
-	{ key: "CLAUDE_API_KEY", confidential: true },
+	// { key: "CLAUDE_API_KEY", confidential: true },
 	// { key: "ANTHROPIC_API_KEY", confidential: false }
 ]
 

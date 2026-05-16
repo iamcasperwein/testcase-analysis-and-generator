@@ -1,6 +1,5 @@
-// God I trust You. Guide my steps
-const express = require('express')
 require('dotenv').config()
+const express = require('express')
 
 const cors = require('cors')
 const path = require('path');
