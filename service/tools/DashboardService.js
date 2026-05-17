@@ -1,4 +1,4 @@
-const FileReader = require("../utils/FileReader");
+const FileReader = require("../../utils/FileReader");
 
 const getPromptData = async () => {
     try {

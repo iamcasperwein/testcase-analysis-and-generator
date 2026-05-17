@@ -1,11 +1,12 @@
-const DashboardService = require("../service/DashboardService");
+const DashboardService = require("../service/tools/DashboardService");
 const path = require("path");
 const fs = require("fs");
+const ConfigLoader = require("../utils/ConfigLoader");
 
-const DEFAULT_MODELS = Object.freeze({
-    copilot: String(process.env.GITHUB_MODEL || "openai/gpt-5-chat").trim(),
-    claude: String(process.env.CLAUDE_MODEL || "claude-sonnet-4-6").trim(),
-    gemini: String(process.env.GEMINI_MODEL || "models/gemini-2.5-flash").trim(),
+const getDefaultModels = () => ({
+    copilot: ConfigLoader.get("GITHUB_MODEL", "openai/gpt-5-chat"),
+    claude: ConfigLoader.get("CLAUDE_MODEL", "claude-sonnet-4-6"),
+    gemini: ConfigLoader.get("GEMINI_MODEL", "models/gemini-2.5-flash"),
 });
 
 const resolveModelName = (prompt = {}) => {
@@ -13,7 +14,7 @@ const resolveModelName = (prompt = {}) => {
     if (explicitModel) return explicitModel;
 
     const agent = String(prompt.agent || "").trim().toLowerCase();
-    return DEFAULT_MODELS[agent] || null;
+    return getDefaultModels()[agent] || null;
 };
 
 const getDashboard = async (req, res) => {

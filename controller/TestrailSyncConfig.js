@@ -1,4 +1,4 @@
-const TestrailSyncConfigService = require("../service/TestrailSyncConfigService")
+const TestrailSyncConfigService = require("../service/testrail/TestrailSyncConfigService")
 
 const getAll = async (req, res) => {
 	try {

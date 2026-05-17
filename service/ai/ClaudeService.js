@@ -1,11 +1,12 @@
 const axios = require("axios")
-const { SYSTEM_PROMPT } = require("../prompts")
+const { SYSTEM_PROMPT } = require("../../prompts")
+const ConfigLoader = require("../../utils/ConfigLoader")
 
 const CLAUDE_API_URL = "https://api.anthropic.com/v1/messages"
-const DEFAULT_MODEL = String(process.env.CLAUDE_MODEL || "claude-sonnet-4-6").trim()
+const DEFAULT_MODEL = "claude-sonnet-4-6"
 
 const getApiKey = () => {
-	const apiKey = String(process.env.CLAUDE_API_KEY || "").trim()
+	const apiKey = ConfigLoader.get("CLAUDE_API_KEY")
 	if (!apiKey) {
 		const error = new Error("CLAUDE_API_KEY is required for Claude service")
 		error.statusCode = 400
@@ -15,10 +16,12 @@ const getApiKey = () => {
 	return apiKey
 }
 
+const getDefaultModel = () => ConfigLoader.get("CLAUDE_MODEL", DEFAULT_MODEL)
+
 const generateFromPrompt = async (prompt, options = {}) => {
 	const apiKey = getApiKey()
 	const messagePrompt = String(prompt || "").trim()
-	const model = String(options.model || DEFAULT_MODEL).trim()
+	const model = String(options.model || getDefaultModel()).trim()
 
 	if (!messagePrompt) {
 		const error = new Error("Prompt is required")

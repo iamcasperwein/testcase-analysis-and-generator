@@ -1,28 +1,5 @@
-const fs = require("fs")
-const path = require("path")
-const dotenv = require("dotenv")
+const ConfigLoader = require("../../utils/ConfigLoader")
 const axios = require("axios")
-
-const ENV_FILE_PATH = path.join(__dirname, "../.env")
-const GITHUB_MODELS_CATALOG_URL = "https://models.github.ai/catalog/models"
-
-const DEFAULT_SETTING_KEYS = [
-	// { key: "GEMINI_API_KEY", confidential: true },
-	// { key: "GEMINI_MODEL", confidential: false },
-	{ key: "GITHUB_TOKEN", confidential: true },
-	{ key: "GITHUB_MODEL", confidential: false },
-	// { key: "GITHUB_MODELS_API_URL", confidential: false },
-	// { key: "CLAUDE_MODEL", confidential: false },
-	// { key: "TESTRAIL_API_KEY", confidential: true },
-	{ key: "TESTRAIL_PASSWORD", confidential: true },
-	{ key: "TESTRAIL_URL", confidential: false },
-	{ key: "TESTRAIL_USERNAME", confidential: true },
-	{ key: "TESTRAIL_PROJECT_ID", confidential: false },
-	// { key: "OPENAI_API_KEY", confidential: true },
-	// { key: "NODE_ENV", confidential: false },
-	// { key: "CLAUDE_API_KEY", confidential: true },
-	// { key: "ANTHROPIC_API_KEY", confidential: false }
-]
 
 const createValidationError = (message, statusCode = 400) => {
 	const error = new Error(message)
@@ -31,6 +8,23 @@ const createValidationError = (message, statusCode = 400) => {
 }
 
 const normalizeAgent = (value = "") => String(value || "").trim().toLowerCase()
+
+const DEFAULT_SETTING_KEYS = [
+	{ key: "CLAUDE_API_KEY", confidential: true },
+	{ key: "CLAUDE_MODEL", confidential: false },
+	{ key: "GEMINI_API_KEY", confidential: true },
+	{ key: "GEMINI_MODEL", confidential: false },
+	{ key: "GITHUB_MODEL", confidential: false },
+	{ key: "GITHUB_TOKEN", confidential: true },
+	{ key: "TESTRAIL_PASSWORD", confidential: true },
+	{ key: "TESTRAIL_PROJECT_ID", confidential: false },
+	{ key: "TESTRAIL_SUITE_ID", confidential: false },
+	{ key: "TESTRAIL_URL", confidential: false },
+	{ key: "TESTRAIL_USERNAME", confidential: true },
+	{ key: "GEMINI_MODEL", confidential: false}
+]
+
+const GITHUB_MODELS_CATALOG_URL = "https://models.github.ai/catalog/models"
 
 const MODEL_CATALOGS = Object.freeze({
 	copilot: {
@@ -69,60 +63,7 @@ const normalizeGithubCatalogItem = (item = {}) => ({
 	maxOutputTokens: Number.isFinite(Number(item?.limits?.max_output_tokens)) ? Number(item.limits.max_output_tokens) : null,
 })
 
-const ensureEnvFileExists = () => {
-	if (fs.existsSync(ENV_FILE_PATH)) {
-		return
-	}
-
-	fs.mkdirSync(path.dirname(ENV_FILE_PATH), { recursive: true })
-	fs.writeFileSync(ENV_FILE_PATH, "", "utf8")
-}
-
-const readEnvRaw = () => {
-	try {
-		return fs.readFileSync(ENV_FILE_PATH, "utf8")
-	} catch (error) {
-		if (error.code === "ENOENT") {
-			return ""
-		}
-		throw error
-	}
-}
-
-const readEnvMap = () => {
-	const raw = readEnvRaw()
-	const parsed = dotenv.parse(raw)
-
-	return Object.entries(parsed).reduce((acc, [key, value]) => {
-		const normalizedKey = String(key || "").trim()
-		if (!normalizedKey) return acc
-		acc[normalizedKey] = String(value ?? "")
-		return acc
-	}, {})
-}
-
-const writeEnvMap = (envMap = {}) => {
-	ensureEnvFileExists()
-
-	const keys = Object.keys(envMap)
-		.filter(Boolean)
-		.sort((a, b) => a.localeCompare(b))
-
-	const content = keys
-		.map((key) => {
-			const val = String(envMap[key] ?? "")
-			const escaped = val.replace(/\\/g, "\\\\").replace(/"/g, '\\"')
-			return `${key}="${escaped}"`
-		})
-		.join("\n")
-
-	const finalContent = content ? `${content}\n` : ""
-	fs.writeFileSync(ENV_FILE_PATH, finalContent, "utf8")
-
-	keys.forEach((key) => {
-		process.env[key] = String(envMap[key] ?? "")
-	})
-}
+// --- Setting key helpers ---
 
 const normalizeKey = (value = "") => String(value || "").trim()
 
@@ -131,42 +72,27 @@ const validateKey = (key) => {
 	if (!normalized) {
 		throw createValidationError("Setting key is required")
 	}
-
 	const isValid = /^[A-Z][A-Z0-9_]*$/.test(normalized)
 	if (!isValid) {
 		throw createValidationError("Invalid setting key format. Use uppercase letters, numbers, and underscore only")
 	}
-
 	return normalized
 }
 
 const normalizeEntriesInput = (payload = {}) => {
-	if (Array.isArray(payload?.settings)) {
-		return payload.settings
-	}
-
-	if (Array.isArray(payload)) {
-		return payload
-	}
-
+	if (Array.isArray(payload?.settings)) return payload.settings
+	if (Array.isArray(payload)) return payload
 	if (payload && typeof payload === "object") {
-		if (payload.key != null) {
-			return [{ key: payload.key, value: payload.value }]
-		}
-
-		const objectEntries = Object.entries(payload)
+		if (payload.key != null) return [{ key: payload.key, value: payload.value }]
+		return Object.entries(payload)
 			.filter(([key]) => key !== "settings")
 			.map(([key, value]) => ({ key, value }))
-
-		return objectEntries
 	}
-
 	return []
 }
 
 const normalizeDefaultSettingKeys = (entries = []) => {
 	const map = new Map()
-
 	entries.forEach((entry) => {
 		const normalizedKey = validateKey(entry?.key)
 		if (!map.has(normalizedKey)) {
@@ -176,25 +102,22 @@ const normalizeDefaultSettingKeys = (entries = []) => {
 			})
 		}
 	})
-
 	return Array.from(map.values()).sort((a, b) => a.key.localeCompare(b.key))
 }
 
+// --- Public API ---
+
 const getSettings = async () => {
-	const envMap = readEnvMap()
-	return Object.keys(envMap)
+	const configMap = ConfigLoader.readAll()
+	return Object.keys(configMap)
 		.sort((a, b) => a.localeCompare(b))
-		.map((key) => ({
-			key,
-			value: envMap[key],
-		}))
+		.map((key) => ({ key, value: configMap[key] }))
 }
 
 const getAvailableKeys = async () => {
-	const envMap = readEnvMap()
-	const existingKeys = new Set(Object.keys(envMap).map((key) => String(key || "").trim()))
+	const configMap = ConfigLoader.readAll()
+	const existingKeys = new Set(Object.keys(configMap).map((key) => String(key || "").trim()))
 	const defaultKeys = normalizeDefaultSettingKeys(DEFAULT_SETTING_KEYS)
-
 	return defaultKeys.map((item) => ({
 		key: item.key,
 		confidential: Boolean(item.confidential),
@@ -208,66 +131,63 @@ const createSettings = async (payload = {}) => {
 		throw createValidationError("At least one setting is required")
 	}
 
-	const envMap = readEnvMap()
+	const configMap = ConfigLoader.readAll()
 	const touched = []
 	const pendingKeys = new Set()
 
 	entries.forEach((entry) => {
 		const key = validateKey(entry?.key)
 
-		if (Object.prototype.hasOwnProperty.call(envMap, key)) {
+		if (Object.prototype.hasOwnProperty.call(configMap, key)) {
 			throw createValidationError(`Setting ${key} already exists`, 409)
 		}
-
 		if (pendingKeys.has(key)) {
 			throw createValidationError(`Duplicate setting key in request: ${key}`)
 		}
 
 		pendingKeys.add(key)
 		const value = String(entry?.value ?? "")
-		envMap[key] = value
+		configMap[key] = value
 		touched.push({ key, value })
 	})
 
-	writeEnvMap(envMap)
+	ConfigLoader.writeAll(configMap)
 
 	return {
 		saved: touched,
-		total: Object.keys(envMap).length,
+		total: Object.keys(configMap).length,
 	}
 }
 
 const updateSetting = async (key, value) => {
 	const normalizedKey = validateKey(key)
-	const envMap = readEnvMap()
+	const configMap = ConfigLoader.readAll()
 
-	if (!Object.prototype.hasOwnProperty.call(envMap, normalizedKey)) {
+	if (!Object.prototype.hasOwnProperty.call(configMap, normalizedKey)) {
 		throw createValidationError(`Setting ${normalizedKey} not found`, 404)
 	}
 
-	envMap[normalizedKey] = String(value ?? "")
-	writeEnvMap(envMap)
+	configMap[normalizedKey] = String(value ?? "")
+	ConfigLoader.writeAll(configMap)
 
 	return {
 		key: normalizedKey,
-		value: envMap[normalizedKey],
+		value: configMap[normalizedKey],
 	}
 }
 
 const deleteSetting = async (key) => {
 	const normalizedKey = validateKey(key)
-	const envMap = readEnvMap()
+	const configMap = ConfigLoader.readAll()
 
-	if (!Object.prototype.hasOwnProperty.call(envMap, normalizedKey)) {
+	if (!Object.prototype.hasOwnProperty.call(configMap, normalizedKey)) {
 		throw createValidationError(`Setting ${normalizedKey} not found`, 404)
 	}
 
-	delete envMap[normalizedKey]
-	writeEnvMap(envMap)
+	delete configMap[normalizedKey]
+	ConfigLoader.writeAll(configMap)
 
-	return {
-		key: normalizedKey,
-	}
+	return { key: normalizedKey }
 }
 
 const getModelCatalog = async (agent) => {
@@ -290,9 +210,7 @@ const getModelCatalog = async (agent) => {
 	}
 
 	const response = await axios.get(GITHUB_MODELS_CATALOG_URL, {
-		headers: {
-			Accept: "application/json",
-		},
+		headers: { Accept: "application/json" },
 		timeout: 20000,
 	})
 

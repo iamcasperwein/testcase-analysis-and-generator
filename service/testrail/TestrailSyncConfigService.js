@@ -1,5 +1,5 @@
-const FileReader = require("../utils/FileReader")
-const { createActionLogger } = require("../utils/AppLogger")
+const FileReader = require("../../utils/FileReader")
+const { createActionLogger } = require("../../utils/AppLogger")
 
 const CONFIG_FILE = "testrail-sync-config.json"
 

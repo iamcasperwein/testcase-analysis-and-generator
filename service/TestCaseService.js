@@ -7,7 +7,7 @@ const {
     buildTestCaseGenerationPrompt,
     normalizePromptInput,
 } = require("../prompts");
-const { getSectionMeta, setSectionMeta, getSectionName, isPerPlatformMeta } = require("./TestrailService");
+const { getSectionMeta, setSectionMeta, getSectionName, isPerPlatformMeta } = require("./testrail/TestrailService");
 
 const getTestCases = async (promptId) => {
     const data = FileReader.readDataFile(`testcases/${promptId}.json`);

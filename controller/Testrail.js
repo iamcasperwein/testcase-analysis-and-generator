@@ -1,4 +1,4 @@
-const TestrailService = require("../service/TestrailService")
+const TestrailService = require("../service/testrail/TestrailService")
 
 const getSuites = async (req, res) => {
 	try {
