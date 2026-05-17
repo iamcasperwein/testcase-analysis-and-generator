@@ -17,6 +17,9 @@ function readDataFile(fileName) {
         const data = fs.readFileSync(filePath, 'utf8');
         return data;
     } catch (error) {
+        if (error.code === 'ENOENT') {
+            throw error;
+        }
         console.error(`Error reading file ${filePath}:`, error.message);
         throw error;
     }

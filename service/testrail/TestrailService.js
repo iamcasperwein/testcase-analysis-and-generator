@@ -1,7 +1,8 @@
 const axios = require("axios")
-const FileReader = require("../utils/FileReader")
-const { createActionLogger } = require("../utils/AppLogger")
-const TestrailSyncConfigService = require("./TestrailSyncConfigService")
+const FileReader = require("../../utils/FileReader")
+const { createActionLogger } = require("../../utils/AppLogger")
+const TestrailSyncConfigService = require("../testrail/TestrailSyncConfigService")
+const ConfigLoader = require("../../utils/ConfigLoader")
 
 const createValidationError = (message, statusCode = 400) => {
 	const error = new Error(message)
@@ -21,11 +22,11 @@ const normalizeOptionalNumber = (value) => {
 }
 
 const pickCredentials = ({ requireSuiteId = true } = {}) => {
-	const username = String(process.env.TESTRAIL_USERNAME || "").trim()
-	const password = String(process.env.TESTRAIL_PASSWORD || process.env.TESTRAIL_API_KEY || "").trim()
-	const projectId = String(process.env.TESTRAIL_PROJECT_ID || "").trim()
-	const suiteId = String(process.env.TESTRAIL_TESTSUITE_ID || process.env.TESTRAIL_SUITE_ID || "").trim()
-	const baseUrl = normalizeBaseUrl(process.env.TESTRAIL_URL || "")
+	const username = ConfigLoader.get("TESTRAIL_USERNAME")
+	const password = ConfigLoader.get("TESTRAIL_PASSWORD")
+	const projectId = ConfigLoader.get("TESTRAIL_PROJECT_ID")
+	const suiteId = ConfigLoader.get("TESTRAIL_SUITE_ID")
+	const baseUrl = normalizeBaseUrl(ConfigLoader.get("TESTRAIL_URL"))
 
 	if (!baseUrl) {
 		throw createValidationError("TESTRAIL_URL is required", 400)
@@ -36,7 +37,7 @@ const pickCredentials = ({ requireSuiteId = true } = {}) => {
 	}
 
 	if (!password) {
-		throw createValidationError("TESTRAIL_PASSWORD or TESTRAIL_API_KEY is required", 400)
+		throw createValidationError("TESTRAIL_PASSWORD is required", 400)
 	}
 
 	if (!projectId) {
@@ -44,7 +45,7 @@ const pickCredentials = ({ requireSuiteId = true } = {}) => {
 	}
 
 	if (requireSuiteId && !suiteId) {
-		throw createValidationError("TESTRAIL_TESTSUITE_ID is required", 400)
+		throw createValidationError("TESTRAIL_SUITE_ID is required", 400)
 	}
 
 	return { username, password, projectId, suiteId, baseUrl }

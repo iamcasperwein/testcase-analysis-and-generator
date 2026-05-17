@@ -1,23 +1,29 @@
 const { GoogleGenerativeAI } = require("@google/generative-ai");
 const { GoogleAIFileManager } = require("@google/generative-ai/server");
 const fs = require("fs");
-const { buildTestCaseGenerationPrompt, SYSTEM_PROMPT } = require("../prompts");
+const { buildTestCaseGenerationPrompt, SYSTEM_PROMPT } = require("../../prompts");
+const ConfigLoader = require("../../utils/ConfigLoader");
 
-const DEFAULT_MODEL = String(process.env.GEMINI_MODEL || "models/gemini-2.5-flash").trim();
+const DEFAULT_MODEL = "models/gemini-2.5-flash";
+
+const getDefaultModel = () => ConfigLoader.get("GEMINI_MODEL", DEFAULT_MODEL);
 
 let _genAI = null;
 let _fileManager = null;
+let _cachedApiKey = null;
 
 const getGenAI = () => {
-    if (!_genAI) {
-        const apiKey = String(process.env.GEMINI_API_KEY || "").trim();
-        if (!apiKey) {
-            const error = new Error("GEMINI_API_KEY is not configured. Set it in Settings or .env to use the Gemini agent.");
-            error.statusCode = 400;
-            throw error;
-        }
+    const apiKey = ConfigLoader.get("GEMINI_API_KEY");
+    if (!apiKey) {
+        const error = new Error("GEMINI_API_KEY is not configured. Set it in Settings to use the Gemini agent.");
+        error.statusCode = 400;
+        throw error;
+    }
+    // Re-initialize if the key has changed (e.g. updated via Settings)
+    if (!_genAI || _cachedApiKey !== apiKey) {
         _genAI = new GoogleGenerativeAI(apiKey);
         _fileManager = new GoogleAIFileManager(apiKey);
+        _cachedApiKey = apiKey;
     }
     return { genAI: _genAI, fileManager: _fileManager };
 };
@@ -25,7 +31,7 @@ const getGenAI = () => {
 const getModel = (modelName) => {
     const { genAI } = getGenAI();
     return genAI.getGenerativeModel({
-        model: modelName || DEFAULT_MODEL,
+        model: modelName || getDefaultModel(),
         systemInstruction: SYSTEM_PROMPT,
         generationConfig: {
             temperature: 0.2,
@@ -134,7 +140,7 @@ const buildGeminiInput = async (prompt, options = {}) => {
 const generateFromPrompt = async (prompt, options = {}) => {
     console.log("[GeminiService] generateFromPrompt :: start");
     const modelInput = await buildGeminiInput(prompt, options);
-    const modelName = String(options.model || DEFAULT_MODEL).trim();
+    const modelName = String(options.model || getDefaultModel()).trim();
     console.log("[GeminiService] generateFromPrompt :: calling Gemini API...");
     const model = getModel(modelName);
     const result = await model.generateContent(modelInput);

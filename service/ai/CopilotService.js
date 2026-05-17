@@ -1,9 +1,10 @@
 const axios = require("axios")
-const { SYSTEM_PROMPT } = require("../prompts")
-const { estimateTokens } = require("../utils/TokenEstimator")
+const { SYSTEM_PROMPT } = require("../../prompts")
+const { estimateTokens } = require("../../utils/TokenEstimator")
+const ConfigLoader = require("../../utils/ConfigLoader")
 
-const COPILOT_API_URL = String(process.env.GITHUB_MODELS_API_URL || "https://models.github.ai/inference/chat/completions").trim()
-const DEFAULT_MODEL = String(process.env.GITHUB_MODEL || "openai/gpt-4.1").trim()
+const COPILOT_API_URL = "https://models.github.ai/inference/chat/completions"
+const DEFAULT_MODEL = "openai/gpt-4.1"
 
 const MODEL_INPUT_LIMITS = Object.freeze({
 	"openai/gpt-5": 4000,
@@ -29,15 +30,19 @@ const getModelInputLimit = (model) => {
 }
 
 const getApiKey = () => {
-	const apiKey = String(process.env.GITHUB_TOKEN || process.env.GH_TOKEN || "").trim()
+	const apiKey = ConfigLoader.get("GITHUB_TOKEN")
 	if (!apiKey) {
-		const error = new Error("GITHUB_TOKEN (or GH_TOKEN) is required for GitHub Copilot agent")
+		const error = new Error("GITHUB_TOKEN is required for GitHub Copilot agent")
 		error.statusCode = 400
 		throw error
 	}
 
 	return apiKey
 }
+
+const getApiUrl = () => ConfigLoader.get("GITHUB_MODELS_API_URL", COPILOT_API_URL)
+
+const getDefaultModel = () => ConfigLoader.get("GITHUB_MODEL", DEFAULT_MODEL)
 
 const extractResponseText = (responseData = {}) => {
 	const choices = Array.isArray(responseData?.choices) ? responseData.choices : []
@@ -64,8 +69,9 @@ const extractResponseText = (responseData = {}) => {
 
 const generateFromPrompt = async (prompt, options = {}) => {
 	const apiKey = getApiKey()
+	const apiUrl = getApiUrl()
 	const messagePrompt = String(prompt || "").trim()
-	const model = String(options.model || DEFAULT_MODEL).trim()
+	const model = String(options.model || getDefaultModel()).trim()
 
 	if (!messagePrompt) {
 		const error = new Error("Prompt is required")
@@ -92,7 +98,7 @@ const generateFromPrompt = async (prompt, options = {}) => {
 		const isReasoningModel = /\b(gpt-5|o[1-9]|o3|o4)\b/i.test(model)
 
 		response = await axios.post(
-			COPILOT_API_URL,
+			apiUrl,
 			{
 				model,
 				...(isReasoningModel ? {} : { temperature: 0.2 }),

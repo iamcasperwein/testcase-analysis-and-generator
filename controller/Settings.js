@@ -1,4 +1,4 @@
-const SettingsService = require("../service/SettingsService")
+const SettingsService = require("../service/tools/SettingsService")
 
 const getSettingKeys = async (req, res) => {
 	try {

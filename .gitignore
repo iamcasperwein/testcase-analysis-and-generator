@@ -1,9 +1,14 @@
 .env
+config.json
 .vscode/
 
 node_modules/
 data/uploads/
 data/runtime/
+data/analyze/
+data/testcases/
 data/promptdata.lock
+data/promptdata.json
+data/testrail-sync-config.json
 zmd/
 .vscode/

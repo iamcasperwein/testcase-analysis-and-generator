@@ -7,9 +7,10 @@ const { createActionLogger } = require("../utils/AppLogger");
 const { validateContextFits } = require("../utils/TokenEstimator");
 const { normalizePlatforms, VALID_PLATFORMS } = require("../prompts");
 const TestCaseService = require("./TestCaseService");
-const GeminiService = require("./GeminiService");
-const ClaudeService = require("./ClaudeService");
-const CopilotService = require("./CopilotService");
+const GeminiService = require("./ai/GeminiService");
+const ClaudeService = require("./ai/ClaudeService");
+const CopilotService = require("./ai/CopilotService");
+const ConfigLoader = require("../utils/ConfigLoader");
 const path = require("path");
 
 const AGENTS = Object.freeze({
@@ -27,10 +28,10 @@ const AGENTS = Object.freeze({
     }),
 });
 
-const DEFAULT_MODELS = Object.freeze({
-    copilot: String(process.env.GITHUB_MODEL || "openai/gpt-5-chat").trim(),
-    claude: String(process.env.CLAUDE_MODEL || "claude-sonnet-4-6").trim(),
-    gemini: String(process.env.GEMINI_MODEL || "models/gemini-2.5-flash").trim(),
+const getDefaultModels = () => ({
+    copilot: ConfigLoader.get("GITHUB_MODEL", "openai/gpt-4.1"),
+    claude: ConfigLoader.get("CLAUDE_MODEL", "claude-sonnet-4-6"),
+    gemini: ConfigLoader.get("GEMINI_MODEL", "models/gemini-2.5-flash"),
 });
 
 const resolveModelName = (agent = "", payload = {}) => {
@@ -38,7 +39,7 @@ const resolveModelName = (agent = "", payload = {}) => {
     if (explicitModel) return explicitModel;
 
     const normalizedAgent = String(agent || "").trim().toLowerCase();
-    return DEFAULT_MODELS[normalizedAgent] || null;
+    return getDefaultModels()[normalizedAgent] || null;
 };
 
 const SubmissionValidationError = class extends Error {
