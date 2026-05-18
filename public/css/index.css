@@ -604,7 +604,7 @@
     .additional-doc-row-grid {
       display: grid;
       gap: 0.55rem;
-      grid-template-columns: minmax(170px, 1.05fr) minmax(180px, 1.15fr) minmax(240px, 2fr) auto;
+      grid-template-columns: minmax(150px, 1fr) minmax(110px, 0.7fr) minmax(150px, 1fr) minmax(220px, 2fr) auto;
       align-items: end;
     }
 
@@ -669,12 +669,30 @@
       color: #9f1f34;
     }
 
+    .add-doc-col-format .form-select {
+      min-height: 34px;
+      font-size: 0.82rem;
+      border-radius: 0.5rem;
+      border-color: #c6daf7;
+      background: #fff;
+    }
+
+    .add-doc-link-error {
+      font-size: 0.72rem;
+      color: #c23046;
+      margin-top: 2px;
+    }
+
+    .add-doc-link-url {
+      min-height: 34px;
+    }
+
     @media (max-width: 992px) {
       .additional-doc-row-grid {
         grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
       }
 
-      .add-doc-col-file {
+      .add-doc-col-input {
         grid-column: span 2;
       }
 
@@ -689,7 +707,7 @@
         grid-template-columns: 1fr;
       }
 
-      .add-doc-col-file,
+      .add-doc-col-input,
       .add-doc-col-action {
         grid-column: span 1;
       }
@@ -701,8 +719,66 @@
       z-index: 1;
       background: linear-gradient(180deg, rgba(255, 255, 255, 0.86), rgba(255, 255, 255, 0.97));
       border-top: 1px solid #e3ecfa;
-      padding-top: 0.55rem;
-      margin-top: 0.1rem;
+    }
+
+    /* ── Selected Platform Chips ── */
+    .platform-chips-selected {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 8px;
+    }
+
+    .platform-chip-selected {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 5px 12px;
+      border-radius: 999px;
+      border: 1.5px solid #4a90d9;
+      background: #e0edff;
+      color: #1a4a8a;
+      font-size: 0.82rem;
+      font-weight: 600;
+      user-select: none;
+      box-shadow: 0 1px 4px rgba(74, 144, 217, 0.12);
+    }
+
+    .platform-chip-selected i {
+      font-size: 0.85rem;
+    }
+
+    .platform-chip-remove {
+      background: none;
+      border: none;
+      color: #4a6fa5;
+      font-size: 1rem;
+      line-height: 1;
+      padding: 0 0 0 4px;
+      cursor: pointer;
+      font-weight: 700;
+      opacity: 0.6;
+      transition: opacity 0.15s;
+    }
+
+    .platform-chip-remove:hover {
+      opacity: 1;
+      color: #c0392b;
+    }
+
+    /* ── Context Toggle ── */
+    .context-toggle {
+      font-size: 0.82rem;
+      font-weight: 500;
+      color: #5575a2;
+    }
+
+    .context-toggle:hover {
+      color: #1a5ec7;
+    }
+
+    .context-toggle.is-open i::before {
+      content: "\f2ea"; /* bi-dash-circle */
     }
 
     .form-submit-bar .btn {

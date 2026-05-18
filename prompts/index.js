@@ -7,7 +7,6 @@ const {
     formatDocumentSection,
     normalizePromptInput,
     normalizePlatforms,
-    parseRawContentDocuments,
 } = require("./testCaseGeneration");
 
 module.exports = {
@@ -19,5 +18,4 @@ module.exports = {
     formatDocumentSection,
     normalizePromptInput,
     normalizePlatforms,
-    parseRawContentDocuments,
 };
