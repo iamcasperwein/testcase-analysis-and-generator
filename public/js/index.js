@@ -3,15 +3,10 @@ const AGENTS = Object.freeze([
   { value: "copilot", label: "GitHub Copilot", description: "GitHub Models via Copilot token" },
   // { value: "claude", label: "Claude", description: "Anthropic Claude model" },
   { value: "gemini", label: "Gemini", description: "Google Gemini model" },
+  { value: "litellm", label: "LiteLLM", description: "Unified LLM proxy (any provider)" },
 ]);
 
-const DOC_TYPES = Object.freeze([
-  { value: "prd", label: "PRD", description: "Product Requirements Document" },
-  { value: "rfc", label: "RFC", description: "Request for Comments" },
-  { value: "figma", label: "Figma", description: "Figma design file" },
-  { value: "user-story", label: "User Story", description: "User story format" },
-  { value: "other", qlabel: "Other", description: "Other artifact type" },
-]);
+const DOC_TYPES = Object.freeze([]); // Deprecated — doc types are now per-document row
 
 const DEFAULT_AGENT = "copilot";
 const DEFAULT_DOC_TYPE = "prd";
@@ -329,16 +324,8 @@ const agentPicker = createStaticOptionSelect({
   options: AGENTS,
 });
 
-const docTypePicker = createStaticOptionSelect({
-  wrapId: "docTypeSelectWrap",
-  triggerId: "docTypeTrigger",
-  triggerTextId: "docTypeTriggerText",
-  dropdownId: "docTypeDropdown",
-  searchId: "docTypeSearch",
-  optionsId: "docTypeOptions",
-  valueId: "docTypeSelect",
-  options: DOC_TYPES,
-});
+// docTypePicker removed — doc type is now per document row
+const docTypePicker = { getValue: () => DEFAULT_DOC_TYPE };
 
 // --- Platform Multiselect ---
 const PLATFORM_OPTIONS = [
@@ -507,116 +494,162 @@ const FORM_PLATFORM_OPTIONS = [
   { value: "backend", label: "Backend", icon: "bi-hdd-rack" },
 ];
 
-const platformSelectedTags = document.getElementById("platformSelectedTags");
-const platformSelectOptions = document.getElementById("platformSelectOptions");
 const platformValueInput = document.getElementById("platformValueInput");
-const platformSelectTrigger = document.getElementById("platformSelectTrigger");
-const platformSelectDropdown = document.getElementById("platformSelectDropdown");
 const platformSelectWrap = document.getElementById("platformSelectWrap");
+const platformTrigger = document.getElementById("platformTrigger");
+const platformTriggerText = document.getElementById("platformTriggerText");
+const platformDropdownPanel = document.getElementById("platformDropdownPanel");
+const platformSearchInput = document.getElementById("platformSearch");
+const platformOptionsPanel = document.getElementById("platformOptionsPanel");
+const platformChipsSelected = document.getElementById("platformChipsSelected");
 let selectedPlatforms = new Set();
 
-function closePlatformDropdown() {
-  platformSelectDropdown.classList.remove("open");
-  platformSelectTrigger.classList.remove("open");
-}
-
-function togglePlatformDropdown() {
-  const isOpen = platformSelectDropdown.classList.contains("open");
-  if (isOpen) {
-    closePlatformDropdown();
-  } else {
-    platformSelectDropdown.classList.add("open");
-    platformSelectTrigger.classList.add("open");
-  }
-}
-
-platformSelectTrigger.addEventListener("click", (e) => {
-  if (e.target.closest(".platform-tag-remove")) return;
-  togglePlatformDropdown();
-});
-
-document.addEventListener("click", (e) => {
-  if (!e.target.closest("#platformSelectWrap")) {
-    closePlatformDropdown();
-  }
-});
-
-function renderPlatformMultiselect() {
-  // Render dropdown options
-  platformSelectOptions.innerHTML = "";
-  FORM_PLATFORM_OPTIONS.forEach(opt => {
-    const isSelected = selectedPlatforms.has(opt.value);
-    const optionEl = document.createElement("div");
-    optionEl.className = `prompt-select-option${isSelected ? " selected" : ""}`;
-    optionEl.innerHTML = `
-      <span class="platform-check">${isSelected ? '<i class="bi bi-check2" style="font-size:0.7rem;"></i>' : ""}</span>
-      <i class="bi ${opt.icon} platform-opt-icon"></i>
-      <span class="prompt-select-option-id">${escapeHtml(opt.label)}</span>
-    `;
-    optionEl.addEventListener("mousedown", (e) => {
-      e.preventDefault();
-      if (selectedPlatforms.has(opt.value)) {
-        selectedPlatforms.delete(opt.value);
-      } else {
-        selectedPlatforms.add(opt.value);
-      }
-      renderPlatformMultiselect();
-    });
-    platformSelectOptions.appendChild(optionEl);
-  });
-
-  // Render selected tags in trigger
-  platformSelectedTags.innerHTML = "";
-  if (selectedPlatforms.size === 0) {
-    const placeholder = document.createElement("span");
-    placeholder.className = "prompt-select-trigger-text is-placeholder";
-    placeholder.textContent = "Select platforms...";
-    platformSelectedTags.appendChild(placeholder);
-  } else {
-    selectedPlatforms.forEach(val => {
-      const opt = FORM_PLATFORM_OPTIONS.find(o => o.value === val);
-      if (!opt) return;
-      const tag = document.createElement("span");
-      tag.className = "platform-tag";
-      tag.innerHTML = `<i class="bi ${opt.icon}"></i> ${escapeHtml(opt.label)} <button type="button" class="platform-tag-remove" aria-label="Remove ${opt.label}">&times;</button>`;
-      tag.querySelector(".platform-tag-remove").addEventListener("click", (e) => {
-        e.stopPropagation();
-        selectedPlatforms.delete(val);
-        renderPlatformMultiselect();
-      });
-      platformSelectedTags.appendChild(tag);
-    });
-  }
-
-  // Update hidden input
+function syncPlatformHiddenInput() {
   platformValueInput.value = Array.from(selectedPlatforms).join(",");
+}
+
+function closePlatformDropdown() {
+  platformDropdownPanel.classList.remove("open");
+  platformTrigger.classList.remove("open");
+}
+
+function renderPlatformOptions(filter = "") {
+  if (!platformOptionsPanel) return;
+  const q = String(filter || "").trim().toLowerCase();
+  const available = FORM_PLATFORM_OPTIONS.filter(opt =>
+    !selectedPlatforms.has(opt.value) &&
+    String(opt.label || "").toLowerCase().includes(q)
+  );
+  platformOptionsPanel.innerHTML = "";
+  if (!available.length) {
+    platformOptionsPanel.innerHTML = '<div class="prompt-select-no-results">No platforms available.</div>';
+    return;
+  }
+  available.forEach(opt => {
+    const el = document.createElement("div");
+    el.className = "prompt-select-option";
+    el.innerHTML = `<span class="prompt-select-option-id"><i class="bi ${opt.icon} me-1"></i>${escapeHtml(opt.label)}</span>`;
+    el.addEventListener("mousedown", (e) => {
+      e.preventDefault();
+      selectedPlatforms.add(opt.value);
+      renderSelectedPlatformChips();
+      renderPlatformTriggerText();
+      syncPlatformHiddenInput();
+      closePlatformDropdown();
+    });
+    platformOptionsPanel.appendChild(el);
+  });
+}
+
+function renderPlatformTriggerText() {
+  if (!platformTriggerText) return;
+  const remaining = FORM_PLATFORM_OPTIONS.length - selectedPlatforms.size;
+  if (remaining === 0) {
+    platformTriggerText.textContent = "All platforms selected";
+    platformTriggerText.classList.remove("is-placeholder");
+  } else {
+    platformTriggerText.textContent = "Select a platform...";
+    platformTriggerText.classList.add("is-placeholder");
+  }
+}
+
+function renderSelectedPlatformChips() {
+  if (!platformChipsSelected) return;
+  platformChipsSelected.innerHTML = "";
+  FORM_PLATFORM_OPTIONS.forEach(opt => {
+    if (!selectedPlatforms.has(opt.value)) return;
+    const chip = document.createElement("span");
+    chip.className = "platform-chip-selected";
+    chip.innerHTML = `<i class="bi ${opt.icon}"></i> ${escapeHtml(opt.label)} <button type="button" class="platform-chip-remove" aria-label="Remove">&times;</button>`;
+    chip.querySelector(".platform-chip-remove").addEventListener("click", () => {
+      selectedPlatforms.delete(opt.value);
+      renderSelectedPlatformChips();
+      renderPlatformTriggerText();
+      syncPlatformHiddenInput();
+    });
+    platformChipsSelected.appendChild(chip);
+  });
+}
+
+if (platformTrigger) {
+  platformTrigger.addEventListener("click", () => {
+    const isOpen = platformDropdownPanel.classList.contains("open");
+    if (isOpen) { closePlatformDropdown(); return; }
+    platformDropdownPanel.classList.add("open");
+    platformTrigger.classList.add("open");
+    platformSearchInput.value = "";
+    renderPlatformOptions("");
+    platformSearchInput.focus();
+  });
+  platformTrigger.addEventListener("keydown", (e) => {
+    if (e.key === "Enter" || e.key === " ") { e.preventDefault(); platformTrigger.click(); }
+  });
+}
+if (platformSearchInput) {
+  platformSearchInput.addEventListener("input", () => renderPlatformOptions(platformSearchInput.value));
+  platformSearchInput.addEventListener("keydown", (e) => { if (e.key === "Escape") closePlatformDropdown(); });
+}
+if (platformSelectWrap) {
+  document.addEventListener("click", (e) => {
+    if (!platformSelectWrap.contains(e.target)) closePlatformDropdown();
+  });
 }
 
 // Initialize with all platforms selected by default
 FORM_PLATFORM_OPTIONS.forEach(opt => selectedPlatforms.add(opt.value));
-renderPlatformMultiselect();
+renderSelectedPlatformChips();
+renderPlatformTriggerText();
+syncPlatformHiddenInput();
+
+// --- Context Toggle ---
+const contextToggleBtn = document.getElementById("contextToggleBtn");
+const contextCollapsible = document.getElementById("contextCollapsible");
+if (contextToggleBtn && contextCollapsible) {
+  contextToggleBtn.addEventListener("click", () => {
+    const isOpen = contextCollapsible.style.display !== "none";
+    contextCollapsible.style.display = isOpen ? "none" : "block";
+    contextToggleBtn.classList.toggle("is-open", !isOpen);
+    contextToggleBtn.innerHTML = isOpen
+      ? '<i class="bi bi-plus-circle me-1"></i>Add context / notes for AI'
+      : '<i class="bi bi-dash-circle me-1"></i>Hide context / notes';
+    if (!isOpen) {
+      contextCollapsible.querySelector("textarea")?.focus();
+    }
+  });
+}
 
 const additionalDocsList = document.getElementById("additionalDocsList");
 const addDocBtn = document.getElementById("addDocBtn");
 const additionalDocHelper = document.getElementById("additionalDocHelper");
-const ADDITIONAL_DOC_TYPES = [
-  "RFC iOS",
-  "RFC Android",
-  "RFC Web",
-  "RFC BE",
-  "Figma App",
-  "Figma Web",
-  "API Contract",
-  "Architecture Doc",
-  "Test Plan",
-  "Other",
+
+// DOC_TYPES fetched from backend for centralized config
+let DOC_TYPE_OPTIONS = [
+  { value: "PRD", label: "PRD", description: "Product Requirements Document" },
+  { value: "RFC", label: "RFC", description: "Request for Comments / Technical Spec" },
+  { value: "FIGMA", label: "Figma", description: "Figma design export or screenshot" },
+  { value: "API_CONTRACT", label: "API Contract", description: "API specification" },
+  { value: "USER_STORY", label: "User Story", description: "User story or acceptance criteria" },
+  { value: "ARCHITECTURE", label: "Architecture Doc", description: "System architecture document" },
+  { value: "TEST_PLAN", label: "Test Plan", description: "Existing test plan or strategy" },
+  { value: "RELEASE_NOTE", label: "Release Note", description: "Release notes or changelog" },
+  { value: "OTHER", label: "Other", description: "Other supporting document" },
 ];
 
-const ADDITIONAL_DOC_OPTIONS = ADDITIONAL_DOC_TYPES.map((type) => ({
-  value: type,
-  label: type,
-  description: type === "Other" ? "Custom artifact type" : "Supporting artifact",
-}));
+// Fetch DOC_TYPES from backend (non-blocking, falls back to hardcoded defaults)
+(async () => {
+  try {
+    const response = await apiRequest("/settings/doc-types");
+    if (Array.isArray(response?.data)) {
+      DOC_TYPE_OPTIONS = response.data.map((dt) => ({
+        value: dt.value,
+        label: dt.label,
+        description: dt.description || "",
+      }));
+    }
+  } catch (_) {
+    // Use hardcoded defaults
+  }
+})();
 
 let additionalDocRowSequence = 0;
 
@@ -626,7 +659,7 @@ function updateAdditionalDocHelper() {
   additionalDocHelper.classList.toggle("is-hidden", hasRows);
 }
 
-function createAdditionalDocRow() {
+function createAdditionalDocRow(defaultDocType = null) {
   const rowId = ++additionalDocRowSequence;
   const row = document.createElement("div");
   row.className = "additional-doc-row";
@@ -639,13 +672,18 @@ function createAdditionalDocRow() {
   const searchId = `addDocTypeSearch-${rowId}`;
   const optionsId = `addDocTypeOptions-${rowId}`;
 
+  // Determine default type: use provided default, or PRD for first row, else RFC
+  const existingRows = additionalDocsList?.querySelectorAll(".additional-doc-row") || [];
+  const initialType = defaultDocType || (existingRows.length === 0 ? "PRD" : "RFC");
+  const initialLabel = DOC_TYPE_OPTIONS.find((o) => o.value === initialType)?.label || initialType;
+
   row.innerHTML = `
     <div class="additional-doc-row-grid">
       <div class="add-doc-col-type">
         <label class="add-doc-label">Type</label>
         <div class="prompt-select-wrap add-doc-type-wrap" id="${wrapId}">
           <div class="prompt-select-trigger" id="${triggerId}" tabindex="0">
-            <span class="prompt-select-trigger-text" id="${triggerTextId}">RFC iOS</span>
+            <span class="prompt-select-trigger-text" id="${triggerTextId}">${initialLabel}</span>
             <i class="bi bi-chevron-down" style="font-size:0.75rem;flex-shrink:0;"></i>
           </div>
           <div class="prompt-select-dropdown" id="${dropdownId}">
@@ -653,15 +691,28 @@ function createAdditionalDocRow() {
             <div class="prompt-select-options" id="${optionsId}"></div>
           </div>
         </div>
-        <input type="hidden" id="${valueId}" class="add-doc-type-value" value="RFC iOS" />
+        <input type="hidden" id="${valueId}" class="add-doc-type-value" value="${initialType}" />
+      </div>
+      <div class="add-doc-col-format">
+        <label class="add-doc-label">Format</label>
+        <select class="form-select form-select-sm add-doc-format">
+          <option value="file" selected>File Upload</option>
+          <option value="link">Lark Link</option>
+        </select>
       </div>
       <div class="add-doc-col-name">
         <label class="add-doc-label">Document Name</label>
-        <input type="text" class="form-control form-control-sm add-doc-name" placeholder="RFC iOS document" />
+        <input type="text" class="form-control form-control-sm add-doc-name" placeholder="${initialLabel} document" />
       </div>
-      <div class="add-doc-col-file">
-        <label class="add-doc-label">File</label>
-        <input type="file" class="form-control form-control-sm add-doc-file" accept=".txt,.md,.pdf,.doc,.docx,.json,.csv,.png,.jpg,.jpeg" />
+      <div class="add-doc-col-input">
+        <label class="add-doc-label add-doc-input-label">File</label>
+        <div class="add-doc-file-wrap">
+          <input type="file" class="form-control form-control-sm add-doc-file" accept=".txt,.md,.pdf,.doc,.docx,.json,.csv,.png,.jpg,.jpeg" />
+        </div>
+        <div class="add-doc-link-wrap" style="display:none;">
+          <input type="url" class="form-control form-control-sm add-doc-link-url" placeholder="https://xxx.larksuite.com/docx/..." />
+          <div class="add-doc-link-error text-danger" style="font-size:0.72rem;margin-top:2px;display:none;"></div>
+        </div>
       </div>
       <div class="add-doc-col-action">
         <button type="button" class="btn btn-sm btn-outline-danger remove-doc-btn" title="Remove document">
@@ -681,11 +732,18 @@ function createAdditionalDocRow() {
     searchId,
     optionsId,
     valueId,
-    options: ADDITIONAL_DOC_OPTIONS,
+    options: DOC_TYPE_OPTIONS,
   });
 
   const typeValueInput = row.querySelector(".add-doc-type-value");
   const nameInput = row.querySelector(".add-doc-name");
+  const formatSelect = row.querySelector(".add-doc-format");
+  const fileWrap = row.querySelector(".add-doc-file-wrap");
+  const linkWrap = row.querySelector(".add-doc-link-wrap");
+  const fileInput = row.querySelector(".add-doc-file");
+  const linkInput = row.querySelector(".add-doc-link-url");
+  const linkError = row.querySelector(".add-doc-link-error");
+  const inputLabel = row.querySelector(".add-doc-input-label");
   const removeButton = row.querySelector(".remove-doc-btn");
 
   const syncNamePlaceholder = () => {
@@ -694,6 +752,48 @@ function createAdditionalDocRow() {
       nameInput.placeholder = selectedType === "Other" ? "Document name (optional)" : `${selectedType} document`;
     }
   };
+
+  // Format toggle: show file input or link input
+  const syncFormatVisibility = () => {
+    const format = formatSelect.value;
+    if (format === "link") {
+      fileWrap.style.display = "none";
+      linkWrap.style.display = "";
+      inputLabel.textContent = "Link URL";
+      // Clear file when switching to link
+      fileInput.value = "";
+    } else {
+      fileWrap.style.display = "";
+      linkWrap.style.display = "none";
+      inputLabel.textContent = "File";
+      // Clear link when switching to file
+      linkInput.value = "";
+      linkError.style.display = "none";
+    }
+  };
+
+  // Lark URL validation
+  const LARK_URL_REGEX = /^https?:\/\/[\w-]+\.(larksuite\.com|feishu\.cn)\/(docx|wiki)\/[\w-]+/i;
+  const validateLarkUrl = () => {
+    const url = linkInput.value.trim();
+    if (!url) {
+      linkError.style.display = "none";
+      return true; // empty is handled by submit validation
+    }
+    if (!LARK_URL_REGEX.test(url)) {
+      linkError.textContent = "Only valid Lark doc/wiki URLs are accepted (e.g. https://xxx.larksuite.com/docx/...)";
+      linkError.style.display = "";
+      return false;
+    }
+    linkError.style.display = "none";
+    return true;
+  };
+
+  formatSelect.addEventListener("change", syncFormatVisibility);
+  linkInput.addEventListener("blur", validateLarkUrl);
+  linkInput.addEventListener("input", () => {
+    if (linkError.style.display !== "none") validateLarkUrl();
+  });
 
   const onTypeChange = () => syncNamePlaceholder();
   typeValueInput?.addEventListener("change", onTypeChange);
@@ -704,10 +804,13 @@ function createAdditionalDocRow() {
   });
 
   syncNamePlaceholder();
+  syncFormatVisibility();
   updateAdditionalDocHelper();
 }
 
-addDocBtn?.addEventListener("click", createAdditionalDocRow);
+addDocBtn?.addEventListener("click", () => createAdditionalDocRow());
+// Create initial PRD row on page load
+createAdditionalDocRow("PRD");
 updateAdditionalDocHelper();
 
 qaForm.addEventListener("submit", async (e) => {
@@ -716,11 +819,48 @@ qaForm.addEventListener("submit", async (e) => {
   submitFormBtn.disabled = true;
   submitFormBtn.textContent = "Submitting...";
 
-  const prdFile = document.getElementById("prdUrlInput").files?.[0] || null;
+  // Collect all document rows
+  const docRows = Array.from(document.querySelectorAll(".additional-doc-row"));
+  const docEntries = [];
+  const LARK_URL_REGEX = /^https?:\/\/[\w-]+\.(larksuite\.com|feishu\.cn)\/(docx|wiki)\/[\w-]+/i;
 
-  // PRD is required
-  if (!prdFile) {
-    formStatus.textContent = "PRD file is required.";
+  let validationError = "";
+  for (const row of docRows) {
+    const format = row.querySelector(".add-doc-format")?.value || "file";
+    const docType = row.querySelector(".add-doc-type-value")?.value || "OTHER";
+    const docName = row.querySelector(".add-doc-name")?.value?.trim() || "";
+
+    if (format === "link") {
+      const linkUrl = row.querySelector(".add-doc-link-url")?.value?.trim() || "";
+      if (!linkUrl) {
+        validationError = `${docType} document: Link URL is required.`;
+        break;
+      }
+      if (!LARK_URL_REGEX.test(linkUrl)) {
+        validationError = `${docType} document: Invalid Lark URL. Only Lark doc/wiki URLs are supported.`;
+        break;
+      }
+      docEntries.push({ format: "link", docType, docName: docName || `${docType} (link)`, linkUrl, file: null });
+    } else {
+      const file = row.querySelector(".add-doc-file")?.files?.[0] || null;
+      if (!file) continue; // skip empty file rows
+      docEntries.push({ format: "file", docType, docName: docName || file.name, linkUrl: "", file });
+    }
+  }
+
+  if (validationError) {
+    formStatus.textContent = validationError;
+    formStatus.classList.remove("text-success");
+    formStatus.classList.add("text-danger");
+    submitFormBtn.disabled = false;
+    submitFormBtn.textContent = "Submit";
+    return;
+  }
+
+  // Validate: at least one PRD document
+  const hasPrd = docEntries.some((d) => d.docType === "PRD");
+  if (!hasPrd) {
+    formStatus.textContent = "At least one PRD document (file or link) is required.";
     formStatus.classList.remove("text-success");
     formStatus.classList.add("text-danger");
     submitFormBtn.disabled = false;
@@ -738,29 +878,25 @@ qaForm.addEventListener("submit", async (e) => {
     return;
   }
 
-  // Build multipart FormData — files go as real uploads, server handles extraction
+  // Build multipart FormData
   const formData = new FormData();
   formData.append("agent", agentPicker.getValue() || DEFAULT_AGENT);
   formData.append("projectName", document.getElementById("projectNameInput").value.trim());
   formData.append("feature", document.getElementById("projectNameInput").value.trim());
-  formData.append("docType", docTypePicker.getValue() || DEFAULT_DOC_TYPE);
   formData.append("platforms", Array.from(selectedPlatforms).join(","));
-  formData.append("context", document.getElementById("contextInput").value.trim());
-  formData.append("rawContent", "");
+  formData.append("context", document.getElementById("contextInput")?.value?.trim() || "");
 
-  if (prdFile) formData.append("prd", prdFile);
-
-  // Dynamic additional docs
-  const additionalRows = Array.from(document.querySelectorAll(".additional-doc-row"));
-  additionalRows.forEach((row) => {
-    const file = row.querySelector(".add-doc-file")?.files?.[0] || null;
-    if (!file) return;
-    const docType = row.querySelector(".add-doc-type-value")?.value || "OTHER";
-    const docName = row.querySelector(".add-doc-name")?.value?.trim() || file.name;
-    formData.append("additionalDocs", file);
-    formData.append("docTypes", docType);
-    formData.append("docNames", docName);
-  });
+  // Documents: parallel arrays for docTypes, docNames, docFormats, docLinkUrls
+  // Files go under "documents" field (only for format=file entries)
+  for (const entry of docEntries) {
+    formData.append("docTypes", entry.docType);
+    formData.append("docNames", entry.docName);
+    formData.append("docFormats", entry.format);
+    formData.append("docLinkUrls", entry.linkUrl || "");
+    if (entry.format === "file" && entry.file) {
+      formData.append("documents", entry.file);
+    }
+  }
 
   try {
     const response = await apiRequest("/generate/ask", {
@@ -3654,6 +3790,7 @@ const MODEL_AGENT_CONFIG = Object.freeze({
   copilot: { label: "Copilot", settingKey: "GITHUB_MODEL" },
   claude: { label: "Claude", settingKey: "CLAUDE_MODEL" },
   gemini: { label: "Gemini", settingKey: "GEMINI_MODEL" },
+  litellm: { label: "LiteLLM", settingKey: "LITELLM_MODEL" },
 });
 const MODEL_AGENT_OPTIONS = Object.entries(MODEL_AGENT_CONFIG).map(([value, item]) => ({
   value,

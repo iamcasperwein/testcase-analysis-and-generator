@@ -16,6 +16,9 @@ const DEFAULT_SETTING_KEYS = [
 	{ key: "GEMINI_MODEL", confidential: false },
 	{ key: "GITHUB_MODEL", confidential: false },
 	{ key: "GITHUB_TOKEN", confidential: true },
+	{ key: "LITELLM_API_KEY", confidential: true },
+	{ key: "LITELLM_API_URL", confidential: false },
+	{ key: "LITELLM_MODEL", confidential: false },
 	{ key: "TESTRAIL_PASSWORD", confidential: true },
 	{ key: "TESTRAIL_PROJECT_ID", confidential: false },
 	{ key: "TESTRAIL_SUITE_ID", confidential: false },
@@ -46,6 +49,13 @@ const MODEL_CATALOGS = Object.freeze({
 		settingKey: "GEMINI_MODEL",
 		supported: false,
 		message: "Gemini model catalog browsing is not wired yet. Set GEMINI_MODEL manually for now.",
+	},
+	litellm: {
+		agent: "litellm",
+		label: "LiteLLM",
+		settingKey: "LITELLM_MODEL",
+		supported: false,
+		message: "LiteLLM proxies to any provider. Set LITELLM_MODEL to any supported model identifier (e.g. claude-sonnet-4-6, gpt-4o, gemini/gemini-2.5-flash).",
 	},
 })
 
