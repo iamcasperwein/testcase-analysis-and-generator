@@ -209,8 +209,8 @@ Produces a JSON array of test cases grouped by section. The prompt includes:
 4. Source documents (PRD, RFC, Figma content)
 5. Additional documents
 6. Testing analysis context (from Stage 1 output)
-7. Output JSON schema (includes sectionId per section)
-8. Rules and constraints (including sectionId uniqueness)
+7. Output JSON schema (section name + test case fields; sectionId is NOT included — assigned server-side)
+8. Rules and constraints
 9. Test case title convention (Object + Expectation + Condition)
 10. Few-shot examples (good + bad)
 11. Self-evaluation checklist
@@ -279,19 +279,21 @@ All generated test cases conform to this JSON structure:
 }
 ```
 
+> **Note:** The AI prompt does **not** ask the model to generate `sectionId`. Section identifiers are always assigned server-side by `QAgentService.normalizeGeneratedTestCases()` using `sec_<ULID>` to guarantee uniqueness. The `sectionId` field in the stored JSON is populated post-generation.
+
 #### Section Identity (`sectionId`)
 
 Every section carries a `sectionId` that uniquely identifies it, preventing conflicts when multiple sections share the same name.
 
 | Source | `sectionId` format | Example | Assigned by |
 |---|---|---|---|
-| **AI-generated** | `sec_NNN` (string, from AI output) | `sec_001`, `sec_002` | AI model via prompt schema; fallback to `sec_<ULID>` if AI omits it |
-| **User-created** | `sec_<ULID>` (string) | `sec_01KR4A0Y3HRZK8UOWQ71N2EFGH` | `addTestCase()` or `editTestCase()` (move to new section) in [`TestCaseService.js`](service/TestCaseService.js) — always generates a fresh ULID to avoid inheriting the source section's ID |
-| **TestRail-synced** | Numeric (integer) | `12345` | TestRail API response, written back by [`TestrailService.js`](service/TestrailService.js) on post |
+| **AI-generated** | `sec_<ULID>` (string) | `sec_01KR4A0Y3HRZK8UOWQ71N2EFGH` | `normalizeGeneratedTestCases()` in [`QAgentService.js`](service/QAgentService.js) — always generates a fresh ULID per section, ignoring any AI-provided value |
+| **User-created** | `sec_<ULID>` (string) | `sec_01KR4A0Y3HRZK8UOWQ71N2EFGH` | `addTestCase()` or `editTestCase()` (move to new section) in [`TestCaseService.js`](service/TestCaseService.js) |
+| **TestRail-synced** | Numeric (integer) | `12345` | TestRail API response, written back by [`TestrailService.js`](service/testrail/TestrailService.js) on post |
 
 **Lifecycle:** When an AI or user section is posted to TestRail, its local string `sectionId` is overwritten with the numeric TestRail section ID, and `sectionSource` is set to `"testrail"`. This ensures subsequent syncs reuse the correct TestRail section.
 
-**AI prompt integration:** The output JSON schema in the prompt includes `sectionId` as a required field per section, instructing the AI to generate unique identifiers (e.g. `sec_001`, `sec_002`). If the AI omits it, `normalizeGeneratedTestCases()` falls back to generating a `sec_<ULID>`.
+**Frontend grouping:** Sections are grouped by a composite key `id:${sectionId}:${name.toLowerCase()}` — this prevents merging sections that accidentally share the same `sectionId` but have different names.
 
 **Backward compatibility:** Legacy data with `sectionId: null` continues to work — section lookups fall back to name-based matching when no `sectionId` is present.
 
@@ -339,7 +341,8 @@ The service exposes the following routes (mounted in [app.js](app.js)):
 | `POST` | `/generate/ask` | [controller/QAgent.js](controller/QAgent.js) | Submit PRD/RFC/Figma and start AI generation |
 | `GET`  | `/testcase/:promptId` | [controller/TestCase.js](controller/TestCase.js) | Fetch generated test cases |
 | `GET`  | `/testcase/getAnalyzeResult/:promptId` | [controller/TestCase.js](controller/TestCase.js) | Fetch analysis Markdown |
-| `POST`/`PUT` | `/testcase/edit` | [controller/TestCase.js](controller/TestCase.js) | Update / move a test case |
+| `POST`/`PUT` | `/testcase/edit` | [controller/TestCase.js](controller/TestCase.js) | Update a test case (title, steps, section, platforms) |
+| `POST` | `/testcase/bulkMoveSection` | [controller/TestCase.js](controller/TestCase.js) | Bulk move test cases to a target section (atomic, single API call) |
 | `POST` | `/testcase/add` | [controller/TestCase.js](controller/TestCase.js) | Add a new test case to a section |
 | `PUT` | `/testcase/editSection` | [controller/TestCase.js](controller/TestCase.js) | Rename a section (non-TestRail only) |
 | `DELETE` | `/testcase/deleteTestCase/:promptId/:testcaseId` | [controller/TestCase.js](controller/TestCase.js) | Delete a test case |
@@ -470,7 +473,7 @@ sequenceDiagram
     AI->>API: Send system prompt + user prompt to provider
     API-->>AI: JSON-encoded test cases
     AI-->>Svc: generatedText
-    Svc->>Svc: extractJsonPayload + normalizeGeneratedTestCases (preserve AI sectionId, fallback to sec_ULID)
+    Svc->>Svc: extractJsonPayload + normalizeGeneratedTestCases (assign fresh sec_ULID per section)
     Svc->>FS: write testcases/{promptId}.json
     Svc->>FS: updatePromptRecord(status=COMPLETED, testCaseCount)
 ```
@@ -536,7 +539,9 @@ sequenceDiagram
 
 ---
 
-### 4. `POST|PUT /testcase/edit` — Edit / Move a Test Case
+### 4. `POST|PUT /testcase/edit` — Edit a Test Case
+
+Edits a single test case's fields (title, steps, preconditions, expected result, platforms, section). For bulk section moves, use `/testcase/bulkMoveSection` instead.
 
 ```mermaid
 sequenceDiagram
@@ -562,6 +567,76 @@ sequenceDiagram
         Svc->>Svc: sanitizeUpdatedTestCase + find target section by sectionId (or name fallback)
         Svc->>FR: writeDataFile (updated JSON)
         Svc-->>Ctrl: { updatedTestCase, data }
+        Ctrl-->>Client: 200 { success, data }
+    end
+```
+
+---
+
+### 4b. `POST /testcase/bulkMoveSection` — Bulk Move Test Cases to a Section
+
+Moves multiple test cases to a target section in a single atomic operation. Replaces the previous approach of sending N individual `/testcase/edit` calls.
+
+**Request body:**
+```json
+{
+  "promptId": "01KS38H9A087...",
+  "testcaseIds": ["TC-001", "TC-002", "TC-003"],
+  "target": {
+    "sectionName": "Login Flow",
+    "sectionId": "sec_01KS..." | 12345 | null,
+    "suiteId": 99 | null,
+    "sectionSource": "ai" | "user" | "testrail"
+  },
+  "platformGroup": null | "app" | "desktop-web"
+}
+```
+
+**Move Section Rules:**
+
+| Platform filter | Target section type | Behavior |
+|----------------|-------------------|----------|
+| All Platforms (`platformGroup: null`) | AI / User | Physical move — TC relocated to target section for all platforms |
+| All Platforms (`platformGroup: null`) | TestRail | Physical move (same as above) |
+| Single Platform (`platformGroup: "app"`) | TestRail only | Metadata update — TC stays in place, section meta updated for that platform only |
+| Single Platform (`platformGroup: "app"`) | AI / User | **Rejected** (400) — would create inconsistent per-platform overrides |
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant Client
+    participant Router as testcaseRouter
+    participant Ctrl as TestCase.bulkMoveSection
+    participant Svc as TestCaseService
+    participant FR as FileReader
+    participant FS as data/testcases/
+
+    Client->>Router: POST /testcase/bulkMoveSection { promptId, testcaseIds, target, platformGroup? }
+    Router->>Ctrl: forward
+    Ctrl->>Ctrl: validate promptId, testcaseIds[], target.sectionName
+    Ctrl->>Svc: bulkMoveSection(promptId, testcaseIds, target, platformGroup)
+    Svc->>FR: read testcases/{promptId}.json
+    FR-->>Svc: parsed sections
+
+    alt platformGroup is set (per-platform mode)
+        alt target.sectionSource !== "testrail"
+            Svc-->>Ctrl: 400 "Per-platform move only allowed to TestRail sections"
+            Ctrl-->>Client: 400 { error }
+        else valid testrail target
+            Svc->>Svc: update section metadata for platformGroup on matching section groups
+            Svc->>FR: writeDataFile
+            Svc-->>Ctrl: { moved, targetSection, mode: "per-platform" }
+            Ctrl-->>Client: 200 { success, data }
+        end
+    else unified mode (no platformGroup)
+        Svc->>Svc: find target section by sectionId+name, sectionId-only, or name fallback
+        alt target not found
+            Svc->>Svc: create new section group with fresh sectionId
+        end
+        Svc->>Svc: splice TCs from source sections, push to target
+        Svc->>Svc: remove empty source sections
+        Svc->>FR: writeDataFile (single atomic write)
+        Svc-->>Ctrl: { moved, targetSection, mode: "unified" }
         Ctrl-->>Client: 200 { success, data }
     end
 ```

@@ -460,39 +460,39 @@ const getProjectNameForPrompt = (promptId) => {
 }
 
 const buildSelectedSections = (parsedData = {}, testcaseIds = []) => {
-	const sectionGroups = Array.isArray(parsedData?.testCases) ? parsedData.testCases : []
+	const testCases = Array.isArray(parsedData?.testCases) ? parsedData.testCases : []
 	const selectedIds = Array.isArray(testcaseIds)
 		? new Set(testcaseIds.map((id) => String(id || "").trim()).filter(Boolean))
 		: null
 
-	const selectedGroups = []
+	// Group TCs by their _default sectionId (flat model)
+	const groupsBySectionId = new Map()
 
-	sectionGroups.forEach((sectionGroup, sectionIndex) => {
-		const testCases = Array.isArray(sectionGroup?.testCases) ? sectionGroup.testCases : []
-		const selectedCases = []
+	testCases.forEach((tc, tcIndex) => {
+		const testcaseId = String(tc?.id || "").trim()
+		if (!testcaseId) return
+		if (selectedIds && selectedIds.size > 0 && !selectedIds.has(testcaseId)) return
 
-		testCases.forEach((testCase, caseIndex) => {
-			const testcaseId = String(testCase?.id || "").trim()
-			if (!testcaseId) return
-			if (selectedIds && !selectedIds.has(testcaseId)) return
+		const meta = getSectionMeta(tc)
+		const sectionKey = String(meta.sectionId || getSectionName(tc) || "uncategorized")
 
-			selectedCases.push({
-				testCase,
-				testcaseId,
-				caseIndex,
+		if (!groupsBySectionId.has(sectionKey)) {
+			groupsBySectionId.set(sectionKey, {
+				sectionKey,
+				// Use the TC itself as the "sectionGroup" proxy — it has .section with same shape
+				sectionGroup: tc,
+				selectedCases: [],
 			})
-		})
+		}
 
-		if (!selectedCases.length) return
-
-		selectedGroups.push({
-			sectionIndex,
-			sectionGroup,
-			selectedCases,
+		groupsBySectionId.get(sectionKey).selectedCases.push({
+			testCase: tc,
+			testcaseId,
+			tcIndex,
 		})
 	})
 
-	return selectedGroups
+	return Array.from(groupsBySectionId.values())
 }
 
 const hasPostedToTestrail = (testCase = {}, platformGroup = null) => {
@@ -916,14 +916,6 @@ const postTestCasesForSingleGroup = async ({ normalizedPromptId, parsedData, tes
 				section: sectionName,
 				stage: "ensurePostingSection",
 			})
-			sectionGroup.testrailPost = {
-				status: "failed",
-				lastAttemptAt: nowIso,
-				message: error.message,
-				targetSectionName: sectionName,
-				postedCount: 0,
-				failedCount: group.selectedCases.length,
-			}
 
 			group.selectedCases.forEach(({ testCase }) => {
 				writeTestrailPost(testCase, platformGroupKey, {
@@ -950,11 +942,14 @@ const postTestCasesForSingleGroup = async ({ normalizedPromptId, parsedData, tes
 			existingSectionCount += 1
 		}
 
-		setSectionMeta(sectionGroup, platformGroupKey, {
-			sectionId: sectionInfo.sectionId,
-			suiteId: Number(effectiveSuiteId),
-			sectionSource: "testrail",
-			name: sectionInfo.sectionName || sectionName,
+		// Update section meta on ALL TCs in this group (flat model: each TC owns its section)
+		group.selectedCases.forEach(({ testCase }) => {
+			setSectionMeta(testCase, platformGroupKey, {
+				sectionId: sectionInfo.sectionId,
+				suiteId: Number(effectiveSuiteId),
+				sectionSource: "testrail",
+				name: sectionInfo.sectionName || sectionName,
+			})
 		})
 
 		const casePayloads = group.selectedCases.map(({ testCase }) => buildCasePayload(testCase, sectionInfo.sectionId))
@@ -1057,16 +1052,6 @@ const postTestCasesForSingleGroup = async ({ normalizedPromptId, parsedData, tes
 					sectionId: sectionInfo.sectionId,
 					message,
 				})
-				sectionGroup.testrailPost = {
-					status: "failed",
-					lastAttemptAt: nowIso,
-					message,
-					targetSectionId: sectionInfo.sectionId,
-					targetSectionName: sectionInfo.sectionName,
-					postedCount: 0,
-					failedCount: group.selectedCases.length,
-					sectionMode: sectionInfo.mode,
-				}
 
 				group.selectedCases.forEach(({ testCase }, index) => {
 					const failedItem = caseStatuses.find((item) => item.index === index)
@@ -1132,20 +1117,6 @@ const postTestCasesForSingleGroup = async ({ normalizedPromptId, parsedData, tes
 		const sectionStatus = failedCount > 0
 			? (postedCount > 0 ? "partial" : "failed")
 			: "success"
-
-		sectionGroup.testrailPost = {
-			status: sectionStatus,
-			lastAttemptAt: nowIso,
-			lastPostedAt: postedCount > 0 ? nowIso : sectionGroup?.testrailPost?.lastPostedAt || null,
-			message: sectionStatus === "success"
-				? `Posted ${postedCount} test case(s) to TestRail`
-				: `Posted ${postedCount}, failed ${failedCount}`,
-			targetSectionId: sectionInfo.sectionId,
-			targetSectionName: sectionInfo.sectionName,
-			sectionMode: sectionInfo.mode,
-			postedCount,
-			failedCount,
-		}
 
 		sectionSummaries.push({
 			section: sectionName,

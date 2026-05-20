@@ -1,6 +1,7 @@
 .env
 config.json
 .vscode/
+.opencode/
 
 node_modules/
 data/uploads/

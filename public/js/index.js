@@ -1483,13 +1483,13 @@ async function loadTestScope(promptId) {
     //   ]
     // }
     const data = await apiRequest(`/testcase/${encodeURIComponent(promptId)}`);
-    const rawSections = Array.isArray(data.data.testCases) ? data.data.testCases : [];
-    allTestCases = rawSections.flatMap(group => {
-      // Store raw section data (consolidated per-platform object) for per-platform resolution
-      const rawSection = getRawSectionData(group);
-      const defaultName = getSectionGroupName(group);
+    const rawTestCases = Array.isArray(data.data.testCases) ? data.data.testCases : [];
+    allTestCases = rawTestCases.map(tc => {
+      // Each TC already owns its section metadata in the flat model
+      const rawSection = getRawSectionData(tc);
+      const defaultName = getSectionGroupName(tc);
 
-      return (group.testCases || []).map(tc => ({
+      return {
         ...tc,
         section: defaultName,
         _rawSection: rawSection,
@@ -1499,7 +1499,7 @@ async function loadTestScope(promptId) {
           : (tc.preconditions || ""),
         steps: Array.isArray(tc.steps) ? tc.steps : (tc.steps || ""),
         expected: tc.expectedResult || tc.expected || "",
-      }));
+      };
     });
 
     // Resolve per-platform section meta based on active filter
@@ -1520,8 +1520,9 @@ async function loadTestScope(promptId) {
     const sectionMap = new Map();
     allTestCases.forEach(tc => {
       const sec = (tc.section || "Uncategorized").trim();
+      // Use both sectionId and name to prevent merging sections with duplicate IDs but different names
       const sectionKey = tc.sectionId != null
-        ? `id:${tc.sectionId}`
+        ? `id:${tc.sectionId}:${sec.toLowerCase()}`
         : `name:${sec.toLowerCase()}`;
 
       if (!sectionMap.has(sectionKey)) {
@@ -1560,8 +1561,9 @@ function buildSectionsFromCases() {
   const sectionMap = new Map();
   allTestCases.forEach(tc => {
     const sec = (tc.section || "Uncategorized").trim();
+    // Use both sectionId and name to prevent merging sections with duplicate IDs but different names
     const sectionKey = tc.sectionId != null
-      ? `id:${tc.sectionId}`
+      ? `id:${tc.sectionId}:${sec.toLowerCase()}`
       : `name:${sec.toLowerCase()}`;
 
     if (!sectionMap.has(sectionKey)) {
@@ -2347,8 +2349,9 @@ function normalizeSectionOption(option = {}) {
 
 function buildSectionOptionKey(option = {}) {
   const normalized = normalizeSectionOption(option);
+  // Use both sectionId and name to prevent deduplicating sections with same ID but different names
   if (normalized.sectionId != null) {
-    return `id:${normalized.sectionId}`;
+    return `id:${normalized.sectionId}:${normalized.name.toLowerCase()}`;
   }
   return `name:${normalized.name.toLowerCase()}`;
 }
@@ -2408,6 +2411,7 @@ function createSectionPicker({ wrapId, triggerId, triggerTextId, dropdownId, sea
   let selectedValue = "";
   let selectedIsNew = false;
   let selectedOption = normalizeSectionOption({});
+  let disableCreate = false;
 
   function renderTrigger() {
     triggerEl.innerHTML = `${formatSectionTriggerText(selectedOption, selectedIsNew)}<i class="bi bi-chevron-down" style="font-size:0.75rem;flex-shrink:0;"></i>`;
@@ -2482,7 +2486,7 @@ function createSectionPicker({ wrapId, triggerId, triggerTextId, dropdownId, sea
       optionsEl.appendChild(optionEl);
     });
 
-    if (query && !exactMatch) {
+    if (query && !exactMatch && !disableCreate) {
       const typed = searchEl.value.trim();
       const createOptionEl = document.createElement("div");
       createOptionEl.className = `prompt-select-option section-create-option${selectedValue === searchEl.value.trim() && selectedIsNew ? " selected" : ""}`;
@@ -2613,6 +2617,9 @@ function createSectionPicker({ wrapId, triggerId, triggerTextId, dropdownId, sea
     },
     focusSearch() {
       openDropdown();
+    },
+    setDisableCreate(val) {
+      disableCreate = Boolean(val);
     },
   };
 }
@@ -3349,13 +3356,24 @@ function openBulkEditSectionDialog(sectionNames) {
       modeWrap.style.display = (isAllPlatforms && hasMultiplePlatforms) ? "" : "none";
     }
 
-    // For unified mode: when All Platforms is active, filter out TestRail sections
-    const unifiedOptions = (isAllPlatforms && hasMultiplePlatforms)
-      ? sectionNames.filter(o => o.source !== "testrail")
-      : sectionNames;
+    // For unified mode: when All Platforms is active, filter out TestRail sections (physical move only to AI/user)
+    // When single platform is filtered, show all sections (flat model: per-platform meta is per-TC, safe for any section)
+    const isSinglePlatform = selectedPlatformFilters.size === 1;
+    let unifiedOptions;
+    if (isAllPlatforms && hasMultiplePlatforms) {
+      unifiedOptions = sectionNames.filter(o => o.source !== "testrail");
+    } else {
+      unifiedOptions = sectionNames;
+    }
     bulkSectionPicker.setOptions(unifiedOptions);
     bulkSectionPicker.setValue("");
-setBulkSectionStatus("click \"Get from TestRail\" to sync remote sections.", "muted");
+    bulkSectionPicker.setDisableCreate(false);
+
+    if (isSinglePlatform) {
+      setBulkSectionStatus("Per-platform mode: section metadata will be set for the selected platform only.", "muted");
+    } else {
+      setBulkSectionStatus("click \"Get from TestRail\" to sync remote sections.", "muted");
+    }
 
     // Reset suite picker if no suites fetched yet
     const suitePickerWrap = document.getElementById("bulkSuitePickerWrap");
@@ -3785,31 +3803,28 @@ async function handleBulkEditSection() {
   if (!dialogResult) return;
 
   const ids = Array.from(selectedTcIds);
-  let ok = 0, fail = 0;
 
   if (dialogResult.mode === "per-platform" && dialogResult.perPlatformSelections) {
-    // Per-platform mode: send one edit call per platform group per test case
-    for (const tcId of ids) {
-      const tc = allTestCases.find(t => t.id === tcId);
-      if (!tc) continue;
-      let tcOk = false;
-      for (const pp of dialogResult.perPlatformSelections) {
-        try {
-          const payload = Object.assign({}, tc, {
-            section: String(pp.selection.name || "").trim(),
-            sectionId: pp.selection.sectionId,
-            suiteId: pp.selection.suiteId,
-            sectionSource: pp.selection.source,
+    // Per-platform mode: one bulk call per platform group
+    let ok = 0, fail = 0;
+    for (const pp of dialogResult.perPlatformSelections) {
+      try {
+        const res = await apiRequest("/testcase/bulkMoveSection", {
+          method: "POST",
+          body: JSON.stringify({
+            promptId: currentScopePromptId,
+            testcaseIds: ids,
+            target: {
+              sectionName: String(pp.selection.name || "").trim(),
+              sectionId: pp.selection.sectionId ?? null,
+              suiteId: pp.selection.suiteId ?? null,
+              sectionSource: pp.selection.source || "ai",
+            },
             platformGroup: pp.groupKey,
-          });
-          await apiRequest("/testcase/edit?testcaseId=" + encodeURIComponent(tcId) + "&promptID=" + encodeURIComponent(currentScopePromptId), {
-            method: "POST",
-            body: JSON.stringify(payload),
-          });
-          tcOk = true;
-        } catch(e) { /* individual platform failure, continue */ }
-      }
-      if (tcOk) ok++; else fail++;
+          }),
+        });
+        ok += res?.data?.moved || ids.length;
+      } catch(e) { fail += ids.length; }
     }
     selectedTcIds.clear();
     await loadTestScope(currentScopePromptId);
@@ -3817,43 +3832,35 @@ async function handleBulkEditSection() {
     if (ok)   showBanner(ok + " test case(s) sections updated per platform.", "success");
     if (fail) showBanner(fail + " test case(s) failed to update.", "danger");
   } else {
-    // Unified mode: same as original behavior
+    // Unified mode: single bulk call
     const newSelection = dialogResult.selection || dialogResult;
     const newSection = String(newSelection.name || "").trim();
-    for (const tcId of ids) {
-      const tc = allTestCases.find(t => t.id === tcId);
-      if (!tc) continue;
-      try {
-        const payload = Object.assign({}, tc, {
-          section: newSection,
-          sectionId: newSelection.sectionId,
-          suiteId: newSelection.suiteId,
-          sectionSource: newSelection.source,
-        });
-        if (activePg) payload.platformGroup = activePg;
-
-        await apiRequest("/testcase/edit?testcaseId=" + encodeURIComponent(tcId) + "&promptID=" + encodeURIComponent(currentScopePromptId), {
-          method: "POST",
-          body: JSON.stringify(payload),
-        });
-        const idx = allTestCases.findIndex(t => t.id === tcId);
-        if (idx !== -1) {
-          allTestCases[idx] = Object.assign({}, allTestCases[idx], {
-            section: newSection,
-            sectionId: newSelection.sectionId,
-            suiteId: newSelection.suiteId,
-            sectionSource: newSelection.source,
-          });
-        }
-        ok++;
-      } catch(e) { fail++; }
+    try {
+      const res = await apiRequest("/testcase/bulkMoveSection", {
+        method: "POST",
+        body: JSON.stringify({
+          promptId: currentScopePromptId,
+          testcaseIds: ids,
+          target: {
+            sectionName: newSection,
+            sectionId: newSelection.sectionId ?? null,
+            suiteId: newSelection.suiteId ?? null,
+            sectionSource: newSelection.source || "ai",
+          },
+          platformGroup: activePg || null,
+        }),
+      });
+      const moved = res?.data?.moved || ids.length;
+      selectedTcIds.clear();
+      await loadTestScope(currentScopePromptId);
+      updateBulkBar();
+      showBanner(moved + ' test case(s) moved to "' + newSection + '".', "success");
+    } catch(e) {
+      selectedTcIds.clear();
+      await loadTestScope(currentScopePromptId);
+      updateBulkBar();
+      showBanner("Failed to move test cases: " + (e.message || "Unknown error"), "danger");
     }
-    selectedTcIds.clear();
-    // Reload full scope to get updated per-platform section meta
-    await loadTestScope(currentScopePromptId);
-    updateBulkBar();
-    if (ok)   showBanner(ok + ' test case(s) moved to "' + newSection + '".', "success");
-    if (fail) showBanner(fail + " test case(s) failed to move.", "danger");
   }
 }
 
@@ -5501,3 +5508,8 @@ window.addEventListener('hashchange', activateTabFromHash);
 if (window.location.hash) {
   activateTabFromHash();
 }
+
+// Initialize Bootstrap tooltips
+document.querySelectorAll('[data-bs-toggle="tooltip"]').forEach(el => {
+  new bootstrap.Tooltip(el);
+});

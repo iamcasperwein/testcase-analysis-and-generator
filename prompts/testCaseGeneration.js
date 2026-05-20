@@ -18,7 +18,6 @@ const TEST_CASE_OUTPUT_SCHEMA = `{
     "testCases": [
         {
             "section": "string",
-            "sectionId": "string (unique identifier for this section, e.g. sec_001, sec_002, etc.)",
             "testCases": [
                 {
                     "id": "TC-001",
@@ -221,7 +220,7 @@ const buildTestCaseGenerationPrompt = (input = {}) => {
         "- If the expected result for a specific step is unknown or not applicable, use 'N/A' as the value.",
         "- Steps must be sequential and each represent exactly one user action or system interaction.",
         "- Prefer stable section names that group related scenarios.",
-        '- Each section MUST include a unique "sectionId" string. Use the format "sec_001", "sec_002", etc. Every sectionId must be unique across all sections in the output.',
+        "- Do NOT include a sectionId field in the output. The system will assign unique section identifiers automatically.",
         "",
         "Platform Tagging Rules:",
         `- The target platforms for this feature are: ${platformList}.`,

@@ -163,6 +163,47 @@ const editSectionName = async (req, res) => {
   }
 };
 
+const bulkMoveSection = async (req, res) => {
+  try {
+    const { promptId, testcaseIds, target, platformGroup } = req.body || {};
+
+    if (!promptId || !Array.isArray(testcaseIds) || !testcaseIds.length) {
+      return res.status(400).json({
+        success: false,
+        error: "promptId and testcaseIds[] are required",
+      });
+    }
+
+    if (!target || !target.sectionName) {
+      return res.status(400).json({
+        success: false,
+        error: "target.sectionName is required",
+      });
+    }
+
+    const result = await TestCaseService.bulkMoveSection(
+      String(promptId).trim(),
+      testcaseIds,
+      target,
+      platformGroup || null
+    );
+
+    res.status(200).json({
+      success: true,
+      message: `${result.moved} test case(s) moved to "${result.targetSection}"`,
+      data: result,
+    });
+  } catch (error) {
+    if (error.code === "ENOENT") {
+      return res.status(404).json({ success: false, error: "Test case data not found" });
+    }
+    if (error.statusCode) {
+      return res.status(error.statusCode).json({ success: false, error: error.message });
+    }
+    res.status(500).json({ success: false, error: error.message });
+  }
+};
+
 module.exports = {
   getTestCases,
   getAnalyzeResult,
@@ -170,4 +211,5 @@ module.exports = {
   deleteTestCase,
   addTestCase,
   editSectionName,
+  bulkMoveSection,
 };
