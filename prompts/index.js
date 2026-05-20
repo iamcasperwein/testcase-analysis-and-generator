@@ -1,7 +1,7 @@
 const {
     SYSTEM_PROMPT,
     VALID_PLATFORMS,
-    DEFAULT_TEST_CASE_INPUT,
+    DEFAULT_PLATFORMS,
     buildTestAnalysisPrompt,
     buildTestCaseGenerationPrompt,
     formatDocumentSection,
@@ -12,7 +12,7 @@ const {
 module.exports = {
     SYSTEM_PROMPT,
     VALID_PLATFORMS,
-    DEFAULT_TEST_CASE_INPUT,
+    DEFAULT_PLATFORMS,
     buildTestAnalysisPrompt,
     buildTestCaseGenerationPrompt,
     formatDocumentSection,

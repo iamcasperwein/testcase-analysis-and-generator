@@ -3,6 +3,7 @@ const { GoogleAIFileManager } = require("@google/generative-ai/server");
 const fs = require("fs");
 const { buildTestCaseGenerationPrompt, SYSTEM_PROMPT } = require("../../prompts");
 const ConfigLoader = require("../../utils/ConfigLoader");
+const { DEFAULTS, ERROR_CODES } = require("../../constants/api/LLMApi");
 
 const DEFAULT_MODEL = "models/gemini-2.5-flash";
 
@@ -16,7 +17,7 @@ const getGenAI = () => {
     const apiKey = ConfigLoader.get("GEMINI_API_KEY");
     if (!apiKey) {
         const error = new Error("GEMINI_API_KEY is not configured. Set it in Settings to use the Gemini agent.");
-        error.statusCode = 400;
+        error.statusCode = ERROR_CODES.VALIDATION_ERROR;
         throw error;
     }
     // Re-initialize if the key has changed (e.g. updated via Settings)
@@ -34,9 +35,9 @@ const getModel = (modelName) => {
         model: modelName || getDefaultModel(),
         systemInstruction: SYSTEM_PROMPT,
         generationConfig: {
-            temperature: 0.2,
-            topP: 0.95,
-            maxOutputTokens: 16384,
+            temperature: DEFAULTS.TEMPERATURE,
+            topP: DEFAULTS.TOP_P,
+            maxOutputTokens: DEFAULTS.MAX_TOKENS,
         },
     });
 };
@@ -113,7 +114,7 @@ const buildGeminiInput = async (prompt, options = {}) => {
         const label = `${doc.docType}: ${doc.name || doc.originalName || "document"}`;
         const fileObj = {
             uploadPath: doc.path,
-            mimeType: doc.mimeType || "",
+            mimeType: doc.fileInfo?.mimeType || doc.mimeType || "",
             originalName: doc.name || doc.originalName || "",
             filename: doc.filename || "",
         };

@@ -3,18 +3,18 @@ const fs = require("fs")
 const path = require("path")
 const { SYSTEM_PROMPT } = require("../../prompts")
 const ConfigLoader = require("../../utils/ConfigLoader")
+const { ENDPOINTS, DEFAULTS, HEADERS, ERROR_CODES } = require("../../constants/api/LLMApi")
 
 // --- Defaults ---
-const DEFAULT_API_URL = "http://localhost:4000/v1/chat/completions"
 const DEFAULT_MODEL = "claude-sonnet-4-6"
 
-const getApiUrl = () => ConfigLoader.get("LITELLM_API_URL", DEFAULT_API_URL)
+const getBaseUrl = () => ConfigLoader.get("LITELLM_BASE_URL", ENDPOINTS.LITELLM_DEFAULT_BASE_URL)
+const getApiUrl = () => `${getBaseUrl()}${ENDPOINTS.CHAT_COMPLETIONS}`
 const getApiKey = () => ConfigLoader.get("LITELLM_API_KEY", "")
 const getDefaultModel = () => ConfigLoader.get("LITELLM_MODEL", DEFAULT_MODEL)
 
 // --- Mime type helpers ---
-const SUPPORTED_MIME_TYPES = new Set([
-	"application/pdf",
+const IMAGE_MIME_TYPES = new Set([
 	"image/png",
 	"image/jpeg",
 	"image/gif",
@@ -59,9 +59,8 @@ const fileToContentBlocks = (file, label = "document") => {
 			return []
 		}
 
-		// For PDFs and images: send as base64 via image_url (OpenAI multimodal format)
-		// LiteLLM will translate this to Claude's document blocks, Gemini's inlineData, etc.
-		if (SUPPORTED_MIME_TYPES.has(mimeType)) {
+		// For images: send as base64 via image_url (OpenAI multimodal format)
+		if (IMAGE_MIME_TYPES.has(mimeType)) {
 			const buffer = fs.readFileSync(uploadPath)
 			const base64 = buffer.toString("base64")
 			const dataUri = `data:${mimeType};base64,${base64}`
@@ -74,8 +73,11 @@ const fileToContentBlocks = (file, label = "document") => {
 			]
 		}
 
-		// For text-based files: read and include as text
-		const textContent = fs.readFileSync(uploadPath, "utf8").trim()
+		// For PDFs and text-based files: read as text (PDFs should already be extracted during enrichment)
+		// If it's a PDF, try to read extracted content; otherwise include as-is for text files
+		const textContent = mimeType === "application/pdf"
+			? "" // PDF text is already in doc.content via enrichDocuments; skip re-reading binary
+			: fs.readFileSync(uploadPath, "utf8").trim()
 		if (textContent) {
 			console.log(`[LiteLLMService] fileToContentBlocks :: ${label} (${fileName}) — text, ${textContent.length} chars`)
 			return [
@@ -139,12 +141,12 @@ const generateFromPrompt = async (prompt, options = {}) => {
 	const apiKey = getApiKey()
 	const model = String(options.model || getDefaultModel()).trim()
 
-	if (!apiUrl) {
+	if (!getBaseUrl()) {
 		const error = new Error(
-			"LITELLM_API_URL is not configured. Set it in Settings to use the LiteLLM agent. " +
-			"Default: http://localhost:4000/v1/chat/completions"
+			"LITELLM_BASE_URL is not configured. Set it in Settings to use the LiteLLM agent. " +
+			`Default: ${ENDPOINTS.LITELLM_DEFAULT_BASE_URL}`
 		)
-		error.statusCode = 400
+		error.statusCode = ERROR_CODES.VALIDATION_ERROR
 		throw error
 	}
 
@@ -153,7 +155,7 @@ const generateFromPrompt = async (prompt, options = {}) => {
 	console.log(`[LiteLLMService] generateFromPrompt :: model=${model}, url=${apiUrl}`)
 
 	const headers = {
-		"Content-Type": "application/json",
+		"Content-Type": HEADERS.CONTENT_TYPE,
 	}
 	if (apiKey) {
 		headers["Authorization"] = `Bearer ${apiKey}`
@@ -165,8 +167,8 @@ const generateFromPrompt = async (prompt, options = {}) => {
 			apiUrl,
 			{
 				model,
-				temperature: 0.2,
-				max_tokens: 16384,
+				temperature: DEFAULTS.TEMPERATURE,
+				max_tokens: DEFAULTS.MAX_TOKENS,
 				messages: [
 					{
 						role: "system",
@@ -180,7 +182,7 @@ const generateFromPrompt = async (prompt, options = {}) => {
 			},
 			{
 				headers,
-				timeout: 300000, // 5 minutes
+				timeout: DEFAULTS.TIMEOUT_MS,
 			},
 		)
 	} catch (err) {
@@ -192,7 +194,7 @@ const generateFromPrompt = async (prompt, options = {}) => {
 		console.error(`[LiteLLMService] API error (${status}): model=${model}, detail=${detail}`)
 
 		const error = new Error(`LiteLLM API error (${status}): ${detail}`)
-		error.statusCode = err.response?.status || 502
+		error.statusCode = err.response?.status || ERROR_CODES.SERVICE_UNAVAILABLE
 		throw error
 	}
 
@@ -217,7 +219,7 @@ const generateFromPrompt = async (prompt, options = {}) => {
 
 	if (!text) {
 		const error = new Error("LiteLLM returned an empty response")
-		error.statusCode = 502
+		error.statusCode = ERROR_CODES.SERVICE_UNAVAILABLE
 		throw error
 	}
 

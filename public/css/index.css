@@ -604,7 +604,7 @@
     .additional-doc-row-grid {
       display: grid;
       gap: 0.55rem;
-      grid-template-columns: minmax(150px, 1fr) minmax(110px, 0.7fr) minmax(150px, 1fr) minmax(220px, 2fr) auto;
+      grid-template-columns: minmax(130px, 0.9fr) minmax(120px, 0.8fr) minmax(140px, 1fr) minmax(200px, 1.8fr) auto;
       align-items: end;
     }
 
@@ -675,6 +675,24 @@
       border-radius: 0.5rem;
       border-color: #c6daf7;
       background: #fff;
+    }
+
+    .add-doc-format-wrap .prompt-select-trigger {
+      min-height: 34px;
+      border-radius: 0.5rem;
+      border-color: #c6daf7;
+      font-size: 0.82rem;
+    }
+
+    .add-doc-format-wrap .prompt-select-dropdown {
+      max-width: none;
+      width: 100%;
+      z-index: 10;
+      position: absolute;
+    }
+
+    .add-doc-format-wrap {
+      position: relative;
     }
 
     .add-doc-link-error {

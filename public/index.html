@@ -245,8 +245,8 @@
           <div class="card-body">
             <form id="qaForm" class="row g-3 modern-form">
 
-              <!-- Row 1: Agent + Project Name (compact 2-col) -->
-              <div class="col-md-5">
+              <!-- Row 1: Agent + Model + Project Name (compact 3-col) -->
+              <div class="col-md-3">
                 <label for="agentValueInput" class="form-label">AI Agent</label>
                 <div class="prompt-select-wrap" id="agentSelectWrap">
                   <div class="prompt-select-trigger" id="agentTrigger" tabindex="0">
@@ -261,7 +261,22 @@
                 <input type="hidden" id="agentValueInput" name="agent" value="copilot" />
               </div>
 
-              <div class="col-md-7">
+              <div class="col-md-4">
+                <label for="modelValueInput" class="form-label">Model</label>
+                <div class="prompt-select-wrap" id="modelSelectWrap">
+                  <div class="prompt-select-trigger" id="modelTrigger" tabindex="0">
+                    <span class="prompt-select-trigger-text is-placeholder" id="modelTriggerText">Loading models...</span>
+                    <i class="bi bi-chevron-down" style="font-size:0.75rem;flex-shrink:0;"></i>
+                  </div>
+                  <div class="prompt-select-dropdown" id="modelDropdown">
+                    <input type="text" class="prompt-select-search" id="modelSearch" placeholder="Search model..." autocomplete="off" />
+                    <div class="prompt-select-options" id="modelOptions"></div>
+                  </div>
+                </div>
+                <input type="hidden" id="modelValueInput" name="model" value="" />
+              </div>
+
+              <div class="col-md-5">
                 <label for="projectNameInput" class="form-label">Project / Feature Name <span class="text-danger">*</span></label>
                 <input
                   type="text"

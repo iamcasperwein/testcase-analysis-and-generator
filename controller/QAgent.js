@@ -1,6 +1,8 @@
 const QAgentService = require("../service/QAgentService");
 const FileExtractor = require("../utils/FileExtractor");
 const { resolveDocType } = require("../constants/docTypes");
+const { isValidLarkUrl } = require("../service/LarkService");
+const { ERROR_CODES: LARK_ERROR_CODES } = require("../constants/api/LarkApi");
 const path = require("path");
 const fs = require("fs");
 const { ulid } = require("ulid");
@@ -82,8 +84,8 @@ const askAi = async (req, res) => {
 			? body.docLinkUrls
 			: body.docLinkUrls ? [body.docLinkUrls] : [];
 
-		// Determine total document count (max of all parallel arrays)
-		const totalDocs = Math.max(docTypes.length, docNames.length, docFormats.length, docLinkUrls.length, uploadedFiles.length);
+		// Determine total document count from metadata arrays (not uploadedFiles)
+		const totalDocs = Math.max(docTypes.length, docNames.length, docFormats.length, docLinkUrls.length);
 
 		// Build unified documents array supporting both 'file' and 'link' formats
 		const documents = [];
@@ -104,6 +106,15 @@ const askAi = async (req, res) => {
 						success: false,
 						error: `Document row ${idx + 1} (${docType}): link URL is required when format is "link".`,
 						errorCode: "MISSING_LINK_URL",
+						documentIndex: idx,
+					});
+				}
+
+				if (!isValidLarkUrl(linkUrl)) {
+					return res.status(400).json({
+						success: false,
+						error: `Document row ${idx + 1} (${docType}): only Lark doc/wiki URLs are supported (e.g. https://xxx.larksuite.com/docx/...).`,
+						errorCode: "INVALID_LARK_URL",
 						documentIndex: idx,
 					});
 				}

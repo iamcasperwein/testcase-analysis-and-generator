@@ -1,5 +1,6 @@
 const ConfigLoader = require("../../utils/ConfigLoader")
 const axios = require("axios")
+const { ENDPOINTS, MODELS_QUERY_PARAMS } = require("../../constants/api/LLMApi")
 
 const createValidationError = (message, statusCode = 400) => {
 	const error = new Error(message)
@@ -14,48 +15,45 @@ const DEFAULT_SETTING_KEYS = [
 	{ key: "CLAUDE_MODEL", confidential: false },
 	{ key: "GEMINI_API_KEY", confidential: true },
 	{ key: "GEMINI_MODEL", confidential: false },
-	{ key: "GITHUB_MODEL", confidential: false },
 	{ key: "GITHUB_TOKEN", confidential: true },
 	{ key: "LITELLM_API_KEY", confidential: true },
-	{ key: "LITELLM_API_URL", confidential: false },
-	{ key: "LITELLM_MODEL", confidential: false },
+	{ key: "LITELLM_BASE_URL", confidential: false },
 	{ key: "TESTRAIL_PASSWORD", confidential: true },
 	{ key: "TESTRAIL_PROJECT_ID", confidential: false },
 	{ key: "TESTRAIL_SUITE_ID", confidential: false },
 	{ key: "TESTRAIL_URL", confidential: false },
 	{ key: "TESTRAIL_USERNAME", confidential: true },
-	{ key: "GEMINI_MODEL", confidential: false}
+	{ key: "LARK_APP_ID", confidential: false },
+	{ key: "LARK_APP_SECRET", confidential: true },
 ]
 
 const GITHUB_MODELS_CATALOG_URL = "https://models.github.ai/catalog/models"
+
+const GEMINI_STATIC_MODELS = Object.freeze([
+	{ id: "models/gemini-2.5-flash", name: "gemini-2.5-flash" },
+])
 
 const MODEL_CATALOGS = Object.freeze({
 	copilot: {
 		agent: "copilot",
 		label: "GitHub Models",
-		settingKey: "GITHUB_MODEL",
 		supported: true,
 	},
 	claude: {
 		agent: "claude",
 		label: "Anthropic",
-		settingKey: "CLAUDE_MODEL",
 		supported: false,
 		message: "Claude model catalog browsing is not wired yet. Set CLAUDE_MODEL manually for now.",
 	},
 	gemini: {
 		agent: "gemini",
 		label: "Google Gemini",
-		settingKey: "GEMINI_MODEL",
-		supported: false,
-		message: "Gemini model catalog browsing is not wired yet. Set GEMINI_MODEL manually for now.",
+		supported: true,
 	},
 	litellm: {
 		agent: "litellm",
 		label: "LiteLLM",
-		settingKey: "LITELLM_MODEL",
-		supported: false,
-		message: "LiteLLM proxies to any provider. Set LITELLM_MODEL to any supported model identifier (e.g. claude-sonnet-4-6, gpt-4o, gemini/gemini-2.5-flash).",
+		supported: true,
 	},
 })
 
@@ -200,6 +198,12 @@ const deleteSetting = async (key) => {
 	return { key: normalizedKey }
 }
 
+/**
+ * Fetch model catalog for a given agent.
+ * - copilot: GitHub Models catalog API
+ * - litellm: LiteLLM /v1/models endpoint (OpenAI-compatible)
+ * - gemini: Static model list
+ */
 const getModelCatalog = async (agent) => {
 	const normalizedAgent = normalizeAgent(agent)
 	const catalogConfig = MODEL_CATALOGS[normalizedAgent]
@@ -212,29 +216,100 @@ const getModelCatalog = async (agent) => {
 		return {
 			agent: catalogConfig.agent,
 			label: catalogConfig.label,
-			settingKey: catalogConfig.settingKey,
 			supported: false,
 			message: catalogConfig.message || "Model catalog is not available for this agent yet.",
 			models: [],
 		}
 	}
 
-	const response = await axios.get(GITHUB_MODELS_CATALOG_URL, {
-		headers: { Accept: "application/json" },
-		timeout: 20000,
-	})
+	// --- Copilot: GitHub Models catalog ---
+	if (normalizedAgent === "copilot") {
+		const response = await axios.get(GITHUB_MODELS_CATALOG_URL, {
+			headers: { Accept: "application/json" },
+			timeout: 20000,
+		})
 
-	const models = Array.isArray(response?.data)
-		? response.data.map(normalizeGithubCatalogItem).filter((item) => item.id)
-		: []
+		const models = Array.isArray(response?.data)
+			? response.data.map(normalizeGithubCatalogItem).filter((item) => item.id)
+			: []
 
+		return {
+			agent: catalogConfig.agent,
+			label: catalogConfig.label,
+			supported: true,
+			message: `${models.length} model(s) available from ${catalogConfig.label}.`,
+			models,
+		}
+	}
+
+	// --- LiteLLM: /v1/models endpoint ---
+	if (normalizedAgent === "litellm") {
+		const baseUrl = ConfigLoader.get("LITELLM_BASE_URL", "")
+		if (!baseUrl) {
+			return {
+				agent: catalogConfig.agent,
+				label: catalogConfig.label,
+				supported: true,
+				message: "LITELLM_BASE_URL is not configured. Set it in Settings to fetch available models.",
+				models: [],
+			}
+		}
+
+		const apiKey = ConfigLoader.get("LITELLM_API_KEY", "")
+		const headers = { Accept: "application/json" }
+		if (apiKey) {
+			headers["Authorization"] = `Bearer ${apiKey}`
+		}
+
+		try {
+			const response = await axios.get(`${baseUrl}${ENDPOINTS.MODELS}`, {
+				params: MODELS_QUERY_PARAMS,
+				headers,
+				timeout: 10000,
+			})
+
+			// OpenAI-compatible response: { data: [{ id: "model-name", ... }] }
+			const rawModels = Array.isArray(response?.data?.data) ? response.data.data : []
+			const models = rawModels
+				.map((m) => ({ id: String(m.id || "").trim(), name: String(m.id || "").trim() }))
+				.filter((m) => m.id)
+
+			return {
+				agent: catalogConfig.agent,
+				label: catalogConfig.label,
+				supported: true,
+				message: `${models.length} model(s) available from ${catalogConfig.label}.`,
+				models,
+			}
+		} catch (err) {
+			return {
+				agent: catalogConfig.agent,
+				label: catalogConfig.label,
+				supported: true,
+				message: `Failed to fetch LiteLLM models: ${err.message}`,
+				models: [],
+			}
+		}
+	}
+
+	// --- Gemini: Static model list ---
+	if (normalizedAgent === "gemini") {
+		return {
+			agent: catalogConfig.agent,
+			label: catalogConfig.label,
+			supported: true,
+			message: `${GEMINI_STATIC_MODELS.length} model(s) available.`,
+			models: GEMINI_STATIC_MODELS.map((m) => ({ ...m })),
+		}
+	}
+
+	// Fallback (shouldn't reach here)
 	return {
 		agent: catalogConfig.agent,
 		label: catalogConfig.label,
-		settingKey: catalogConfig.settingKey,
-		supported: true,
-		message: `${models.length} model(s) available from ${catalogConfig.label}.`,
-		models,
+		supported: false,
+		message: "Model catalog not implemented for this agent.",
+		models: [],
 	}
 }
 

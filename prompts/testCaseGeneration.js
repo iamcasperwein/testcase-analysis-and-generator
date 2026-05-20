@@ -9,11 +9,7 @@ Your core principles:
 4. If a requirement is ambiguous, create a test case that surfaces the ambiguity rather than assuming intent.
 5. Never invent features or behaviors not stated in the source documents.`;
 
-const DEFAULT_TEST_CASE_INPUT = Object.freeze({
-    platforms: Object.freeze(["ios", "android", "mobile-web", "desktop-web"]),
-    additionalContext: "",
-    documents: Object.freeze([]),
-});
+const DEFAULT_PLATFORMS = Object.freeze(["ios", "android", "mobile-web", "desktop-web"]);
 
 const VALID_PLATFORMS = ["ios", "android", "mobile-web", "desktop-web", "backend"];
 
@@ -57,13 +53,13 @@ const normalizePlatforms = (value) => {
     if (typeof value === "string") {
         const parsed = value.split(",").map(s => s.trim().toLowerCase()).filter(Boolean);
         const valid = parsed.filter(p => VALID_PLATFORMS.includes(p));
-        return valid.length > 0 ? valid : [...DEFAULT_TEST_CASE_INPUT.platforms];
+        return valid.length > 0 ? valid : [...DEFAULT_PLATFORMS];
     }
     if (Array.isArray(value) && value.length > 0) {
         const valid = value.map(s => String(s || "").trim().toLowerCase()).filter(p => VALID_PLATFORMS.includes(p));
-        return valid.length > 0 ? valid : [...DEFAULT_TEST_CASE_INPUT.platforms];
+        return valid.length > 0 ? valid : [...DEFAULT_PLATFORMS];
     }
-    return [...DEFAULT_TEST_CASE_INPUT.platforms];
+    return [...DEFAULT_PLATFORMS];
 };
 
 // --- Document formatting (unified) ---
@@ -148,25 +144,12 @@ const normalizePromptInput = (input = {}) => {
         });
     }
 
-    // If still no documents and we have default text, use that
-    if (!documents.some(d => d.docType === "PRD" && normalizeText(d.content))) {
-        const fallbackPrd = documents.find(d => d.docType === "PRD");
-        if (!fallbackPrd) {
-            documents.unshift({
-                docType: "PRD",
-                name: "default-prd",
-                content: DEFAULT_TEST_CASE_INPUT.prdText,
-                path: "",
-            });
-        }
-    }
-
     return {
         feature: normalizeText(input.feature),
         platform: normalizeText(input.platform),
         platforms: normalizePlatforms(input.platforms),
         additionalContext: [
-            normalizeText(input.additionalContext || DEFAULT_TEST_CASE_INPUT.additionalContext),
+            normalizeText(input.additionalContext),
             normalizeText(input.context),
         ].filter(Boolean).join("\n\n"),
         documents,
@@ -387,7 +370,7 @@ const buildTestAnalysisPrompt = (input = {}) => {
 module.exports = {
     SYSTEM_PROMPT,
     VALID_PLATFORMS,
-    DEFAULT_TEST_CASE_INPUT,
+    DEFAULT_PLATFORMS,
     buildTestAnalysisPrompt,
     buildTestCaseGenerationPrompt,
     formatDocumentSection,

@@ -13,6 +13,7 @@
 
 const lark = require("@larksuiteoapi/node-sdk");
 const ConfigLoader = require("../utils/ConfigLoader");
+const { RESPONSE_CODES, DEFAULTS, ERROR_CODES, URL_PATTERNS, CONTENT_FORMAT } = require("../constants/api/LarkApi");
 
 // --- Singleton Client ---
 
@@ -22,24 +23,23 @@ let _client = null;
  * Get or create the Lark SDK client (singleton, re-created if config changes).
  */
 const getClient = () => {
-    const config = ConfigLoader.load();
+    const config = ConfigLoader.readAll();
     const appId = config.LARK_APP_ID;
     const appSecret = config.LARK_APP_SECRET;
 
     if (!appId || !appSecret) {
         throw new LarkServiceError(
-            "LARK_AUTH_CONFIG_MISSING",
+            ERROR_CODES.AUTH_CONFIG_MISSING,
             "Lark app credentials (LARK_APP_ID, LARK_APP_SECRET) are not configured."
         );
     }
 
     // Re-create client if credentials changed
     if (!_client || _client._appId !== appId || _client._appSecret !== appSecret) {
-        const domain = config.LARK_BASE_URL || lark.Domain.Lark;
         _client = new lark.Client({
             appId,
             appSecret,
-            domain,
+            domain: lark.Domain.Lark,
             loggerLevel: lark.LoggerLevel.WARN,
         });
         // Track credentials for change detection
@@ -53,27 +53,13 @@ const getClient = () => {
 // --- URL Parsing ---
 
 /**
- * Supported Lark URL patterns:
- *   https://{tenant}.larksuite.com/docx/{doc_id}
- *   https://{tenant}.larksuite.com/wiki/{doc_id}
- *   https://{tenant}.feishu.cn/docx/{doc_id}
- *   https://{tenant}.feishu.cn/wiki/{doc_id}
- *   https://open.larksuite.com/document/{doc_id}
- */
-const LARK_URL_PATTERNS = [
-    /^https?:\/\/[\w-]+\.larksuite\.com\/(docx|wiki)\/([\w-]+)/i,
-    /^https?:\/\/[\w-]+\.feishu\.cn\/(docx|wiki)\/([\w-]+)/i,
-    /^https?:\/\/open\.larksuite\.com\/document\/([\w-]+)/i,
-];
-
-/**
  * Validates if a URL is a supported Lark document URL.
  * @param {string} url
  * @returns {boolean}
  */
 const isValidLarkUrl = (url = "") => {
     const trimmed = String(url || "").trim();
-    return LARK_URL_PATTERNS.some((pattern) => pattern.test(trimmed));
+    return URL_PATTERNS.some((pattern) => pattern.test(trimmed));
 };
 
 /**
@@ -83,7 +69,7 @@ const isValidLarkUrl = (url = "") => {
  */
 const parseDocumentId = (url = "") => {
     const trimmed = String(url || "").trim();
-    for (const pattern of LARK_URL_PATTERNS) {
+    for (const pattern of URL_PATTERNS) {
         const match = trimmed.match(pattern);
         if (match) {
             if (match.length >= 3) {
@@ -94,6 +80,11 @@ const parseDocumentId = (url = "") => {
     }
     return null;
 };
+
+// --- Helper: check Lark API response codes ---
+
+const isDocNotFound = (code) => RESPONSE_CODES.DOC_NOT_FOUND.includes(code);
+const isPermissionDenied = (code) => RESPONSE_CODES.PERMISSION_DENIED.includes(code);
 
 // --- Document Fetch ---
 
@@ -109,35 +100,86 @@ const fetchDocContent = async (documentId) => {
     try {
         const response = await client.docx.document.rawContent({
             path: { document_id: documentId },
-            params: { lang: 1 },
+            params: { lang: DEFAULTS.LANG_NUMERIC },
         });
 
-        if (response.code !== 0) {
+        if (response.code !== RESPONSE_CODES.SUCCESS) {
             const code = response.code;
             const msg = response.msg || "Unknown error";
 
-            if (code === 99991668 || code === 99991672) {
-                throw new LarkServiceError("LARK_DOC_NOT_FOUND", `Document not found: ${msg}`);
+            if (isDocNotFound(code)) {
+                throw new LarkServiceError(ERROR_CODES.DOC_NOT_FOUND, `Document not found: ${msg}`);
             }
-            if (code === 99991663 || code === 99991664) {
-                throw new LarkServiceError("LARK_PERMISSION_DENIED", `No permission to access document: ${msg}`);
+            if (isPermissionDenied(code)) {
+                throw new LarkServiceError(ERROR_CODES.PERMISSION_DENIED, `No permission to access document: ${msg}`);
             }
 
-            throw new LarkServiceError("LARK_API_ERROR", `Lark API error (code: ${code}): ${msg}`);
+            throw new LarkServiceError(ERROR_CODES.API_ERROR, `Lark API error (code: ${code}): ${msg}`);
         }
 
         const content = String(response.data?.content || "").trim();
         if (!content) {
-            throw new LarkServiceError("LARK_EMPTY_CONTENT", "Document returned empty content.");
+            throw new LarkServiceError(ERROR_CODES.EMPTY_CONTENT, "Document returned empty content.");
         }
 
         return content;
     } catch (err) {
         if (err instanceof LarkServiceError) throw err;
         throw new LarkServiceError(
-            "LARK_FETCH_FAILED",
+            ERROR_CODES.FETCH_FAILED,
             `Failed to fetch Lark document (${documentId}): ${err.message}`
         );
+    }
+};
+
+/**
+ * Fetch document content as Markdown using the docs.content.get API.
+ * This is the official Lark API for exporting document content in markdown format.
+ * Falls back to raw content if the markdown API fails.
+ * @param {string} documentId - The document token
+ * @returns {Promise<string>} - Markdown content
+ */
+const fetchDocContentAsMarkdown = async (documentId) => {
+    const client = getClient();
+
+    try {
+        const response = await client.docs.content.get({
+            params: {
+                doc_token: documentId,
+                doc_type: DEFAULTS.DOC_TYPE,
+                content_type: DEFAULTS.CONTENT_TYPE,
+                lang: DEFAULTS.LANG_STRING,
+            },
+        });
+
+        if (response.code !== RESPONSE_CODES.SUCCESS) {
+            const code = response.code;
+            const msg = response.msg || "Unknown error";
+
+            if (isDocNotFound(code)) {
+                throw new LarkServiceError(ERROR_CODES.DOC_NOT_FOUND, `Document not found: ${msg}`);
+            }
+            if (isPermissionDenied(code)) {
+                throw new LarkServiceError(ERROR_CODES.PERMISSION_DENIED, `No permission to access document: ${msg}`);
+            }
+
+            // Fall back to raw content on other errors
+            console.warn(`[LarkService] docs.content.get failed (code: ${code}), falling back to raw content`);
+            return await fetchDocContent(documentId);
+        }
+
+        const content = String(response.data?.content || "").trim();
+        if (!content) {
+            // Fallback to raw content if markdown API returned empty
+            return await fetchDocContent(documentId);
+        }
+
+        return content;
+    } catch (err) {
+        if (err instanceof LarkServiceError) throw err;
+        // Fallback to raw content on any unexpected error
+        console.warn(`[LarkService] Markdown fetch failed, falling back to raw content: ${err.message}`);
+        return await fetchDocContent(documentId);
     }
 };
 
@@ -145,10 +187,13 @@ const fetchDocContent = async (documentId) => {
  * Fetch content from a Wiki node. Wiki nodes need to be resolved to their
  * actual document token first via the wiki.space.node API, then fetched as docx.
  * @param {string} wikiToken
+ * @param {object} [options]
+ * @param {string} [options.format] - "raw" or "markdown" (default: "raw")
  * @returns {Promise<string>}
  */
-const fetchWikiContent = async (wikiToken) => {
+const fetchWikiContent = async (wikiToken, options = {}) => {
     const client = getClient();
+    const format = options.format || CONTENT_FORMAT.RAW;
 
     try {
         // Step 1: Get the actual document node info from wiki token
@@ -156,35 +201,33 @@ const fetchWikiContent = async (wikiToken) => {
             params: { token: wikiToken },
         });
 
-        if (nodeResp.code !== 0) {
+        if (nodeResp.code !== RESPONSE_CODES.SUCCESS) {
             const msg = nodeResp.msg || "Unknown error";
-            if (nodeResp.code === 99991668 || nodeResp.code === 99991672) {
-                throw new LarkServiceError("LARK_DOC_NOT_FOUND", `Wiki node not found: ${msg}`);
+            if (isDocNotFound(nodeResp.code)) {
+                throw new LarkServiceError(ERROR_CODES.DOC_NOT_FOUND, `Wiki node not found: ${msg}`);
             }
-            if (nodeResp.code === 99991663 || nodeResp.code === 99991664) {
-                throw new LarkServiceError("LARK_PERMISSION_DENIED", `No permission to access wiki: ${msg}`);
+            if (isPermissionDenied(nodeResp.code)) {
+                throw new LarkServiceError(ERROR_CODES.PERMISSION_DENIED, `No permission to access wiki: ${msg}`);
             }
-            throw new LarkServiceError("LARK_API_ERROR", `Wiki node lookup failed (code: ${nodeResp.code}): ${msg}`);
+            throw new LarkServiceError(ERROR_CODES.API_ERROR, `Wiki node lookup failed (code: ${nodeResp.code}): ${msg}`);
         }
 
         const objToken = nodeResp.data?.node?.obj_token;
         const objType = nodeResp.data?.node?.obj_type;
 
         if (!objToken) {
-            throw new LarkServiceError("LARK_WIKI_RESOLVE_FAILED", "Could not resolve wiki node to document token.");
+            throw new LarkServiceError(ERROR_CODES.WIKI_RESOLVE_FAILED, "Could not resolve wiki node to document token.");
         }
 
-        // Step 2: If it's a docx, fetch raw content using the resolved token
-        if (objType === "docx" || objType === "doc") {
-            return await fetchDocContent(objToken);
+        // Step 2: Fetch content using the resolved token
+        if (format === CONTENT_FORMAT.MARKDOWN) {
+            return await fetchDocContentAsMarkdown(objToken);
         }
-
-        // For other types (sheet, bitable, etc.), attempt docx fetch as fallback
         return await fetchDocContent(objToken);
     } catch (err) {
         if (err instanceof LarkServiceError) throw err;
         throw new LarkServiceError(
-            "LARK_FETCH_FAILED",
+            ERROR_CODES.FETCH_FAILED,
             `Failed to fetch wiki content (${wikiToken}): ${err.message}`
         );
     }
@@ -193,28 +236,37 @@ const fetchWikiContent = async (wikiToken) => {
 // --- High-level: Fetch content from URL ---
 
 /**
- * Given a Lark URL, parse it and fetch its raw content.
+ * Given a Lark URL, parse it and fetch its content.
  * Automatically routes to docx or wiki fetch based on URL type.
  * @param {string} url
- * @returns {Promise<{ content: string, documentId: string, urlType: string }>}
+ * @param {object} [options]
+ * @param {string} [options.format] - "raw" (plain text) or "markdown" (default: "markdown")
+ * @returns {Promise<{ content: string, documentId: string, urlType: string, format: string }>}
  */
-const fetchContentFromUrl = async (url) => {
+const fetchContentFromUrl = async (url, options = {}) => {
     const parsed = parseDocumentId(url);
     if (!parsed) {
-        throw new LarkServiceError("LARK_INVALID_URL", `Invalid or unsupported Lark URL: ${url}`);
+        throw new LarkServiceError(ERROR_CODES.INVALID_URL, `Invalid or unsupported Lark URL: ${url}`);
     }
+
+    const format = options.format || CONTENT_FORMAT.MARKDOWN;
 
     let content;
     if (parsed.urlType === "wiki") {
-        content = await fetchWikiContent(parsed.documentId);
+        content = await fetchWikiContent(parsed.documentId, { format });
     } else {
-        content = await fetchDocContent(parsed.documentId);
+        if (format === CONTENT_FORMAT.MARKDOWN) {
+            content = await fetchDocContentAsMarkdown(parsed.documentId);
+        } else {
+            content = await fetchDocContent(parsed.documentId);
+        }
     }
 
     return {
         content,
         documentId: parsed.documentId,
         urlType: parsed.urlType,
+        format,
     };
 };
 
@@ -233,8 +285,9 @@ module.exports = {
     parseDocumentId,
     fetchContentFromUrl,
     fetchDocContent,
+    fetchDocContentAsMarkdown,
     fetchWikiContent,
     getClient,
     LarkServiceError,
-    LARK_URL_PATTERNS,
+    CONTENT_FORMAT,
 };

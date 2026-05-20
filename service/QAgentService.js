@@ -483,7 +483,7 @@ const processSubmission = async (payload = {}, { isRetry = false } = {}) => {
                     gemini: "GEMINI_API_KEY",
                     copilot: "GITHUB_TOKEN",
                     claude: "CLAUDE_API_KEY",
-                    litellm: "LITELLM_API_KEY (optional) and LITELLM_API_URL",
+                    litellm: "LITELLM_API_KEY (optional) and LITELLM_BASE_URL",
                 };
                 const requiredKey = agentKeyMap[agent] || `API key for "${agent}"`;
                 const msg = [
@@ -503,11 +503,7 @@ const processSubmission = async (payload = {}, { isRetry = false } = {}) => {
         }
     };
 
-    // Enrich documents with extracted text from uploaded files
-    logger.step("Enriching documents");
-    validatedPayload.documents = await enrichDocuments(validatedPayload.documents, logger);
-    logger.success("Document enrichment complete", { totalDocs: validatedPayload.documents.length });
-
+    // Create prompt record BEFORE enrichment so failures are trackable
     if (!isRetry) {
         appendPromptRecord(createInitialRecord({ promptId, payload: validatedPayload, agent, model: selectedModel }));
         logger.success("Prompt record created", { status: "RECEIVED" });
@@ -516,6 +512,24 @@ const processSubmission = async (payload = {}, { isRetry = false } = {}) => {
             model: selectedModel || null,
         });
     }
+
+    // Enrich documents with extracted text from uploaded files or Lark links
+    logger.step("Enriching documents");
+    try {
+        validatedPayload.documents = await enrichDocuments(validatedPayload.documents, logger);
+    } catch (enrichError) {
+        const errorMsg = String(enrichError?.message || enrichError || "Document enrichment failed");
+        logger.fail(enrichError, { stage: "enrichDocuments", promptId });
+        updatePromptRecord(promptId, {
+            status: "FAILED",
+            endAt: new Date().toISOString(),
+            failureNote: errorMsg,
+            errorMessage: errorMsg,
+        });
+        enrichError.promptId = promptId;
+        throw enrichError;
+    }
+    logger.success("Document enrichment complete", { totalDocs: validatedPayload.documents.length });
 
     updatePromptRecord(promptId, { status: isRetry ? "RETRYING" : "IN_PROGRESS", startAt: new Date().toISOString(), endAt: null, failureNote: null, errorMessage: null });
     logger.info("Status updated", { status: isRetry ? "RETRYING" : "IN_PROGRESS" });

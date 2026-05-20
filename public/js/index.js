@@ -221,7 +221,7 @@ function createStaticOptionSelect({ wrapId, triggerId, triggerTextId, dropdownId
   const optionsEl = document.getElementById(optionsId);
   const valueEl = document.getElementById(valueId);
 
-  const safeOptions = Array.isArray(options) ? options : [];
+  let safeOptions = Array.isArray(options) ? options : [];
 
   function closeDropdown() {
     dropdownEl.classList.remove("open");
@@ -232,8 +232,8 @@ function createStaticOptionSelect({ wrapId, triggerId, triggerTextId, dropdownId
     const item = safeOptions.find((option) => option.value === value) || safeOptions[0] || { value: "", label: "" };
     const previousValue = valueEl.value;
     valueEl.value = item.value;
-    triggerTextEl.textContent = item.label;
-    triggerTextEl.classList.toggle("is-placeholder", !item.label);
+    triggerTextEl.textContent = item.label || item.value || "";
+    triggerTextEl.classList.toggle("is-placeholder", !item.label && !item.value);
 
     if (previousValue !== item.value) {
       valueEl.dispatchEvent(new Event("change", { bubbles: true }));
@@ -242,7 +242,7 @@ function createStaticOptionSelect({ wrapId, triggerId, triggerTextId, dropdownId
 
   function renderOptions(filter = "") {
     const q = String(filter || "").trim().toLowerCase();
-    const filtered = safeOptions.filter((item) => String(item.label || "").toLowerCase().includes(q));
+    const filtered = safeOptions.filter((item) => String(item.label || item.value || "").toLowerCase().includes(q));
 
     optionsEl.innerHTML = "";
     if (!filtered.length) {
@@ -255,7 +255,7 @@ function createStaticOptionSelect({ wrapId, triggerId, triggerTextId, dropdownId
       const optionEl = document.createElement("div");
       optionEl.className = `prompt-select-option${isSelected ? " selected" : ""}`;
       optionEl.innerHTML = `
-        <span class="prompt-select-option-id">${item.label}</span>
+        <span class="prompt-select-option-id">${item.label || item.value}</span>
         <span class="prompt-select-option-name">${item.description || ""}</span>
       `;
 
@@ -310,6 +310,29 @@ function createStaticOptionSelect({ wrapId, triggerId, triggerTextId, dropdownId
     getValue() {
       return String(valueEl.value || "").trim();
     },
+    setOptions(newOptions) {
+      safeOptions = Array.isArray(newOptions) ? newOptions : [];
+      const currentValue = valueEl.value;
+      const stillExists = safeOptions.some((o) => o.value === currentValue);
+      if (!stillExists) {
+        setSelection(safeOptions[0]?.value || "");
+      } else {
+        renderOptions("");
+        // Update trigger text in case label changed
+        const match = safeOptions.find((o) => o.value === currentValue);
+        if (match) triggerTextEl.textContent = match.label || match.value || "";
+      }
+    },
+    setLoading(msg) {
+      triggerTextEl.textContent = msg || "Loading...";
+      triggerTextEl.classList.add("is-placeholder");
+      safeOptions = [];
+      optionsEl.innerHTML = "";
+      valueEl.value = "";
+    },
+    setSelection(value) {
+      setSelection(value);
+    },
   };
 }
 
@@ -323,6 +346,75 @@ const agentPicker = createStaticOptionSelect({
   valueId: "agentValueInput",
   options: AGENTS,
 });
+
+// --- Model Picker (dynamic, populated based on agent selection) ---
+const modelPicker = createStaticOptionSelect({
+  wrapId: "modelSelectWrap",
+  triggerId: "modelTrigger",
+  triggerTextId: "modelTriggerText",
+  dropdownId: "modelDropdown",
+  searchId: "modelSearch",
+  optionsId: "modelOptions",
+  valueId: "modelValueInput",
+  options: [],
+});
+
+let _modelLoadAbort = null;
+
+async function loadModelsForAgent(agent) {
+  const normalizedAgent = String(agent || "").trim().toLowerCase();
+  if (!normalizedAgent) {
+    modelPicker.setOptions([]);
+    return;
+  }
+
+  // Abort previous in-flight request
+  if (_modelLoadAbort) {
+    _modelLoadAbort.abort();
+    _modelLoadAbort = null;
+  }
+
+  modelPicker.setLoading("Loading models...");
+
+  const controller = new AbortController();
+  _modelLoadAbort = controller;
+
+  try {
+    const resp = await apiRequest(`/settings/models?agent=${encodeURIComponent(normalizedAgent)}`, {
+      signal: controller.signal,
+    });
+    if (controller.signal.aborted) return;
+
+    const data = resp?.data ?? resp ?? {};
+    const models = Array.isArray(data.models) ? data.models : [];
+
+    if (!models.length) {
+      modelPicker.setOptions([{ value: "", label: data.message || "No models available" }]);
+      return;
+    }
+
+    const options = models.map((m) => ({
+      value: String(m.id || "").trim(),
+      label: String(m.name || m.id || "").trim(),
+      description: m.summary || "",
+    }));
+
+    modelPicker.setOptions(options);
+  } catch (err) {
+    if (err.name === "AbortError") return;
+    modelPicker.setOptions([{ value: "", label: "Failed to load models" }]);
+  } finally {
+    if (_modelLoadAbort === controller) _modelLoadAbort = null;
+  }
+}
+
+// Listen for agent changes → reload models
+document.getElementById("agentValueInput").addEventListener("change", () => {
+  loadModelsForAgent(agentPicker.getValue());
+});
+
+// Initial load
+loadModelsForAgent(agentPicker.getValue());
 
 // docTypePicker removed — doc type is now per document row
 const docTypePicker = { getValue: () => DEFAULT_DOC_TYPE };
@@ -672,6 +764,15 @@ function createAdditionalDocRow(defaultDocType = null) {
   const searchId = `addDocTypeSearch-${rowId}`;
   const optionsId = `addDocTypeOptions-${rowId}`;
 
+  // Format dropdown IDs
+  const fmtValueId = `addDocFormatValue-${rowId}`;
+  const fmtWrapId = `addDocFormatWrap-${rowId}`;
+  const fmtTriggerId = `addDocFormatTrigger-${rowId}`;
+  const fmtTriggerTextId = `addDocFormatTriggerText-${rowId}`;
+  const fmtDropdownId = `addDocFormatDropdown-${rowId}`;
+  const fmtSearchId = `addDocFormatSearch-${rowId}`;
+  const fmtOptionsId = `addDocFormatOptions-${rowId}`;
+
   // Determine default type: use provided default, or PRD for first row, else RFC
   const existingRows = additionalDocsList?.querySelectorAll(".additional-doc-row") || [];
   const initialType = defaultDocType || (existingRows.length === 0 ? "PRD" : "RFC");
@@ -695,10 +796,17 @@ function createAdditionalDocRow(defaultDocType = null) {
       </div>
       <div class="add-doc-col-format">
         <label class="add-doc-label">Format</label>
-        <select class="form-select form-select-sm add-doc-format">
-          <option value="file" selected>File Upload</option>
-          <option value="link">Lark Link</option>
-        </select>
+        <div class="prompt-select-wrap add-doc-format-wrap" id="${fmtWrapId}">
+          <div class="prompt-select-trigger" id="${fmtTriggerId}" tabindex="0">
+            <span class="prompt-select-trigger-text" id="${fmtTriggerTextId}">File Upload</span>
+            <i class="bi bi-chevron-down" style="font-size:0.75rem;flex-shrink:0;"></i>
+          </div>
+          <div class="prompt-select-dropdown" id="${fmtDropdownId}">
+            <input type="text" class="prompt-select-search" id="${fmtSearchId}" placeholder="Search..." autocomplete="off" />
+            <div class="prompt-select-options" id="${fmtOptionsId}"></div>
+          </div>
+        </div>
+        <input type="hidden" id="${fmtValueId}" class="add-doc-format-value" value="file" />
       </div>
       <div class="add-doc-col-name">
         <label class="add-doc-label">Document Name</label>
@@ -724,6 +832,7 @@ function createAdditionalDocRow(defaultDocType = null) {
 
   additionalDocsList.appendChild(row);
 
+  // Initialize doc type dropdown
   createStaticOptionSelect({
     wrapId,
     triggerId,
@@ -735,9 +844,25 @@ function createAdditionalDocRow(defaultDocType = null) {
     options: DOC_TYPE_OPTIONS,
   });
 
+  // Initialize format dropdown
+  const DOC_FORMAT_OPTIONS = [
+    { value: "file", label: "File Upload", description: "Upload a file (PDF, TXT, MD, etc.)" },
+    { value: "link", label: "Lark Link", description: "Paste a Lark document or wiki URL" },
+  ];
+  createStaticOptionSelect({
+    wrapId: fmtWrapId,
+    triggerId: fmtTriggerId,
+    triggerTextId: fmtTriggerTextId,
+    dropdownId: fmtDropdownId,
+    searchId: fmtSearchId,
+    optionsId: fmtOptionsId,
+    valueId: fmtValueId,
+    options: DOC_FORMAT_OPTIONS,
+  });
+
   const typeValueInput = row.querySelector(".add-doc-type-value");
+  const formatValueInput = row.querySelector(".add-doc-format-value");
   const nameInput = row.querySelector(".add-doc-name");
-  const formatSelect = row.querySelector(".add-doc-format");
   const fileWrap = row.querySelector(".add-doc-file-wrap");
   const linkWrap = row.querySelector(".add-doc-link-wrap");
   const fileInput = row.querySelector(".add-doc-file");
@@ -755,7 +880,7 @@ function createAdditionalDocRow(defaultDocType = null) {
 
   // Format toggle: show file input or link input
   const syncFormatVisibility = () => {
-    const format = formatSelect.value;
+    const format = formatValueInput.value;
     if (format === "link") {
       fileWrap.style.display = "none";
       linkWrap.style.display = "";
@@ -772,8 +897,8 @@ function createAdditionalDocRow(defaultDocType = null) {
     }
   };
 
-  // Lark URL validation
-  const LARK_URL_REGEX = /^https?:\/\/[\w-]+\.(larksuite\.com|feishu\.cn)\/(docx|wiki)\/[\w-]+/i;
+  // Lark URL validation — keep in sync with constants/api/LarkApi.js URL_PATTERNS
+  const LARK_URL_REGEX = /^https?:\/\/[\w-]+(?:\.[\w-]+)*\.(larksuite\.com|feishu\.cn)\/(docx|wiki)\/[\w-]+/i;
   const validateLarkUrl = () => {
     const url = linkInput.value.trim();
     if (!url) {
@@ -789,7 +914,7 @@ function createAdditionalDocRow(defaultDocType = null) {
     return true;
   };
 
-  formatSelect.addEventListener("change", syncFormatVisibility);
+  formatValueInput.addEventListener("change", syncFormatVisibility);
   linkInput.addEventListener("blur", validateLarkUrl);
   linkInput.addEventListener("input", () => {
     if (linkError.style.display !== "none") validateLarkUrl();
@@ -822,11 +947,12 @@ qaForm.addEventListener("submit", async (e) => {
   // Collect all document rows
   const docRows = Array.from(document.querySelectorAll(".additional-doc-row"));
   const docEntries = [];
-  const LARK_URL_REGEX = /^https?:\/\/[\w-]+\.(larksuite\.com|feishu\.cn)\/(docx|wiki)\/[\w-]+/i;
+  // Keep in sync with constants/api/LarkApi.js URL_PATTERNS
+  const LARK_URL_REGEX = /^https?:\/\/[\w-]+(?:\.[\w-]+)*\.(larksuite\.com|feishu\.cn)\/(docx|wiki)\/[\w-]+/i;
 
   let validationError = "";
   for (const row of docRows) {
-    const format = row.querySelector(".add-doc-format")?.value || "file";
+    const format = row.querySelector(".add-doc-format-value")?.value || "file";
     const docType = row.querySelector(".add-doc-type-value")?.value || "OTHER";
     const docName = row.querySelector(".add-doc-name")?.value?.trim() || "";
 
@@ -881,6 +1007,7 @@ qaForm.addEventListener("submit", async (e) => {
   // Build multipart FormData
   const formData = new FormData();
   formData.append("agent", agentPicker.getValue() || DEFAULT_AGENT);
+  formData.append("model", modelPicker.getValue() || "");
   formData.append("projectName", document.getElementById("projectNameInput").value.trim());
   formData.append("feature", document.getElementById("projectNameInput").value.trim());
   formData.append("platforms", Array.from(selectedPlatforms).join(","));

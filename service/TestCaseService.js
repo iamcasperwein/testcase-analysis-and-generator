@@ -1,7 +1,6 @@
 const { ulid } = require("ulid");
 const FileReader = require("../utils/FileReader");
 const {
-    DEFAULT_TEST_CASE_INPUT,
     VALID_PLATFORMS,
     buildTestAnalysisPrompt,
     buildTestCaseGenerationPrompt,
@@ -33,10 +32,7 @@ const getAnalyzeData = async (promptId) => {
 }
 
 const resolvePromptInput = async (input = {}) => {
-    const normalizedInput = normalizePromptInput({
-        ...DEFAULT_TEST_CASE_INPUT,
-        ...input,
-    });
+    const normalizedInput = normalizePromptInput(input);
 
     // If no PRD document has content, try to use existing analysis as fallback
     const prdDoc = Array.isArray(normalizedInput.documents)
