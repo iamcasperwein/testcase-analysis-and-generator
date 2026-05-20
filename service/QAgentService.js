@@ -214,37 +214,40 @@ const normalizeGeneratedTestCases = (generated, featureFallback = "", targetPlat
         ? new Set(targetPlatforms)
         : new Set(VALID_PLATFORMS);
 
-    const normalizedSections = testCaseSections.map((section) => {
+    // Flatten: each TC gets its own section metadata (shared sectionId within the same AI section group)
+    const flatTestCases = [];
+    for (const section of testCaseSections) {
         const sectionCases = Array.isArray(section?.testCases)
             ? section.testCases
             : Array.isArray(section?.testcases)
                 ? section.testcases
                 : [];
 
-        const normalizedCases = sectionCases.map(tc => ({
-            ...tc,
-            platforms: Array.isArray(tc?.platforms)
-                ? tc.platforms.filter(p => allowedPlatforms.has(p))
-                : [],
-        }));
+        const sectionName = String(section?.section || "Uncategorized").trim() || "Uncategorized";
+        const sectionId = `sec_${ulid()}`;
 
-        return {
-            section: {
-                _default: {
-                    name: String(section?.section || "Uncategorized").trim() || "Uncategorized",
-                    sectionId: String(section?.sectionId || "").trim() || `sec_${ulid()}`,
-                    suiteId: null,
-                    sectionSource: "ai",
+        for (const tc of sectionCases) {
+            flatTestCases.push({
+                ...tc,
+                platforms: Array.isArray(tc?.platforms)
+                    ? tc.platforms.filter(p => allowedPlatforms.has(p))
+                    : [],
+                section: {
+                    _default: {
+                        name: sectionName,
+                        sectionId,
+                        suiteId: null,
+                        sectionSource: "ai",
+                    },
                 },
-            },
-            "testCases": normalizedCases,
-        };
-    });
+            });
+        }
+    }
 
     return {
         feature: String(generated?.feature || featureFallback || "").trim(),
         platforms: Array.isArray(generated?.platforms) ? generated.platforms : [],
-        testCases: normalizedSections,
+        testCases: flatTestCases,
     };
 };
 
@@ -406,11 +409,8 @@ const sanitizeSubmissionPayload = (payload = {}) => {
 };
 
 const countTestCases = (data = {}) => {
-    const sections = Array.isArray(data.testCases) ? data.testCases : [];
-    return sections.reduce((sum, section) => {
-        const list = Array.isArray(section?.testCases) ? section.testCases : [];
-        return sum + list.length;
-    }, 0);
+    const testCases = Array.isArray(data.testCases) ? data.testCases : [];
+    return testCases.length;
 };
 
 const processSubmission = async (payload = {}, { isRetry = false } = {}) => {

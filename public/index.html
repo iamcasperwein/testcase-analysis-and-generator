@@ -1036,10 +1036,14 @@
       <!-- Mode toggle: shown when All Platforms active -->
       <div id="bulkMoveModeWrap" style="display:none;" class="mb-2">
         <div class="d-flex gap-2">
-          <button type="button" class="btn btn-sm btn-outline-secondary active" id="bulkMoveModeUnified" data-mode="unified">
+          <button type="button" class="btn btn-sm btn-outline-primary active" id="bulkMoveModeUnified" data-mode="unified"
+            data-bs-toggle="tooltip" data-bs-placement="bottom"
+            data-bs-title="Move all selected test cases to the same section, regardless of platform. The section assignment applies uniformly across all platforms.">
             <i class="bi bi-layers me-1"></i>Same Section (All Platforms)
           </button>
-          <button type="button" class="btn btn-sm btn-outline-secondary" id="bulkMoveModePerPlatform" data-mode="per-platform">
+          <button type="button" class="btn btn-sm btn-outline-dark" id="bulkMoveModePerPlatform" data-mode="per-platform"
+            data-bs-toggle="tooltip" data-bs-placement="bottom"
+            data-bs-title="Assign different sections per platform. Each platform can map to its own TestRail section independently, without affecting other platforms.">
             <i class="bi bi-diagram-3 me-1"></i>Per-Platform Sections
           </button>
         </div>

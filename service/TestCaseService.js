@@ -6,7 +6,7 @@ const {
     buildTestCaseGenerationPrompt,
     normalizePromptInput,
 } = require("../prompts");
-const { getSectionMeta, setSectionMeta, getSectionName, isPerPlatformMeta } = require("./testrail/TestrailService");
+const { getSectionMeta, setSectionMeta, getSectionName } = require("./testrail/TestrailService");
 
 const getTestCases = async (promptId) => {
     const data = FileReader.readDataFile(`testcases/${promptId}.json`);
@@ -213,69 +213,49 @@ const editTestCase = async (promptId, testcaseId, payload = {}) => {
     const fileName = `testcases/${promptId}.json`;
     const rawData = FileReader.readDataFile(fileName);
     const parsedData = JSON.parse(rawData);
-    const sectionGroups = Array.isArray(parsedData.testCases) ? parsedData.testCases : [];
+    const testCases = Array.isArray(parsedData.testCases) ? parsedData.testCases : [];
 
-    let sourceSectionIndex = -1;
-    let sourceTestCaseIndex = -1;
-
-    for (let sectionIndex = 0; sectionIndex < sectionGroups.length; sectionIndex += 1) {
-        const testCases = Array.isArray(sectionGroups[sectionIndex].testCases)
-            ? sectionGroups[sectionIndex].testCases
-            : [];
-        const matchedIndex = testCases.findIndex((testCase) => String(testCase.id || "").trim() === testcaseId);
-
-        if (matchedIndex !== -1) {
-            sourceSectionIndex = sectionIndex;
-            sourceTestCaseIndex = matchedIndex;
-            break;
-        }
-    }
-
-    if (sourceSectionIndex === -1 || sourceTestCaseIndex === -1) {
+    const tcIndex = testCases.findIndex((tc) => String(tc.id || "").trim() === testcaseId);
+    if (tcIndex === -1) {
         const error = new Error("Test case not found");
         error.statusCode = 404;
         throw error;
     }
 
-    const sourceSection = sectionGroups[sourceSectionIndex];
-    const currentTestCase = sourceSection.testCases[sourceTestCaseIndex];
-    const currentSectionName = normalizeSectionName(getSectionName(sourceSection));
-    const nextSectionName = normalizeSectionName(payload.section || currentSectionName);
+    const currentTC = testCases[tcIndex];
     const platformGroup = String(payload.platformGroup || "").trim() || null;
 
-    // Build fallback meta from the source section (platform-aware)
-    const sourceMeta = getSectionMeta(sourceSection, platformGroup);
+    // Build fallback meta from the TC's current section
+    const sourceMeta = getSectionMeta(currentTC, platformGroup);
+    const currentSectionName = normalizeSectionName(getSectionName(currentTC, platformGroup));
+    const nextSectionName = normalizeSectionName(payload.section || currentSectionName);
     const nextSectionMeta = normalizeSectionMeta(payload, {
         sectionId: sourceMeta.sectionId,
         suiteId: sourceMeta.suiteId,
         sectionSource: sourceMeta.sectionSource,
     });
+
     const updatedFields = sanitizeUpdatedTestCase(payload, testcaseId);
     const updatedTestCase = {
-        ...currentTestCase,
+        ...currentTC,
         ...updatedFields,
         id: testcaseId,
     };
 
-    // Per-platform mode: DON'T physically move the TC — just update platform metadata on the current section group
+    // Per-platform mode: update platform-specific section metadata on this TC
     if (platformGroup) {
-        sourceSection.testCases[sourceTestCaseIndex] = updatedTestCase;
-
-        setSectionMeta(sourceSection, platformGroup, {
+        setSectionMeta(updatedTestCase, platformGroup, {
             sectionId: nextSectionMeta.sectionId,
             suiteId: nextSectionMeta.suiteId,
             sectionSource: nextSectionMeta.sectionSource || "testrail",
             name: nextSectionName,
         });
 
-        parsedData.testCases = sectionGroups.filter((section) => {
-            const testCases = Array.isArray(section.testCases) ? section.testCases : [];
-            return testCases.length > 0;
-        });
-
+        testCases[tcIndex] = updatedTestCase;
+        parsedData.testCases = testCases;
         FileReader.writeDataFile(fileName, parsedData);
 
-        const resolvedMeta = getSectionMeta(sourceSection, platformGroup);
+        const resolvedMeta = getSectionMeta(updatedTestCase, platformGroup);
         return {
             promptId,
             testcaseId,
@@ -290,64 +270,19 @@ const editTestCase = async (promptId, testcaseId, payload = {}) => {
         };
     }
 
-    // Non-platform mode: physically move the TC to the target section group
-    sourceSection.testCases.splice(sourceTestCaseIndex, 1);
-
-    // Find target section by sectionId first, then fall back to name
-    const targetSectionId = normalizeOptionalId(payload.sectionId);
-    let targetSection = null;
-    if (targetSectionId != null) {
-        targetSection = sectionGroups.find((section) => {
-            if (!section.section || typeof section.section !== "object") return false;
-            return Object.values(section.section).some(
-                (entry) => entry?.sectionId != null && String(entry.sectionId) === String(targetSectionId)
-            );
-        });
-    }
-    if (!targetSection) {
-        targetSection = sectionGroups.find((section) => {
-            const secName = normalizeSectionName(getSectionName(section));
-            return secName.toLowerCase() === nextSectionName.toLowerCase();
-        });
-    }
-
-    if (!targetSection) {
-        // Create new section group in the new consolidated format
-        // Always generate a fresh sectionId for new sections to avoid inheriting the source section's ID (which causes duplicate keys and prevents the new section from rendering).
-        const freshSectionId = generateLocalSectionId();
-        const newEntry = {
-            name: nextSectionName,
-            sectionId: freshSectionId,
-            suiteId: nextSectionMeta.suiteId,
-            sectionSource: nextSectionMeta.sectionSource,
-        };
-        targetSection = {
-            section: { _default: newEntry },
-            testCases: [],
-        };
-        sectionGroups.push(targetSection);
-        nextSectionMeta.sectionId = freshSectionId;
-    }
-
-    // Write section meta (non-platform: updates _default)
-    setSectionMeta(targetSection, null, {
+    // Unified mode: update _default section metadata on this TC
+    setSectionMeta(updatedTestCase, null, {
         sectionId: nextSectionMeta.sectionId,
         suiteId: nextSectionMeta.suiteId,
         sectionSource: nextSectionMeta.sectionSource || "ai",
         name: nextSectionName,
     });
 
-    targetSection.testCases = Array.isArray(targetSection.testCases) ? targetSection.testCases : [];
-    targetSection.testCases.push(updatedTestCase);
-
-    parsedData.testCases = sectionGroups.filter((section) => {
-        const testCases = Array.isArray(section.testCases) ? section.testCases : [];
-        return testCases.length > 0;
-    });
-
+    testCases[tcIndex] = updatedTestCase;
+    parsedData.testCases = testCases;
     FileReader.writeDataFile(fileName, parsedData);
 
-    const resolvedMeta = getSectionMeta(targetSection, platformGroup);
+    const resolvedMeta = getSectionMeta(updatedTestCase, platformGroup);
     return {
         promptId,
         testcaseId,
@@ -366,38 +301,19 @@ const deleteTestCase = async (promptId, testcaseId) => {
     const fileName = `testcases/${promptId}.json`;
     const rawData = FileReader.readDataFile(fileName);
     const parsedData = JSON.parse(rawData);
-    const sectionGroups = Array.isArray(parsedData.testCases) ? parsedData.testCases : [];
+    const testCases = Array.isArray(parsedData.testCases) ? parsedData.testCases : [];
 
-    let sourceSectionIndex = -1;
-    let sourceTestCaseIndex = -1;
-
-    for (let sectionIndex = 0; sectionIndex < sectionGroups.length; sectionIndex += 1) {
-        const testCases = Array.isArray(sectionGroups[sectionIndex].testCases)
-            ? sectionGroups[sectionIndex].testCases
-            : [];
-        const matchedIndex = testCases.findIndex((testCase) => String(testCase.id || "").trim() === testcaseId);
-
-        if (matchedIndex !== -1) {
-            sourceSectionIndex = sectionIndex;
-            sourceTestCaseIndex = matchedIndex;
-            break;
-        }
-    }
-
-    if (sourceSectionIndex === -1 || sourceTestCaseIndex === -1) {
+    const tcIndex = testCases.findIndex((tc) => String(tc.id || "").trim() === testcaseId);
+    if (tcIndex === -1) {
         const error = new Error("Test case not found");
         error.statusCode = 404;
         throw error;
     }
 
-    const deletedTestCase = sectionGroups[sourceSectionIndex].testCases[sourceTestCaseIndex];
-    sectionGroups[sourceSectionIndex].testCases.splice(sourceTestCaseIndex, 1);
+    const deletedTestCase = testCases[tcIndex];
+    testCases.splice(tcIndex, 1);
 
-    parsedData.testCases = sectionGroups.filter((section) => {
-        const testCases = Array.isArray(section.testCases) ? section.testCases : [];
-        return testCases.length > 0;
-    });
-
+    parsedData.testCases = testCases;
     FileReader.writeDataFile(fileName, parsedData);
 
     return {
@@ -408,17 +324,14 @@ const deleteTestCase = async (promptId, testcaseId) => {
     };
 };
 
-const generateNextTestCaseId = (sectionGroups = []) => {
+const generateNextTestCaseId = (testCases = []) => {
     let maxNum = 0;
-    sectionGroups.forEach((section) => {
-        const testCases = Array.isArray(section.testCases) ? section.testCases : [];
-        testCases.forEach((tc) => {
-            const match = String(tc.id || "").match(/^TC-(\d+)$/i);
-            if (match) {
-                const num = parseInt(match[1], 10);
-                if (num > maxNum) maxNum = num;
-            }
-        });
+    testCases.forEach((tc) => {
+        const match = String(tc.id || "").match(/^TC-(\d+)$/i);
+        if (match) {
+            const num = parseInt(match[1], 10);
+            if (num > maxNum) maxNum = num;
+        }
     });
     return `TC-${String(maxNum + 1).padStart(3, "0")}`;
 };
@@ -427,10 +340,10 @@ const addTestCase = async (promptId, sectionName, payload = {}) => {
     const fileName = `testcases/${promptId}.json`;
     const rawData = FileReader.readDataFile(fileName);
     const parsedData = JSON.parse(rawData);
-    const sectionGroups = Array.isArray(parsedData.testCases) ? parsedData.testCases : [];
+    const testCases = Array.isArray(parsedData.testCases) ? parsedData.testCases : [];
 
     const targetSectionName = normalizeSectionName(sectionName);
-    const newId = generateNextTestCaseId(sectionGroups);
+    const newId = generateNextTestCaseId(testCases);
 
     const newTestCase = sanitizeUpdatedTestCase({
         ...payload,
@@ -447,46 +360,41 @@ const addTestCase = async (promptId, sectionName, payload = {}) => {
     newTestCase.expectedResult = newTestCase.expectedResult || "";
     newTestCase.platforms = newTestCase.platforms || [];
 
-    // Find existing section by sectionId first, then fall back to name
+    // Resolve section metadata: try to inherit from an existing TC in same section, otherwise create fresh
     const incomingSectionId = normalizeOptionalId(payload.sectionId);
-    let targetSection = null;
-    if (incomingSectionId != null) {
-        targetSection = sectionGroups.find((section) => {
-            if (!section.section || typeof section.section !== "object") return false;
-            return Object.values(section.section).some(
-                (entry) => entry?.sectionId != null && String(entry.sectionId) === String(incomingSectionId)
-            );
+    let resolvedSectionId = incomingSectionId;
+    let resolvedSuiteId = normalizeOptionalNumber(payload.suiteId || payload.suite_id);
+    let resolvedSectionSource = String(payload.sectionSource || payload.section_source || "").trim().toLowerCase() || null;
+
+    if (resolvedSectionId == null) {
+        // Look for an existing TC with the same section name to inherit its sectionId
+        const existingTC = testCases.find((tc) => {
+            const tcName = normalizeSectionName(getSectionName(tc));
+            return tcName.toLowerCase() === targetSectionName.toLowerCase();
         });
-    }
-    if (!targetSection) {
-        targetSection = sectionGroups.find(
-            (section) => normalizeSectionName(getSectionName(section)).toLowerCase() === targetSectionName.toLowerCase()
-        );
-    }
-
-    if (!targetSection) {
-        const sectionMeta = normalizeSectionMeta(payload, {});
-        targetSection = {
-            section: {
-                _default: {
-                    name: targetSectionName,
-                    sectionId: sectionMeta.sectionId || generateLocalSectionId(),
-                    suiteId: sectionMeta.suiteId,
-                    sectionSource: sectionMeta.sectionSource || "user",
-                },
-            },
-            testCases: [],
-        };
-        sectionGroups.push(targetSection);
+        if (existingTC) {
+            const existingMeta = getSectionMeta(existingTC);
+            resolvedSectionId = existingMeta.sectionId;
+            resolvedSuiteId = resolvedSuiteId ?? existingMeta.suiteId;
+            resolvedSectionSource = resolvedSectionSource || existingMeta.sectionSource;
+        }
     }
 
-    targetSection.testCases = Array.isArray(targetSection.testCases) ? targetSection.testCases : [];
-    targetSection.testCases.push(newTestCase);
+    // Attach section metadata directly on the TC
+    newTestCase.section = {
+        _default: {
+            name: targetSectionName,
+            sectionId: resolvedSectionId || generateLocalSectionId(),
+            suiteId: resolvedSuiteId ?? null,
+            sectionSource: resolvedSectionSource || "user",
+        },
+    };
 
-    parsedData.testCases = sectionGroups;
+    testCases.push(newTestCase);
+    parsedData.testCases = testCases;
     FileReader.writeDataFile(fileName, parsedData);
 
-    const resolvedMeta = getSectionMeta(targetSection);
+    const resolvedMeta = getSectionMeta(newTestCase);
     return {
         promptId,
         testcaseId: newId,
@@ -505,7 +413,7 @@ const editSectionName = async (promptId, currentSectionName, newSectionName, sec
     const fileName = `testcases/${promptId}.json`;
     const rawData = FileReader.readDataFile(fileName);
     const parsedData = JSON.parse(rawData);
-    const sectionGroups = Array.isArray(parsedData.testCases) ? parsedData.testCases : [];
+    const testCases = Array.isArray(parsedData.testCases) ? parsedData.testCases : [];
 
     const normalizedCurrent = normalizeSectionName(currentSectionName).toLowerCase();
     const normalizedNew = normalizeSectionName(newSectionName);
@@ -516,32 +424,35 @@ const editSectionName = async (promptId, currentSectionName, newSectionName, sec
         throw error;
     }
 
-    // Find the target section by sectionId first, then fall back to name
+    // Find all TCs in the target section (by sectionId first, then name)
     const resolvedSectionId = normalizeOptionalId(sectionId);
-    let targetSection = null;
+    let matchingTCs = [];
+
     if (resolvedSectionId != null) {
-        targetSection = sectionGroups.find((section) => {
-            if (!section.section || typeof section.section !== "object") return false;
-            return Object.values(section.section).some(
+        matchingTCs = testCases.filter((tc) => {
+            if (!tc.section || typeof tc.section !== "object") return false;
+            return Object.values(tc.section).some(
                 (entry) => entry?.sectionId != null && String(entry.sectionId) === String(resolvedSectionId)
             );
         });
     }
-    if (!targetSection) {
-        targetSection = sectionGroups.find(
-            (section) => normalizeSectionName(getSectionName(section)).toLowerCase() === normalizedCurrent
+    if (!matchingTCs.length) {
+        matchingTCs = testCases.filter(
+            (tc) => normalizeSectionName(getSectionName(tc)).toLowerCase() === normalizedCurrent
         );
     }
 
-    if (!targetSection) {
+    if (!matchingTCs.length) {
         const error = new Error("Section not found");
         error.statusCode = 404;
         throw error;
     }
 
-    // Block renaming TestRail sections (check all platform entries)
-    const hasTestrailSource = Object.values(targetSection.section || {}).some(
-        (entry) => String(entry?.sectionSource || "").toLowerCase() === "testrail"
+    // Block renaming TestRail sections
+    const hasTestrailSource = matchingTCs.some((tc) =>
+        Object.values(tc.section || {}).some(
+            (entry) => String(entry?.sectionSource || "").toLowerCase() === "testrail"
+        )
     );
     if (hasTestrailSource) {
         const error = new Error("Cannot rename a TestRail-synced section. Edit the section name directly in TestRail.");
@@ -549,33 +460,119 @@ const editSectionName = async (promptId, currentSectionName, newSectionName, sec
         throw error;
     }
 
-    // Check for name conflict with existing sections
-    const conflicting = sectionGroups.find(
-        (section) =>
-            normalizeSectionName(getSectionName(section)).toLowerCase() === normalizedNew.toLowerCase() &&
-            section !== targetSection
-    );
+    // Check for name conflict with TCs in a different section
+    const conflicting = testCases.find((tc) => {
+        if (matchingTCs.includes(tc)) return false;
+        return normalizeSectionName(getSectionName(tc)).toLowerCase() === normalizedNew.toLowerCase();
+    });
     if (conflicting) {
         const error = new Error(`A section named "${normalizedNew}" already exists`);
         error.statusCode = 409;
         throw error;
     }
 
-    // Update name on all platform entries
-    for (const key of Object.keys(targetSection.section)) {
-        if (targetSection.section[key]?.name != null) {
-            targetSection.section[key].name = normalizedNew;
+    // Update _default name on all matching TCs
+    for (const tc of matchingTCs) {
+        if (tc.section && tc.section._default && tc.section._default.name != null) {
+            tc.section._default.name = normalizedNew;
         }
     }
+
+    parsedData.testCases = testCases;
     FileReader.writeDataFile(fileName, parsedData);
 
+    const sampleMeta = matchingTCs[0]?.section?._default;
     return {
         promptId,
         previousName: currentSectionName,
         newName: normalizedNew,
-        sectionSource: targetSection.section._default?.sectionSource || "ai",
+        sectionSource: sampleMeta?.sectionSource || "ai",
         data: parsedData,
     };
+};
+
+/**
+ * Bulk move test cases to a target section.
+ * Reads file once, updates all TCs atomically, writes once.
+ *
+ * @param {string} promptId
+ * @param {string[]} testcaseIds - IDs of test cases to move
+ * @param {object} target - { sectionName, sectionId, suiteId, sectionSource }
+ * @param {string|null} platformGroup - null for unified mode, string for per-platform
+ */
+const bulkMoveSection = async (promptId, testcaseIds, target, platformGroup = null) => {
+    const fileName = `testcases/${promptId}.json`;
+    const rawData = FileReader.readDataFile(fileName);
+    const parsedData = JSON.parse(rawData);
+    const testCases = Array.isArray(parsedData.testCases) ? parsedData.testCases : [];
+
+    const targetSectionName = normalizeSectionName(target.sectionName);
+    const targetSectionId = normalizeOptionalId(target.sectionId);
+    const targetSuiteId = normalizeOptionalId(target.suiteId) ?? null;
+    const targetSectionSource = String(target.sectionSource || "ai").trim() || "ai";
+
+    const idsToMove = new Set(testcaseIds.map(id => String(id || "").trim()).filter(Boolean));
+    if (!idsToMove.size) {
+        const error = new Error("No valid testcase IDs provided");
+        error.statusCode = 400;
+        throw error;
+    }
+
+    // Per-platform mode: update platform-specific section metadata on each TC
+    if (platformGroup) {
+        let updated = 0;
+        for (const tc of testCases) {
+            if (idsToMove.has(String(tc.id || "").trim())) {
+                setSectionMeta(tc, platformGroup, {
+                    sectionId: targetSectionId,
+                    suiteId: targetSuiteId,
+                    sectionSource: targetSectionSource,
+                    name: targetSectionName,
+                });
+                updated += 1;
+            }
+        }
+
+        parsedData.testCases = testCases;
+        FileReader.writeDataFile(fileName, parsedData);
+        return { promptId, moved: updated, targetSection: targetSectionName, mode: "per-platform", platformGroup };
+    }
+
+    // Unified mode: update _default section metadata on each TC
+    // Resolve the sectionId to use: prefer provided, else find existing TC with that section, else generate fresh
+    let resolvedSectionId = targetSectionId;
+    if (resolvedSectionId == null) {
+        const existingTC = testCases.find((tc) => {
+            if (!idsToMove.has(String(tc.id || "").trim())) {
+                return normalizeSectionName(getSectionName(tc)).toLowerCase() === targetSectionName.toLowerCase();
+            }
+            return false;
+        });
+        if (existingTC) {
+            resolvedSectionId = getSectionMeta(existingTC).sectionId;
+        }
+    }
+    if (resolvedSectionId == null) {
+        resolvedSectionId = generateLocalSectionId();
+    }
+
+    let moved = 0;
+    for (const tc of testCases) {
+        if (idsToMove.has(String(tc.id || "").trim())) {
+            setSectionMeta(tc, null, {
+                sectionId: resolvedSectionId,
+                suiteId: targetSuiteId,
+                sectionSource: targetSectionSource,
+                name: targetSectionName,
+            });
+            moved += 1;
+        }
+    }
+
+    parsedData.testCases = testCases;
+    FileReader.writeDataFile(fileName, parsedData);
+
+    return { promptId, moved, targetSection: targetSectionName, mode: "unified" };
 };
 
 module.exports = {
@@ -585,6 +582,7 @@ module.exports = {
     deleteTestCase,
     addTestCase,
     editSectionName,
+    bulkMoveSection,
     getTestAnalysisPrompt,
     getTestCaseGenerationPrompt,
     resolvePromptInput,
