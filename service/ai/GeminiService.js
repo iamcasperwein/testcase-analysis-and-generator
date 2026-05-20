@@ -3,6 +3,7 @@ const { GoogleAIFileManager } = require("@google/generative-ai/server");
 const fs = require("fs");
 const { buildTestCaseGenerationPrompt, SYSTEM_PROMPT } = require("../../prompts");
 const ConfigLoader = require("../../utils/ConfigLoader");
+const { DEFAULTS, ERROR_CODES } = require("../../constants/api/LLMApi");
 
 const DEFAULT_MODEL = "models/gemini-2.5-flash";
 
@@ -16,7 +17,7 @@ const getGenAI = () => {
     const apiKey = ConfigLoader.get("GEMINI_API_KEY");
     if (!apiKey) {
         const error = new Error("GEMINI_API_KEY is not configured. Set it in Settings to use the Gemini agent.");
-        error.statusCode = 400;
+        error.statusCode = ERROR_CODES.VALIDATION_ERROR;
         throw error;
     }
     // Re-initialize if the key has changed (e.g. updated via Settings)
@@ -34,9 +35,9 @@ const getModel = (modelName) => {
         model: modelName || getDefaultModel(),
         systemInstruction: SYSTEM_PROMPT,
         generationConfig: {
-            temperature: 0.2,
-            topP: 0.95,
-            maxOutputTokens: 16384,
+            temperature: DEFAULTS.TEMPERATURE,
+            topP: DEFAULTS.TOP_P,
+            maxOutputTokens: DEFAULTS.MAX_TOKENS,
         },
     });
 };
@@ -97,30 +98,29 @@ const toFilePart = async (file, label) => {
 
 const buildGeminiInput = async (prompt, options = {}) => {
     console.log("[GeminiService] buildGeminiInput :: start");
-    const uploadedFiles = options.uploadedFiles || {};
-    const additionalDocs = Array.isArray(uploadedFiles.additionalDocs) ? uploadedFiles.additionalDocs : [];
+    const documents = Array.isArray(options.documents) ? options.documents : [];
 
-    const hasFiles = uploadedFiles.prd || uploadedFiles.rfc || uploadedFiles.figma || additionalDocs.length > 0;
-    if (!hasFiles) {
-        console.log("[GeminiService] buildGeminiInput :: no uploaded files, using text-only prompt");
+    // Only include documents that have file paths
+    const docsWithFiles = documents.filter((d) => String(d.path || "").trim());
+
+    if (!docsWithFiles.length) {
+        console.log("[GeminiService] buildGeminiInput :: no documents with files, using text-only prompt");
     } else {
-        console.log(`[GeminiService] buildGeminiInput :: uploading files — prd=${!!uploadedFiles.prd} rfc=${!!uploadedFiles.rfc} figma=${!!uploadedFiles.figma} additional=${additionalDocs.length}`);
+        console.log(`[GeminiService] buildGeminiInput :: uploading ${docsWithFiles.length} document file(s)`);
     }
 
-    const additionalParts = [];
-    for (let i = 0; i < additionalDocs.length; i += 1) {
-        const fileInfo = additionalDocs[i];
-        const label = `Additional doc ${i + 1}: ${fileInfo?.originalName || fileInfo?.filename || "document"}`;
-        const parts = await toFilePart(fileInfo, label);
-        additionalParts.push(...parts);
+    const fileParts = [];
+    for (const doc of docsWithFiles) {
+        const label = `${doc.docType}: ${doc.name || doc.originalName || "document"}`;
+        const fileObj = {
+            uploadPath: doc.path,
+            mimeType: doc.fileInfo?.mimeType || doc.mimeType || "",
+            originalName: doc.name || doc.originalName || "",
+            filename: doc.filename || "",
+        };
+        const parts = await toFilePart(fileObj, label);
+        fileParts.push(...parts);
     }
-
-    const fileParts = [
-        ...await toFilePart(uploadedFiles.prd, "PRD file"),
-        ...await toFilePart(uploadedFiles.rfc, "RFC file"),
-        ...await toFilePart(uploadedFiles.figma, "Figma file"),
-        ...additionalParts,
-    ];
 
     const parts = [
         { text: String(prompt || "") },
@@ -153,7 +153,7 @@ const generateTestCases = async (input = {}) => {
     const prompt = buildTestCaseGenerationPrompt(input);
 
     return generateFromPrompt(prompt, {
-        uploadedFiles: input.uploadedFiles,
+        documents: input.documents,
     });
 };
 

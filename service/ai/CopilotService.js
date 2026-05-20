@@ -2,8 +2,8 @@ const axios = require("axios")
 const { SYSTEM_PROMPT } = require("../../prompts")
 const { estimateTokens } = require("../../utils/TokenEstimator")
 const ConfigLoader = require("../../utils/ConfigLoader")
+const { ENDPOINTS, DEFAULTS, HEADERS, ERROR_CODES } = require("../../constants/api/LLMApi")
 
-const COPILOT_API_URL = "https://models.github.ai/inference/chat/completions"
 const DEFAULT_MODEL = "openai/gpt-4.1"
 
 const MODEL_INPUT_LIMITS = Object.freeze({
@@ -33,14 +33,14 @@ const getApiKey = () => {
 	const apiKey = ConfigLoader.get("GITHUB_TOKEN")
 	if (!apiKey) {
 		const error = new Error("GITHUB_TOKEN is required for GitHub Copilot agent")
-		error.statusCode = 400
+		error.statusCode = ERROR_CODES.VALIDATION_ERROR
 		throw error
 	}
 
 	return apiKey
 }
 
-const getApiUrl = () => ConfigLoader.get("GITHUB_MODELS_API_URL", COPILOT_API_URL)
+const getApiUrl = () => ConfigLoader.get("GITHUB_MODELS_API_URL", ENDPOINTS.COPILOT)
 
 const getDefaultModel = () => ConfigLoader.get("GITHUB_MODEL", DEFAULT_MODEL)
 
@@ -75,7 +75,7 @@ const generateFromPrompt = async (prompt, options = {}) => {
 
 	if (!messagePrompt) {
 		const error = new Error("Prompt is required")
-		error.statusCode = 400
+		error.statusCode = ERROR_CODES.VALIDATION_ERROR
 		throw error
 	}
 
@@ -89,7 +89,7 @@ const generateFromPrompt = async (prompt, options = {}) => {
 			`Input too large for model "${model}": ~${estimatedInputTokens} tokens estimated, limit is ${modelInputLimit}. ` +
 			`Try a model with a higher context window (e.g. openai/gpt-4.1) or reduce the input size.`
 		)
-		error.statusCode = 413
+		error.statusCode = ERROR_CODES.PAYLOAD_TOO_LARGE
 		throw error
 	}
 
@@ -101,10 +101,10 @@ const generateFromPrompt = async (prompt, options = {}) => {
 			apiUrl,
 			{
 				model,
-				...(isReasoningModel ? {} : { temperature: 0.2 }),
+				...(isReasoningModel ? {} : { temperature: DEFAULTS.TEMPERATURE }),
 				...(isReasoningModel
-					? { max_completion_tokens: 16384 }
-					: { max_tokens: 16384 }),
+					? { max_completion_tokens: DEFAULTS.MAX_TOKENS }
+					: { max_tokens: DEFAULTS.MAX_TOKENS }),
 				messages: [
 					{
 						role: "system",
@@ -118,10 +118,10 @@ const generateFromPrompt = async (prompt, options = {}) => {
 			},
 			{
 				headers: {
-					"Content-Type": "application/json",
+					"Content-Type": HEADERS.CONTENT_TYPE,
 					Authorization: `Bearer ${apiKey}`,
 				},
-				timeout: 300000,
+				timeout: DEFAULTS.TIMEOUT_MS,
 			},
 		)
 	} catch (err) {
@@ -129,14 +129,14 @@ const generateFromPrompt = async (prompt, options = {}) => {
 		const detail = err.response?.data?.error?.message || err.response?.data?.message || JSON.stringify(err.response?.data || err.message)
 		console.error(`[CopilotService] API error (${status}): model=${model}, detail=${detail}`)
 		const error = new Error(`GitHub Models API error (${status}): ${detail}`)
-		error.statusCode = err.response?.status || 502
+		error.statusCode = err.response?.status || ERROR_CODES.SERVICE_UNAVAILABLE
 		throw error
 	}
 
 	const text = extractResponseText(response?.data)
 	if (!text) {
 		const error = new Error("GitHub Copilot agent returned an empty response")
-		error.statusCode = 502
+		error.statusCode = ERROR_CODES.SERVICE_UNAVAILABLE
 		throw error
 	}
 

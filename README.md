@@ -30,14 +30,14 @@ The **QE Test Case Generator** is a Node.js / Express backend that ingests produ
 | Problem | Solution |
 |---|---|
 | Manual test-case authoring is slow and inconsistent | LLM-driven generation with a deterministic, structured prompt pipeline |
-| QA loses context when PRDs are scattered across PDFs / Figma | Multi-document ingestion (PDF, MD, TXT, links) merged into a single context |
+| QA loses context when PRDs are scattered across PDFs / Figma | Multi-document ingestion (PDF, MD, TXT, Lark links) merged into a single context |
 | Test cases are hard to track and revise | Persistent prompt records, editable test cases, dashboard analytics |
 | Reusing AI outputs across teams | Stable identifiers (ULID) and file-based artifacts under [data/](data/) |
 | Sensitive credentials must remain local | Local `.env`-driven Settings API, no remote config dependency |
 
 ### Primary Capabilities
 
-- **Submit & Analyze** — Upload PRD/RFC/Figma documents and receive an asynchronous job ID.
+- **Submit & Analyze** — Upload PRD/RFC/Figma documents (file upload or Lark link) and receive an asynchronous job ID.
 - **Two-Stage AI Pipeline** — Step 1 produces an analysis; Step 2 produces test cases grounded on that analysis. Both stages use a dedicated system prompt with expert QA persona and provider-specific configuration (temperature, model routing).
 - **Context-Aware Generation** — Token estimation and context limit validation prevent silent failures on large documents. Few-shot examples and self-evaluation checklists improve output quality on mid-tier models.
 - **CRUD on Test Cases** — Edit, move between sections, and delete generated test cases.
@@ -45,6 +45,7 @@ The **QE Test Case Generator** is a Node.js / Express backend that ingests produ
 - **Runtime Settings** — Manage application secrets (API keys, ports) via a REST surface backed by `.env`.
 - **TestRail Integration** — Fetch test suites and sections from TestRail, select a target suite, auto-create missing sections, and post selected test cases to the correct suite. Multi-suite support allows routing test cases to different suites (e.g. App, Web, Mobile Web, Backend) based on their assigned sections. When posting AI/user-created sections, the root section in TestRail is named **`AIGen - {projectName}`** (e.g. `AIGen - User Authentication`), derived from the prompt's `projectName` in `promptdata.json`. This isolates sections per feature/project, preventing cross-project pollution. Falls back to `"AI generated"` if no project name is available. Local `sec_xxx` section IDs are resolved via name-based lookup against TestRail (not passed directly to the API), ensuring only numeric TestRail IDs are used in API calls. The API response now returns context-aware messages reflecting actual posting results (success, partial, all-failed, all-skipped) with HTTP 207 for complete failures.
 - **Platform-Aware TestRail Sync** — Platform groups (`app`, `mobile-web`, `desktop-web`, `backend`) can each be mapped to a dedicated TestRail suite via a persistent sync config (`data/testrail-sync-config.json`). When posting, the active platform filter determines which suite receives the test cases. Supports both single-platform and **all-platform posting**: when "All Platforms" is active, the system validates that every platform group available in the prompt has a sync config mapping, then iterates over each group and posts to its respective suite independently. Test cases already posted to a specific platform suite are skipped for that platform but still posted to other platforms where they haven't been posted yet (per-platform skip logic). The confirmation dialog shows a per-platform breakdown with target suite names and eligible/skipped counts. If any platform group is missing a sync config mapping, posting is aborted for all platforms with an error listing the missing mappings. The `testrailPost` field on each test case is stored per-platform-group (e.g. `testrailPost.app`, `testrailPost["desktop-web"]`), with legacy single-object format supported via fallback. The Settings page includes a "TestRail Sync" sub-tab for managing platform-to-suite mappings (add, edit, remove). The Move Section dialog auto-loads sections from the mapped suite when a platform filter is active.
+- **Multi-Format Document Input** — Each document row supports either **file upload** (PDF, TXT, MD, etc.) or **Lark link** (Lark Docs/Wiki URLs). Users can mix formats in a single submission (e.g., PRD=Lark link, RFC=PDF, Figma=Lark link). Link-based documents are fetched server-side via the Lark Open API using the official `@larksuiteoapi/node-sdk`. Documents are exported as **Markdown** by default (preserving structure: headings, lists, tables) via the `docs.content.get` API with `content_type: "markdown"`, with a fallback to raw text via the `docx/v1/documents/{id}/raw_content` endpoint. Wiki URLs are automatically resolved to their underlying document token before fetching. The SDK handles tenant access token lifecycle (caching + refresh) automatically. Fetched content is stored to disk for traceability before AI submission. Only valid Lark doc/wiki URLs are accepted (client + server validation with `INVALID_LARK_URL` error code). If Lark document fetching fails (e.g., permission denied, invalid token), the submission is immediately marked as **FAILED** with the error detail logged to the runtime log for user visibility.
 - **Platform Support** — Each test case carries a `platforms` array (`ios`, `android`, `mobile-web`, `desktop-web`, `backend`). The generation form lets users select target platforms (multiselect chips). Test cases display compact **platform icon badges** (Bootstrap Icons: `bi-apple` for iOS, `bi-android2` for Android, `bi-phone` for Mobile Web, `bi-display` for Desktop Web, `bi-hdd-rack` for Backend) with Bootstrap tooltips on hover showing the platform name. A **single-select** platform filter in the toolbar lets users narrow the displayed test cases by one platform at a time — clicking a selected chip deselects it (returning to "All Platforms"), clicking a different chip switches to that platform. The available filter options are **dynamically derived from the prompt's `platforms` array**, so only relevant platform groups are shown (e.g. a prompt with only `["ios", "android"]` will show only the "App" chip). The section sidebar dynamically updates to show only sections with matching test cases when a platform filter is active. When posting to TestRail, the active platform filter is applied server-side to ensure only matching test cases are posted.
 
 ---
@@ -63,7 +64,9 @@ The **QE Test Case Generator** is a Node.js / Express backend that ingests produ
 | Cross-Origin | [cors](https://www.npmjs.com/package/cors) `^2.8.6` |
 | Configuration | [dotenv](https://www.npmjs.com/package/dotenv) `^17.4.2` |
 | AI SDK | [@google/generative-ai](https://www.npmjs.com/package/@google/generative-ai) `^0.24.1` |
-| PDF parsing | [pdf-parse](https://www.npmjs.com/package/pdf-parse) `^2.4.5` |
+| PDF parsing | [pdf-parse](https://www.npmjs.com/package/pdf-parse) `^1.1.1` |
+| HTTP client | [axios](https://www.npmjs.com/package/axios) `^1.15.2` |
+| Lark SDK | [@larksuiteoapi/node-sdk](https://www.npmjs.com/package/@larksuiteoapi/node-sdk) `^1.64.0` |
 | ID generation | [ulid](https://www.npmjs.com/package/ulid) `^2.4.0` |
 | Dev tooling | [nodemon](https://www.npmjs.com/package/nodemon) |
 
@@ -79,6 +82,7 @@ The **QE Test Case Generator** is a Node.js / Express backend that ingests produ
 - **Anthropic Claude API** — Configurable model (default `claude-sonnet-4-6`) with dedicated `system` prompt field and `temperature=0.2`
 - **GitHub Models API** — Configurable model (default `openai/gpt-5-chat`) with system message and `temperature=0.2`
 - **TestRail API** — Suites, Sections + Cases sync (`get_suites`, `get_sections`, `add_section`, `add_cases` / `add_case` fallback)
+- **Lark Open API** — Document content fetching via the official `@larksuiteoapi/node-sdk`. Supports two content formats: Markdown (default, via `docs.content.get` with `content_type: "markdown"`) and raw text (via `docx/v1/documents/{document_id}/raw_content`). Wiki URLs are resolved via `wiki.space.getNode` to their underlying document token. Authentication handled automatically by the SDK (tenant access token with caching/refresh). Supports Lark Docs and Wiki URLs from both `larksuite.com` and `feishu.cn` domains.
 
 ---
 
@@ -438,15 +442,15 @@ sequenceDiagram
     participant API as AI Provider API
     participant FS as File Store (data/)
 
-    Client->>Router: POST /generate/ask (multipart: prd, rfc, figma, agent)
-    Router->>Multer: Stream files to data/uploads/
+    Client->>Router: POST /generate/ask (multipart: documents[], docTypes[], docFormats[], docLinkUrls[], agent)
+    Router->>Multer: Stream file-type docs to data/uploads/
     Multer-->>Ctrl: req.files (saved paths)
-    Ctrl->>Ctrl: Generate ULID promptId & rename files to {promptId}_{TYPE}.{ext}
+    Ctrl->>Ctrl: Generate ULID promptId, build mixed documents array (file + link), rename files
     Ctrl-->>Client: 202 Accepted { promptId, status: QUEUED }
 
     Note over Ctrl,Svc: Background processing (fire-and-forget)
     Ctrl->>Svc: processSubmission(payload)
-    Svc->>Svc: sanitizeSubmissionPayload + enrichDocumentContents (PDF parse)
+    Svc->>Svc: sanitizeSubmissionPayload + enrichDocuments (PDF parse for files, Lark API fetch for links)
     Svc->>Svc: resolveAgent(payload.agent) → AIService + resolveModelName → model
     Svc->>FS: appendPromptRecord (status=RECEIVED → IN_PROGRESS → PROCESSING)
 
@@ -1040,6 +1044,8 @@ Stored in `.env` at the project root and managed at runtime via `/settings/*`.
 | `GITHUB_TOKEN` | ✓ (if using `copilot`) | GitHub token for GitHub Models API |
 | `GITHUB_MODEL` | ✗ (default `openai/gpt-5-chat`) | Model id for Copilot/GitHub Models requests |
 | `GITHUB_MODELS_API_URL` | ✗ | Override for inference endpoint (default `https://models.inference.ai.azure.com/chat/completions`) |
+| `LARK_APP_ID` | ✓ (if using Lark links) | Lark Open Platform App ID |
+| `LARK_APP_SECRET` | ✓ (if using Lark links) | Lark Open Platform App Secret |
 | `OPENAI_API_KEY` | ✗ | Reserved for a future OpenAI agent |
 | `TESTRAIL_URL` | ✗ | Base URL of TestRail instance (planned) |
 | `TESTRAIL_USERNAME` | ✗ | TestRail user (planned) |
@@ -1083,6 +1089,7 @@ qe-test-case-generator/
 │   └── TestrailSyncConfig.js
 ├── service/                 # Business logic
 │   ├── QAgentService.js     # Orchestrates the AI pipeline
+│   ├── LarkService.js       # Lark Open API integration (URL parsing, auth, content fetch)
 │   ├── ClaudeService.js     # Anthropic Claude integration
 │   ├── GeminiService.js     # Google Gemini integration (Strategy/Facade)
 │   ├── CopilotService.js    # GitHub Copilot/GitHub Models integration

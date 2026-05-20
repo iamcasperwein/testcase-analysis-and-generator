@@ -1,3 +1,5 @@
+const { DOC_TYPES, DOC_TYPE_MAP, resolveDocType, getDocTypePriority, sortByPriority } = require("../constants/docTypes");
+
 const SYSTEM_PROMPT = `You are a Senior QE Engineer with 10+ years of experience in test planning, test case design, and quality assessment. You specialize in deriving comprehensive, actionable test cases from product specifications.
 
 Your core principles:
@@ -7,19 +9,7 @@ Your core principles:
 4. If a requirement is ambiguous, create a test case that surfaces the ambiguity rather than assuming intent.
 5. Never invent features or behaviors not stated in the source documents.`;
 
-const DEFAULT_TEST_CASE_INPUT = Object.freeze({
-    feature: "login/register flow",
-    platform: "mobile",
-    platforms: Object.freeze(["ios", "android", "mobile-web", "desktop-web"]),
-    prdText:
-        "The User Experience (UX) and UI flow must prioritize a minimalist, conversion-focused design that guides users through authentication with zero ambiguity. The interface should utilize a progressive disclosure approach—where complex fields are hidden until needed—and provide instant, inline feedback for form validation to prevent error fatigue. For mobile users, the flow must be optimized for thumb-reachability, featuring high-contrast primary action buttons and clearly separated alternative login methods (e.g., social login buttons with recognizable brand logos). Key UI/UX Patterns: Inline Validation: Real-time feedback for password strength and email format directly beneath the input field, Contextual Assistance: Helpful tooltips for password requirements that disappear as conditions are met. Seamless Transitions: Smooth animations between Sign In and Sign Up states to keep the user oriented. Error Recovery: A direct path to the Forgot Password flow from any failed login attempt.",
-    additionalContext: "",
-    documents: Object.freeze({
-        prd: Object.freeze({ name: "", content: "" }),
-        rfc: Object.freeze({ name: "", content: "" }),
-        figma: Object.freeze({ name: "", content: "" }),
-    }),
-});
+const DEFAULT_PLATFORMS = Object.freeze(["ios", "android", "mobile-web", "desktop-web"]);
 
 const VALID_PLATFORMS = ["ios", "android", "mobile-web", "desktop-web", "backend"];
 
@@ -50,175 +40,29 @@ const TEST_CASE_OUTPUT_SCHEMA = `{
     ]
 }`;
 
-const DOCUMENT_LABELS = {
-    prd: "PRD",
-    rfc: "RFC",
-    figma: "FIGMA",
+const PRIORITY_LABELS = {
+    primary: "PRIMARY — source of truth",
+    high: "HIGH — implementation/design detail",
+    medium: "MEDIUM — supporting context",
+    low: "LOW — supplemental reference",
 };
 
 const normalizeText = (value) => String(value || "").trim();
 
 const normalizePlatforms = (value) => {
     if (typeof value === "string") {
-        // Handle comma-separated string or single value
         const parsed = value.split(",").map(s => s.trim().toLowerCase()).filter(Boolean);
         const valid = parsed.filter(p => VALID_PLATFORMS.includes(p));
-        return valid.length > 0 ? valid : [...DEFAULT_TEST_CASE_INPUT.platforms];
+        return valid.length > 0 ? valid : [...DEFAULT_PLATFORMS];
     }
     if (Array.isArray(value) && value.length > 0) {
         const valid = value.map(s => String(s || "").trim().toLowerCase()).filter(p => VALID_PLATFORMS.includes(p));
-        return valid.length > 0 ? valid : [...DEFAULT_TEST_CASE_INPUT.platforms];
+        return valid.length > 0 ? valid : [...DEFAULT_PLATFORMS];
     }
-    return [...DEFAULT_TEST_CASE_INPUT.platforms];
+    return [...DEFAULT_PLATFORMS];
 };
 
-const normalizeDocument = (value, fallbackName = "") => {
-    if (typeof value === "string") {
-        return {
-            name: normalizeText(fallbackName),
-            content: normalizeText(value),
-        };
-    }
-
-    if (!value || typeof value !== "object") {
-        return { name: normalizeText(fallbackName), content: "" };
-    }
-
-    return {
-        name: normalizeText(value.name || fallbackName),
-        content: normalizeText(value.content),
-    };
-};
-
-const parseRawContentDocuments = (rawContent = "") => {
-    const content = normalizeText(rawContent);
-
-    if (!content) {
-        return {
-            documents: {
-                prd: { name: "", content: "" },
-                rfc: { name: "", content: "" },
-                figma: { name: "", content: "" },
-            },
-            supplementalContext: "",
-        };
-    }
-
-    const markerRegex = /(?:^|\n\n)(PRD|RFC|FIGMA) FILE \(([^)]+)\):\n/g;
-    const matches = [...content.matchAll(markerRegex)];
-
-    if (!matches.length) {
-        return {
-            documents: {
-                prd: { name: "", content: "" },
-                rfc: { name: "", content: "" },
-                figma: { name: "", content: "" },
-            },
-            supplementalContext: content,
-        };
-    }
-
-    const documents = {
-        prd: { name: "", content: "" },
-        rfc: { name: "", content: "" },
-        figma: { name: "", content: "" },
-    };
-    const supplementalParts = [];
-    let cursor = 0;
-
-    matches.forEach((match, index) => {
-        const startIndex = match.index ?? 0;
-        const blockPrefix = content.slice(cursor, startIndex).trim();
-
-        if (blockPrefix) {
-            supplementalParts.push(blockPrefix);
-        }
-
-        const docType = String(match[1] || "").toLowerCase();
-        const docName = normalizeText(match[2]);
-        const bodyStart = startIndex + match[0].length;
-        const bodyEnd = index + 1 < matches.length ? (matches[index + 1].index ?? content.length) : content.length;
-        const docContent = content.slice(bodyStart, bodyEnd).trim();
-
-        if (documents[docType]) {
-            documents[docType] = {
-                name: docName,
-                content: docContent,
-            };
-        }
-
-        cursor = bodyEnd;
-    });
-
-    const trailingContent = content.slice(cursor).trim();
-    if (trailingContent) {
-        supplementalParts.push(trailingContent);
-    }
-
-    return {
-        documents,
-        supplementalContext: supplementalParts.join("\n\n").trim(),
-    };
-};
-
-const mergeDocumentSources = (...sources) => {
-    const merged = {
-        prd: { name: "", content: "" },
-        rfc: { name: "", content: "" },
-        figma: { name: "", content: "" },
-    };
-
-    sources.forEach((source) => {
-        if (!source || typeof source !== "object") {
-            return;
-        }
-
-        Object.keys(merged).forEach((docType) => {
-            const nextDocument = normalizeDocument(source[docType]);
-            if (nextDocument.name) {
-                merged[docType].name = nextDocument.name;
-            }
-            if (nextDocument.content) {
-                merged[docType].content = nextDocument.content;
-            }
-        });
-    });
-
-    return merged;
-};
-
-const formatDocumentSection = (docType, document) => {
-    const label = DOCUMENT_LABELS[docType] || String(docType || "").toUpperCase();
-    const docName = normalizeText(document?.name) || `${label.toLowerCase()}-document`;
-    const docContent = normalizeText(document?.content);
-
-    if (!docContent) {
-        return `### ${label}\nNot provided.`;
-    }
-
-    return [
-        `### ${label}`,
-        `File: ${docName}`,
-        "```text",
-        docContent,
-        "```",
-    ].join("\n");
-};
-
-const formatAdditionalDocuments = (additionalDocuments = []) => {
-    if (!Array.isArray(additionalDocuments) || !additionalDocuments.length) return "";
-    const sections = additionalDocuments
-        .filter(doc => doc && (doc.content || doc.name))
-        .map((doc, index) => {
-            const label = resolveAdditionalDocumentLabel(doc, index);
-            const name = normalizeText(doc.name) || label.toLowerCase();
-            const content = normalizeText(doc.content);
-            if (!content) return `### ${label}\nFile: ${name}\nNot extracted (binary or empty).`;
-            return [`### ${label}`, `File: ${name}`, "```text", content, "```"].join("\n");
-        });
-    if (!sections.length) return "";
-    return "\n### Additional Documents\n" + sections.join("\n\n");
-};
+// --- Document formatting (unified) ---
 
 const describeExtractionStatus = (content = "") => {
     const length = normalizeText(content).length;
@@ -227,136 +71,126 @@ const describeExtractionStatus = (content = "") => {
     return `extracted (${length} chars)`;
 };
 
-const resolveAdditionalDocumentLabel = (doc = {}, index = 0) => {
-    const docType = normalizeText(doc?.docType).toUpperCase();
-    const name = normalizeText(doc?.name || doc?.originalName);
-    const genericTypes = new Set(["", "ADDITIONAL", "OTHER", "CUSTOM", "MISC"]);
-    const preferredSource = genericTypes.has(docType) ? name : docType || name;
-    const normalized = normalizeText(preferredSource).toUpperCase();
+/**
+ * Build Document Inventory section for the prompt.
+ * Lists all documents with their type, priority, and extraction status.
+ */
+const buildDocumentInventory = (documents = []) => {
+    if (!documents.length) return "Document Inventory:\n- No documents provided.";
 
-    if (/(^|\b)RFC(\b|$)/i.test(normalized)) return "RFC";
-    if (/(^|\b)FIGMA(\b|$)/i.test(normalized)) return "FIGMA";
-    if (/(^|\b)PRD(\b|$)/i.test(normalized)) return "PRD";
-    return normalized || `ADDITIONAL ${index + 1}`;
-};
-
-const buildDocumentInventory = (documents = {}, additionalDocuments = []) => {
-    const coreRows = ["prd", "rfc", "figma"].map((docType) => {
-        const label = DOCUMENT_LABELS[docType] || String(docType || "").toUpperCase();
-        const doc = documents?.[docType] || {};
-        const name = normalizeText(doc?.name) || "Not provided";
-        const status = describeExtractionStatus(doc?.content);
-        return `- ${label}: ${name} (${status})`;
+    const rows = sortByPriority(documents).map((doc) => {
+        const dtDef = DOC_TYPE_MAP[doc.docType] || { label: doc.docType, priority: "low" };
+        const name = normalizeText(doc.name) || "Unnamed";
+        const status = describeExtractionStatus(doc.content);
+        const priority = PRIORITY_LABELS[dtDef.priority] || dtDef.priority;
+        return `- [${doc.docType}] ${name} — priority: ${priority} (${status})`;
     });
 
-    const additionalRows = Array.isArray(additionalDocuments)
-        ? additionalDocuments.map((doc, index) => {
-            const label = resolveAdditionalDocumentLabel(doc, index);
-            const name = normalizeText(doc?.name) || "Unnamed document";
-            const status = describeExtractionStatus(doc?.content);
-            return `- ${label.toUpperCase()}: ${name} (${status})`;
-        })
-        : [];
+    return ["Document Inventory:", ...rows].join("\n");
+};
+
+/**
+ * Format a single document section for the prompt.
+ */
+const formatDocumentSection = (doc) => {
+    const dtDef = DOC_TYPE_MAP[doc.docType] || { label: doc.docType };
+    const label = dtDef.label || doc.docType;
+    const name = normalizeText(doc.name) || "Unnamed";
+    const content = normalizeText(doc.content);
+
+    if (!content) {
+        return `### ${label}: ${name}\nNot extracted (binary or empty). If this is an attached file, use the file attachment for context.`;
+    }
 
     return [
-        "Document Inventory:",
-        ...coreRows,
-        ...(additionalRows.length ? additionalRows : ["- Additional Documents: None"]),
+        `### ${label}: ${name}`,
+        "```text",
+        content,
+        "```",
     ].join("\n");
 };
 
-const getAttachedDocumentLabels = (documents, input = {}) => {
-    const byText = ["prd", "rfc", "figma"].filter((docType) => documents?.[docType]?.content);
-    const byUpload = ["prd", "rfc", "figma"].filter((docType) => Boolean(input.uploadedFiles?.[docType]));
-    const additionalDocs = Array.isArray(input.additionalDocuments) ? input.additionalDocuments : [];
-    const additionalLabels = additionalDocs
-        .map((doc, index) => resolveAdditionalDocumentLabel(doc, index))
-        .filter(Boolean)
-        .map((value) => value.toUpperCase());
-    const merged = Array.from(new Set([...byText, ...byUpload]));
-    const baseLabels = merged.map((docType) => DOCUMENT_LABELS[docType]);
-    return Array.from(new Set([...baseLabels, ...additionalLabels]));
+/**
+ * Format all documents for prompt inclusion, sorted by priority.
+ */
+const formatAllDocuments = (documents = []) => {
+    const sorted = sortByPriority(documents);
+    if (!sorted.length) return "No documents provided.";
+    return sorted.map(formatDocumentSection).join("\n\n");
 };
 
+/**
+ * Get labels of all attached documents.
+ */
+const getAttachedDocumentLabels = (documents = []) => {
+    return documents.map((doc) => {
+        const dtDef = DOC_TYPE_MAP[doc.docType] || {};
+        return dtDef.label || doc.docType;
+    });
+};
+
+// --- Prompt input normalization ---
+
 const normalizePromptInput = (input = {}) => {
-    const parsedRawContent = parseRawContentDocuments(input.rawContent);
-    const incomingDocuments = input.documents && typeof input.documents === "object" ? input.documents : {};
-    const legacyDocuments = {
-        prd: {
-            name: normalizeText(input.prdUrl),
+    const documents = Array.isArray(input.documents) ? input.documents : [];
+
+    // If no documents but prdText is provided (legacy/fallback), create a synthetic PRD doc
+    if (!documents.length && normalizeText(input.prdText)) {
+        documents.push({
+            docType: "PRD",
+            name: "inline-prd",
             content: normalizeText(input.prdText),
-        },
-        rfc: {
-            name: normalizeText(input.rfcUrl),
-            content: "",
-        },
-        figma: {
-            name: normalizeText(input.figmaUrl),
-            content: "",
-        },
-    };
-
-    const documents = mergeDocumentSources(
-        DEFAULT_TEST_CASE_INPUT.documents,
-        parsedRawContent.documents,
-        legacyDocuments,
-        incomingDocuments
-    );
-
-    const hasUploadedPrdBinary = Boolean(input.uploadMeta?.prdUploaded || input.uploadedFiles?.prd);
-    const hasExplicitPrdInput = Boolean(
-        normalizeText(input.prdText)
-        || normalizeText(input.documents?.prd?.content)
-        || normalizeText(parsedRawContent.documents?.prd?.content)
-        || normalizeText(input.rawContent)
-    );
-
-    if (!documents.prd.content && !hasUploadedPrdBinary && !hasExplicitPrdInput) {
-        documents.prd.content = normalizeText(input.prdText || DEFAULT_TEST_CASE_INPUT.prdText);
+            path: "",
+        });
     }
 
     return {
-        feature: normalizeText(input.feature || DEFAULT_TEST_CASE_INPUT.feature),
-        platform: normalizeText(input.platform || DEFAULT_TEST_CASE_INPUT.platform),
+        feature: normalizeText(input.feature),
+        platform: normalizeText(input.platform),
         platforms: normalizePlatforms(input.platforms),
-        prdText: documents.prd.content,
         additionalContext: [
-            normalizeText(input.additionalContext || DEFAULT_TEST_CASE_INPUT.additionalContext),
+            normalizeText(input.additionalContext),
             normalizeText(input.context),
-            parsedRawContent.supplementalContext,
         ].filter(Boolean).join("\n\n"),
         documents,
-        additionalDocuments: Array.isArray(input.additionalDocuments) ? input.additionalDocuments : [],
     };
 };
 
+// --- Prompt builders ---
+
+const buildPriorityGuidance = () => [
+    "Document Priority Rules:",
+    "- PRIMARY documents (PRD) are the source of truth. Derive all test scope from them.",
+    "- HIGH priority documents (RFC, Figma, API Contract) provide implementation detail, design specs, and API behavior.",
+    "- MEDIUM priority documents (Architecture, Test Plan, User Story) provide supporting context and constraints.",
+    "- LOW priority documents (Release Notes, Other) are supplemental references — consider but do not rely on them for scope.",
+    "- If documents conflict, follow this priority order: PRIMARY > HIGH > MEDIUM > LOW.",
+].join("\n");
+
 const buildTestCaseGenerationPrompt = (input = {}) => {
-    const { feature, platform, platforms, additionalContext, documents, additionalDocuments } = normalizePromptInput(input);
+    const { feature, platforms, additionalContext, documents } = normalizePromptInput(input);
     const analysisContext = String(input.analysisContext || "").trim();
-    const attachedLabels = getAttachedDocumentLabels(documents, input);
-    const documentInventory = buildDocumentInventory(documents, additionalDocuments);
+    const attachedLabels = getAttachedDocumentLabels(documents);
+    const documentInventory = buildDocumentInventory(documents);
     const platformList = platforms.join(", ");
 
     const lines = [
         "Generate test cases for an application in valid JSON only.",
-        "Use the PRD as the primary source of truth. Use RFC and Figma content when provided to refine workflows, business rules, UI states, and edge cases.",
+        "Use the PRIMARY document (PRD) as the source of truth. Use HIGH/MEDIUM/LOW priority documents to refine workflows, business rules, UI states, and edge cases.",
         "Group related cases into sections and keep each test case precise, executable, and review-friendly.",
         "",
-        "Product Context:", 
+        "Product Context:",
         `- Feature: ${feature}`,
         `- Target Platforms: ${platformList}`,
         `- Additional Context: ${additionalContext || "N/A"}`,
-        `- Attached Documents: ${attachedLabels.join(", ") || "PRD only / fallback context"}`,
+        `- Attached Documents: ${attachedLabels.join(", ") || "None"}`,
         "- Some attached files may be binary (PDF/image). Use attached file context in addition to extracted text sections.",
         documentInventory,
         "",
+        buildPriorityGuidance(),
+        "",
         "Source Documents:",
-        formatDocumentSection("prd", documents.prd),
-        "",
-        formatDocumentSection("rfc", documents.rfc),
-        "",
-        formatDocumentSection("figma", documents.figma),
-        formatAdditionalDocuments(additionalDocuments),
+        formatAllDocuments(documents),
     ];
 
     if (analysisContext) {
@@ -380,10 +214,8 @@ const buildTestCaseGenerationPrompt = (input = {}) => {
         "- Return valid JSON only.",
         '- Each section must contain a "testCases" array.',
         "- Derive test case sections from the Testing Analysis scope and edge cases when available.",
-        "- If RFC or Figma is missing, do not invent those details.",
-        "- Consider every entry in Document Inventory and Additional Documents. Do not ignore listed artifacts.",
-        "- If documents conflict, prioritize PRD for scope, then use RFC for implementation detail, then Figma for UI behavior.",
-        "- For additional documents: treat labels containing RFC as implementation guidance, labels containing FIGMA as UI guidance, and others as supporting constraints.",
+        "- If a document is missing, do not invent those details.",
+        "- Consider every document in the Document Inventory. Do not ignore listed artifacts.",
         "- Use concise but complete steps and expected results.",
         "- Each step in the 'steps' array MUST be an object with 'content' (the action) and 'expected' (the expected result for that step).",
         "- If the expected result for a specific step is unknown or not applicable, use 'N/A' as the value.",
@@ -477,41 +309,38 @@ const buildTestCaseGenerationPrompt = (input = {}) => {
 };
 
 const buildTestAnalysisPrompt = (input = {}) => {
-    const { feature, platform, platforms, additionalContext, documents, additionalDocuments } = normalizePromptInput(input);
-    const attachedLabels = getAttachedDocumentLabels(documents, input);
-    const documentInventory = buildDocumentInventory(documents, additionalDocuments);
+    const { feature, platforms, additionalContext, documents } = normalizePromptInput(input);
+    const attachedLabels = getAttachedDocumentLabels(documents);
+    const documentInventory = buildDocumentInventory(documents);
     const platformList = platforms.join(", ");
 
     return [
         "Create a testing analysis document in well-structured Markdown format.",
-        "Use PRD as primary source. Use RFC and Figma only when provided.",
+        "Use the PRIMARY document (PRD) as the source of truth. Use HIGH/MEDIUM/LOW priority documents only when provided.",
         "",
         "Product Context:",
         `- Feature: ${feature}`,
         `- Target Platforms: ${platformList}`,
         `- Additional Context: ${additionalContext || "N/A"}`,
-        `- Attached Documents: ${attachedLabels.join(", ") || "PRD only / fallback context"}`,
+        `- Attached Documents: ${attachedLabels.join(", ") || "None"}`,
         "- Some attached files may be binary (PDF/image). Use attached file context in addition to extracted text sections.",
         documentInventory,
         "",
+        buildPriorityGuidance(),
+        "",
         "Source Documents:",
-        formatDocumentSection("prd", documents.prd),
-        "",
-        formatDocumentSection("rfc", documents.rfc),
-        "",
-        formatDocumentSection("figma", documents.figma),
-        formatAdditionalDocuments(additionalDocuments),
+        formatAllDocuments(documents),
         "",
         "Required document structure (use exactly these markdown headings):",
         "",
         "# Testing Analysis Document",
-        "(Include metadata: Feature, Target Platforms, Primary Source, RFC, Figma, Additional Sources)",
+        "(Include metadata: Feature, Target Platforms, Documents Used with their priority levels)",
         "",
         "## 1. Summary / Overview",
         "(Brief overview of what the feature does and the testing goal)",
         "",
         "## 2. Scope",
-        "(List of functional areas in scope with PRD references if available)",
+        "(List of functional areas in scope with document references if available)",
         "",
         "## 3. Impact Analysis",
         "(How changes affect UX, backend, support, security, performance)",
@@ -530,12 +359,10 @@ const buildTestAnalysisPrompt = (input = {}) => {
         "",
         "Formatting rules:",
         "- Use proper Markdown: ## for sections, ### for subsections, - for bullet lists, **bold** for emphasis.",
-        "- Use tables (Markdown table syntax) where structured data is appropriate (e.g., scope items with PRD ID, Area, Priority).",
+        "- Use tables (Markdown table syntax) where structured data is appropriate (e.g., scope items with Document Source, Area, Priority).",
         "- Do NOT return JSON.",
         "- Keep it concise and actionable.",
-        "- If RFC/Figma is missing, explicitly mention assumptions and avoid invented details.",
-        "- You MUST include an 'Additional Sources' metadata line listing every additional document name from Document Inventory.",
-        "- If any document is marked partial/not extracted, mention that limitation explicitly in assumptions.",
+        "- If a document is missing or has empty content, explicitly mention assumptions.",
         "- When listing test scenarios or cases in the analysis, use the naming pattern: Object + Expectation + Condition (e.g., 'The user should be able to submit the form when all fields are valid').",
     ].join("\n");
 };
@@ -543,11 +370,10 @@ const buildTestAnalysisPrompt = (input = {}) => {
 module.exports = {
     SYSTEM_PROMPT,
     VALID_PLATFORMS,
-    DEFAULT_TEST_CASE_INPUT,
+    DEFAULT_PLATFORMS,
     buildTestAnalysisPrompt,
     buildTestCaseGenerationPrompt,
     formatDocumentSection,
     normalizePromptInput,
     normalizePlatforms,
-    parseRawContentDocuments,
 };

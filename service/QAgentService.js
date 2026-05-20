@@ -10,28 +10,35 @@ const TestCaseService = require("./TestCaseService");
 const GeminiService = require("./ai/GeminiService");
 const ClaudeService = require("./ai/ClaudeService");
 const CopilotService = require("./ai/CopilotService");
+const LiteLLMService = require("./ai/LiteLLMService");
+const LarkService = require("./LarkService");
 const ConfigLoader = require("../utils/ConfigLoader");
 const path = require("path");
 
 const AGENTS = Object.freeze({
     claude: async ({ prompt, payload, model }) => ClaudeService.generateFromPrompt(prompt, {
-        uploadedFiles: payload?.uploadedFiles,
+        documents: payload?.documents,
         model,
     }),
     gemini: async ({ prompt, payload, model }) => GeminiService.generateFromPrompt(prompt, {
-        uploadedFiles: payload?.uploadedFiles,
+        documents: payload?.documents,
         model,
     }),
     copilot: async ({ prompt, payload, model }) => CopilotService.generateFromPrompt(prompt, {
-        uploadedFiles: payload?.uploadedFiles,
+        documents: payload?.documents,
+        model,
+    }),
+    litellm: async ({ prompt, payload, model }) => LiteLLMService.generateFromPrompt(prompt, {
+        documents: payload?.documents,
         model,
     }),
 });
 
 const getDefaultModels = () => ({
-    copilot: ConfigLoader.get("GITHUB_MODEL", "openai/gpt-4.1"),
-    claude: ConfigLoader.get("CLAUDE_MODEL", "claude-sonnet-4-6"),
-    gemini: ConfigLoader.get("GEMINI_MODEL", "models/gemini-2.5-flash"),
+    copilot: ConfigLoader.get("GITHUB_MODEL", ""),
+    claude: ConfigLoader.get("CLAUDE_MODEL", ""),
+    gemini: ConfigLoader.get("GEMINI_MODEL", ""),
+    litellm: ConfigLoader.get("LITELLM_MODEL", ""),
 });
 
 const resolveModelName = (agent = "", payload = {}) => {
@@ -56,6 +63,8 @@ const normalizeAgentName = (value) => {
         "github-copilot": "copilot",
         "github_copilot": "copilot",
         "githubcopilot": "copilot",
+        "lite-llm": "litellm",
+        "lite_llm": "litellm",
     };
     const agentName = aliases[normalized] || normalized;
     return AGENTS[agentName] ? agentName : "claude";
@@ -242,6 +251,7 @@ const normalizeGeneratedTestCases = (generated, featureFallback = "", targetPlat
 const createInitialRecord = ({ promptId, payload, agent, model }) => ({
     promptId,
     projectName: String(payload.projectName || payload.feature || "").trim() || null,
+    feature: String(payload.feature || "").trim() || null,
     status: "RECEIVED",
     agent,
     model: String(model || payload?.model || "").trim() || null,
@@ -251,24 +261,23 @@ const createInitialRecord = ({ promptId, payload, agent, model }) => ({
             ? payload.platforms.split(",").map(s => s.trim().toLowerCase()).filter(Boolean)
             : []),
     docType: String(payload.docType || "").trim() || null,
-    prdUrl: String(payload.prdUrl || payload.documents?.prd?.name || "").trim() || null,
-    rfcUrl: String(payload.rfcUrl || payload.documents?.rfc?.name || "").trim() || null,
-    figmaUrl: String(payload.figmaUrl || payload.documents?.figma?.name || "").trim() || null,
+    documents: Array.isArray(payload.documents)
+        ? payload.documents.map((doc = {}) => ({
+            docType: String(doc.docType || "").trim(),
+            name: String(doc.name || "").trim(),
+            format: String(doc.format || "file").trim(),
+            linkUrl: String(doc.linkUrl || "").trim(),
+            filename: String(doc.filename || "").trim(),
+            originalName: String(doc.originalName || "").trim(),
+            path: String(doc.path || "").trim(),
+        }))
+        : [],
     createdAt: new Date().toISOString(),
     startAt: new Date().toISOString(),
     endAt: null,
     testCaseCount: null,
     resultAnalysis: `analyze/${promptId}.md`,
     resultTestCases: `testcases/${promptId}.json`,
-    additionalDocuments: Array.isArray(payload.additionalDocuments)
-        ? payload.additionalDocuments.map((doc = {}) => ({
-            docType: String(doc.docType || "").trim(),
-            name: String(doc.name || "").trim(),
-            filename: String(doc.filename || "").trim(),
-            originalName: String(doc.originalName || "").trim(),
-            path: String(doc.path || "").trim(),
-        }))
-        : [],
     failureNote: null,
     errorMessage: null,
 });
@@ -296,55 +305,74 @@ const extractTextFromFile = async (filePath = "", logger = null) => {
     }
 };
 
-const enrichDocumentContents = async (documents = {}, logger = null) => {
-    logger?.start("Enriching document contents");
-    const enriched = { ...documents };
-    for (const docType of ["prd", "rfc", "figma"]) {
-        const doc = enriched[docType];
-        if (!doc) {
-            logger?.step("Document not provided, skipping", { docType });
-            continue;
-        }
-        if (String(doc.content || "").trim()) {
-            logger?.step("Document already has content, skipping extraction", { docType, chars: String(doc.content || "").length });
-            continue;
-        }
-        if (!String(doc.path || "").trim()) {
-            logger?.step("Document has no path, skipping extraction", { docType });
-            continue;
-        }
-        logger?.step("Extracting document", { docType, path: doc.path });
-        const extracted = await extractTextFromFile(doc.path, logger);
-        if (extracted) {
-            enriched[docType] = { ...doc, content: extracted };
-            logger?.success("Document enriched", { docType, chars: extracted.length });
-        } else {
-            logger?.warn("Document extraction returned empty", { docType, path: doc.path });
-        }
-    }
-    logger?.success("Document enrichment completed");
-    return enriched;
-};
-
-const enrichAdditionalDocuments = async (additionalDocuments = [], logger = null) => {
-    if (!Array.isArray(additionalDocuments) || !additionalDocuments.length) return [];
+/**
+ * Enrich all documents with extracted text from uploaded files or fetched from links.
+ * Unified: works for any docType (PRD, RFC, FIGMA, etc.) and any format (file, link).
+ */
+const enrichDocuments = async (documents = [], logger = null) => {
+    if (!Array.isArray(documents) || !documents.length) return [];
+    logger?.start("Enriching documents");
     const enriched = [];
-    for (const doc of additionalDocuments) {
+    for (const doc of documents) {
         if (String(doc.content || "").trim()) {
+            logger?.step("Document already has content, skipping", { docType: doc.docType, chars: String(doc.content).length });
             enriched.push(doc);
             continue;
         }
+
+        const format = String(doc.format || "file").toLowerCase();
+
+        if (format === "link") {
+            // Fetch content from Lark URL
+            const linkUrl = String(doc.linkUrl || "").trim();
+            if (!linkUrl) {
+                logger?.warn("Link document has no URL, skipping", { docType: doc.docType });
+                enriched.push(doc);
+                continue;
+            }
+            logger?.step("Fetching document from link", { docType: doc.docType, linkUrl });
+            try {
+                const result = await LarkService.fetchContentFromUrl(linkUrl);
+                const content = result.content || "";
+                logger?.success("Link document fetched", { docType: doc.docType, chars: content.length });
+
+                // Store fetched content to disk for traceability
+                try {
+                    const sanitizedName = `${doc.docType}_link_${Date.now()}.txt`;
+                    FileReader.writeDataFile(`uploads/${sanitizedName}`, content);
+                    logger?.info("Link content stored for traceability", { path: `uploads/${sanitizedName}` });
+                } catch (_) {}
+
+                enriched.push({ ...doc, content });
+            } catch (err) {
+                logger?.fail("Link document fetch failed", {
+                    docType: doc.docType,
+                    linkUrl,
+                    error: err.message,
+                    errorCode: err.code || "LARK_FETCH_FAILED",
+                });
+                // Hard stop: throw to terminate the entire submission
+                throw err;
+            }
+            continue;
+        }
+
+        // File-based document (existing behavior)
         if (!String(doc.path || "").trim()) {
+            logger?.step("Document has no path, skipping", { docType: doc.docType });
             enriched.push(doc);
             continue;
         }
-        logger?.step("Extracting additional document", { docType: doc.docType, name: doc.name });
+        logger?.step("Extracting document", { docType: doc.docType, name: doc.name, path: doc.path });
         const extracted = await extractTextFromFile(doc.path, logger);
         enriched.push({ ...doc, content: extracted || "" });
         if (extracted) {
-            logger?.success("Additional doc enriched", { docType: doc.docType, chars: extracted.length });
+            logger?.success("Document enriched", { docType: doc.docType, chars: extracted.length });
+        } else {
+            logger?.warn("Document extraction returned empty", { docType: doc.docType, path: doc.path });
         }
     }
+    logger?.success("Document enrichment completed", { total: enriched.length });
     return enriched;
 };
 
@@ -354,32 +382,16 @@ const sanitizeSubmissionPayload = (payload = {}) => {
         throw new SubmissionValidationError("projectName is required");
     }
 
-    const hasPrdPath = Boolean(payload.documents?.prd?.path);
-    const hasPrdUrl = Boolean(payload.documents?.prd?.name);
-    const prdContent = String(payload.documents?.prd?.content || payload.prdText || "").trim();
+    // Documents is now a unified array
+    const documents = Array.isArray(payload.documents) ? payload.documents : [];
+
+    // Validate: at least one PRD or some content
+    const hasPrd = documents.some((d) => d.docType === "PRD" && (d.path || d.content || d.linkUrl));
     const rawContent = String(payload.rawContent || "").trim();
 
-    if (!hasPrdPath && !hasPrdUrl && !prdContent && !rawContent) {
+    if (!hasPrd && !rawContent) {
         throw new SubmissionValidationError("PRD is required. Upload a PRD file or provide PRD content.");
     }
-
-    const normalizedDocuments = {
-        prd: {
-            name: String(payload.documents?.prd?.name || payload.prdUrl || "").trim(),
-            path: String(payload.documents?.prd?.path || "").trim(),
-            content: prdContent || rawContent,
-        },
-        rfc: {
-            name: String(payload.documents?.rfc?.name || payload.rfcUrl || "").trim(),
-            path: String(payload.documents?.rfc?.path || "").trim(),
-            content: String(payload.documents?.rfc?.content || "").trim(),
-        },
-        figma: {
-            name: String(payload.documents?.figma?.name || payload.figmaUrl || "").trim(),
-            path: String(payload.documents?.figma?.path || "").trim(),
-            content: String(payload.documents?.figma?.content || "").trim(),
-        },
-    };
 
     return {
         ...payload,
@@ -388,10 +400,7 @@ const sanitizeSubmissionPayload = (payload = {}) => {
         projectName,
         feature: String(payload.feature || projectName).trim(),
         platforms: normalizePlatforms(payload.platforms),
-        documents: normalizedDocuments,
-        prdUrl: String(payload.prdUrl || normalizedDocuments.prd.name || "").trim(),
-        rfcUrl: String(payload.rfcUrl || normalizedDocuments.rfc.name || "").trim(),
-        figmaUrl: String(payload.figmaUrl || normalizedDocuments.figma.name || "").trim(),
+        documents,
         context: String(payload.context || "").trim(),
     };
 };
@@ -426,10 +435,7 @@ const processSubmission = async (payload = {}, { isRetry = false } = {}) => {
     }
     logger.success("Payload validated", {
         projectName: validatedPayload.projectName,
-        docType: validatedPayload.docType,
-        prdUrl: validatedPayload.prdUrl,
-        rfcUrl: validatedPayload.rfcUrl,
-        figmaUrl: validatedPayload.figmaUrl,
+        documents: (validatedPayload.documents || []).map(d => ({ docType: d.docType, name: d.name })),
     });
 
     const agent = normalizeAgentName(validatedPayload.agent || validatedPayload.agentName);
@@ -477,6 +483,7 @@ const processSubmission = async (payload = {}, { isRetry = false } = {}) => {
                     gemini: "GEMINI_API_KEY",
                     copilot: "GITHUB_TOKEN",
                     claude: "CLAUDE_API_KEY",
+                    litellm: "LITELLM_API_KEY (optional) and LITELLM_BASE_URL",
                 };
                 const requiredKey = agentKeyMap[agent] || `API key for "${agent}"`;
                 const msg = [
@@ -496,12 +503,7 @@ const processSubmission = async (payload = {}, { isRetry = false } = {}) => {
         }
     };
 
-    // Enrich documents with extracted text from uploaded files
-    logger.step("Enriching document contents");
-    validatedPayload.documents = await enrichDocumentContents(validatedPayload.documents, logger);
-    validatedPayload.additionalDocuments = await enrichAdditionalDocuments(validatedPayload.additionalDocuments || [], logger);
-    logger.success("Document enrichment complete", { additionalDocs: validatedPayload.additionalDocuments.length });
-
+    // Create prompt record BEFORE enrichment so failures are trackable
     if (!isRetry) {
         appendPromptRecord(createInitialRecord({ promptId, payload: validatedPayload, agent, model: selectedModel }));
         logger.success("Prompt record created", { status: "RECEIVED" });
@@ -510,6 +512,24 @@ const processSubmission = async (payload = {}, { isRetry = false } = {}) => {
             model: selectedModel || null,
         });
     }
+
+    // Enrich documents with extracted text from uploaded files or Lark links
+    logger.step("Enriching documents");
+    try {
+        validatedPayload.documents = await enrichDocuments(validatedPayload.documents, logger);
+    } catch (enrichError) {
+        const errorMsg = String(enrichError?.message || enrichError || "Document enrichment failed");
+        logger.fail(enrichError, { stage: "enrichDocuments", promptId });
+        updatePromptRecord(promptId, {
+            status: "FAILED",
+            endAt: new Date().toISOString(),
+            failureNote: errorMsg,
+            errorMessage: errorMsg,
+        });
+        enrichError.promptId = promptId;
+        throw enrichError;
+    }
+    logger.success("Document enrichment complete", { totalDocs: validatedPayload.documents.length });
 
     updatePromptRecord(promptId, { status: isRetry ? "RETRYING" : "IN_PROGRESS", startAt: new Date().toISOString(), endAt: null, failureNote: null, errorMessage: null });
     logger.info("Status updated", { status: isRetry ? "RETRYING" : "IN_PROGRESS" });

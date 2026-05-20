@@ -17,7 +17,6 @@ const storage = multer.diskStorage({
         cb(null, uploadsDir)
     },
     filename: (req, file, cb) => {
-        // Save with timestamp to avoid collisions
         const timestamp = Date.now()
         const ext = path.extname(file.originalname)
         const name = path.basename(file.originalname, ext)
@@ -30,9 +29,9 @@ const upload = multer({
     limits: { fileSize: 10 * 1024 * 1024 }, // 10MB per file
 })
 
+// Unified: all files come under "documents" field
 router.post("/ask", upload.fields([
-    { name: "prd", maxCount: 1 },
-    { name: "additionalDocs", maxCount: 20 },
+    { name: "documents", maxCount: 20 },
 ]), QAgent.askAi)
 
 router.post("/retry/:promptId", QAgent.retryPrompt)

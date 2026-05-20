@@ -1,7 +1,6 @@
 const { ulid } = require("ulid");
 const FileReader = require("../utils/FileReader");
 const {
-    DEFAULT_TEST_CASE_INPUT,
     VALID_PLATFORMS,
     buildTestAnalysisPrompt,
     buildTestCaseGenerationPrompt,
@@ -19,28 +18,41 @@ const getAnalyzeData = async (promptId) => {
         return FileReader.readDataFile(`analyze/${promptId}.md`);
     } catch (error) {
         if (error.code === "ENOENT") {
-            return FileReader.readDataFile(`analyze/${promptId}.txt`);
+            try {
+                return FileReader.readDataFile(`analyze/${promptId}.txt`);
+            } catch (innerError) {
+                if (innerError.code === "ENOENT") {
+                    return "";
+                }
+                throw innerError;
+            }
         }
         throw error;
     }
 }
 
 const resolvePromptInput = async (input = {}) => {
-    const normalizedInput = normalizePromptInput({
-        ...DEFAULT_TEST_CASE_INPUT,
-        ...input,
-    });
+    const normalizedInput = normalizePromptInput(input);
 
-    if (!String(normalizedInput.documents?.prd?.content || "").trim() && String(input.promptId || "").trim()) {
+    // If no PRD document has content, try to use existing analysis as fallback
+    const prdDoc = Array.isArray(normalizedInput.documents)
+        ? normalizedInput.documents.find((d) => d.docType === "PRD")
+        : null;
+    const hasPrdContent = prdDoc && String(prdDoc.content || "").trim();
+
+    if (!hasPrdContent && String(input.promptId || "").trim()) {
         const analyzeData = await getAnalyzeData(String(input.promptId).trim());
-        normalizedInput.documents = {
-            ...normalizedInput.documents,
-            prd: {
-                name: normalizedInput.documents?.prd?.name || `${String(input.promptId).trim()}.md`,
+        if (analyzeData && prdDoc) {
+            prdDoc.content = analyzeData;
+        } else if (analyzeData) {
+            normalizedInput.documents = normalizedInput.documents || [];
+            normalizedInput.documents.unshift({
+                docType: "PRD",
+                name: `${String(input.promptId).trim()}.md`,
                 content: analyzeData,
-            },
-        };
-        normalizedInput.prdText = analyzeData;
+                path: "",
+            });
+        }
     }
 
     return normalizedInput;
@@ -51,8 +63,6 @@ const getTestCaseGenerationPrompt = async (input = {}) => {
     return buildTestCaseGenerationPrompt({
         ...promptInput,
         analysisContext: String(input.analysisContext || "").trim(),
-        uploadedFiles: input.uploadedFiles,
-        uploadMeta: input.uploadMeta,
     });
 };
 
@@ -60,8 +70,6 @@ const getTestAnalysisPrompt = async (input = {}) => {
     const promptInput = await resolvePromptInput(input);
     return buildTestAnalysisPrompt({
         ...promptInput,
-        uploadedFiles: input.uploadedFiles,
-        uploadMeta: input.uploadMeta,
     });
 };
 

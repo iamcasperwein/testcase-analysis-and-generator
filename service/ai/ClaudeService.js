@@ -1,15 +1,15 @@
 const axios = require("axios")
 const { SYSTEM_PROMPT } = require("../../prompts")
 const ConfigLoader = require("../../utils/ConfigLoader")
+const { ENDPOINTS, DEFAULTS, HEADERS, ERROR_CODES } = require("../../constants/api/LLMApi")
 
-const CLAUDE_API_URL = "https://api.anthropic.com/v1/messages"
 const DEFAULT_MODEL = "claude-sonnet-4-6"
 
 const getApiKey = () => {
 	const apiKey = ConfigLoader.get("CLAUDE_API_KEY")
 	if (!apiKey) {
 		const error = new Error("CLAUDE_API_KEY is required for Claude service")
-		error.statusCode = 400
+		error.statusCode = ERROR_CODES.VALIDATION_ERROR
 		throw error
 	}
 
@@ -25,16 +25,16 @@ const generateFromPrompt = async (prompt, options = {}) => {
 
 	if (!messagePrompt) {
 		const error = new Error("Prompt is required")
-		error.statusCode = 400
+		error.statusCode = ERROR_CODES.VALIDATION_ERROR
 		throw error
 	}
 
 	const response = await axios.post(
-		CLAUDE_API_URL,
+		ENDPOINTS.CLAUDE,
 		{
 			model,
-			max_tokens: 16384,
-			temperature: 0.2,
+			max_tokens: DEFAULTS.MAX_TOKENS,
+			temperature: DEFAULTS.TEMPERATURE,
 			system: SYSTEM_PROMPT,
 			messages: [
 				{
@@ -50,11 +50,11 @@ const generateFromPrompt = async (prompt, options = {}) => {
 		},
 		{
 			headers: {
-				"Content-Type": "application/json",
+				"Content-Type": HEADERS.CONTENT_TYPE,
 				"x-api-key": apiKey,
-				"anthropic-version": "2023-06-01",
+				"anthropic-version": DEFAULTS.ANTHROPIC_VERSION,
 			},
-			timeout: 300000,
+			timeout: DEFAULTS.TIMEOUT_MS,
 		},
 	)
 
@@ -67,7 +67,7 @@ const generateFromPrompt = async (prompt, options = {}) => {
 
 	if (!text) {
 		const error = new Error("Claude returned an empty response")
-		error.statusCode = 502
+		error.statusCode = ERROR_CODES.SERVICE_UNAVAILABLE
 		throw error
 	}
 
