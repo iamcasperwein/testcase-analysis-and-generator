@@ -2298,7 +2298,7 @@ function openViewModal(tc) {
     platforms.forEach(p => {
       const badge = document.createElement("span");
       badge.className = `tc-view-platform-badge tc-platform-${p}`;
-      const opt = PLATFORM_OPTIONS.find(o => o.value === p);
+      const opt = EDIT_PLATFORM_OPTIONS.find(o => o.value === p);
       badge.innerHTML = `<i class="bi ${opt ? opt.icon : "bi-question-circle"}"></i> ${opt ? opt.label : p}`;
       platformContainer.appendChild(badge);
     });
