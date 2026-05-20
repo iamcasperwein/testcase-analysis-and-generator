@@ -234,6 +234,7 @@ const retryPrompt = async (req, res) => {
 			projectName: record.projectName || "",
 			feature: record.feature || record.projectName || "",
 			agent: record.agent || "claude",
+			model: record.model || "",
 			platforms: record.platforms || [],
 			documents: inferDocumentsFromUploads(uploadsDir, promptId, record.documents),
 		};

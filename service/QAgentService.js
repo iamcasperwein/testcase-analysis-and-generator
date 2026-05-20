@@ -35,10 +35,10 @@ const AGENTS = Object.freeze({
 });
 
 const getDefaultModels = () => ({
-    copilot: ConfigLoader.get("GITHUB_MODEL", "openai/gpt-4.1"),
-    claude: ConfigLoader.get("CLAUDE_MODEL", "claude-sonnet-4-6"),
-    gemini: ConfigLoader.get("GEMINI_MODEL", "models/gemini-2.5-flash"),
-    litellm: ConfigLoader.get("LITELLM_MODEL", "gpt-4o"),
+    copilot: ConfigLoader.get("GITHUB_MODEL", ""),
+    claude: ConfigLoader.get("CLAUDE_MODEL", ""),
+    gemini: ConfigLoader.get("GEMINI_MODEL", ""),
+    litellm: ConfigLoader.get("LITELLM_MODEL", ""),
 });
 
 const resolveModelName = (agent = "", payload = {}) => {

@@ -163,11 +163,13 @@ const generateFromPrompt = async (prompt, options = {}) => {
 
 	let response
 	try {
+		const isNoTempModel = /\b(opus|o[1-9]|o3|o4)\b/i.test(model)
+
 		response = await axios.post(
 			apiUrl,
 			{
 				model,
-				temperature: DEFAULTS.TEMPERATURE,
+				...(isNoTempModel ? {} : { temperature: DEFAULTS.TEMPERATURE }),
 				max_tokens: DEFAULTS.MAX_TOKENS,
 				messages: [
 					{

@@ -1,14 +1,14 @@
 // --- Constants ---
 const AGENTS = Object.freeze([
+  { value: "litellm", label: "LiteLLM", description: "Unified LLM proxy (any provider)" },
   { value: "copilot", label: "GitHub Copilot", description: "GitHub Models via Copilot token" },
   // { value: "claude", label: "Claude", description: "Anthropic Claude model" },
-  { value: "gemini", label: "Gemini", description: "Google Gemini model" },
-  { value: "litellm", label: "LiteLLM", description: "Unified LLM proxy (any provider)" },
+  // { value: "gemini", label: "Gemini", description: "Google Gemini model" },
 ]);
 
 const DOC_TYPES = Object.freeze([]); // Deprecated — doc types are now per-document row
 
-const DEFAULT_AGENT = "copilot";
+const DEFAULT_AGENT = "litellm";
 const DEFAULT_DOC_TYPE = "prd";
 
 // --- Helper: simple fetch wrapper ---
@@ -798,7 +798,7 @@ function createAdditionalDocRow(defaultDocType = null) {
         <label class="add-doc-label">Format</label>
         <div class="prompt-select-wrap add-doc-format-wrap" id="${fmtWrapId}">
           <div class="prompt-select-trigger" id="${fmtTriggerId}" tabindex="0">
-            <span class="prompt-select-trigger-text" id="${fmtTriggerTextId}">File Upload</span>
+            <span class="prompt-select-trigger-text" id="${fmtTriggerTextId}">Lark Link</span>
             <i class="bi bi-chevron-down" style="font-size:0.75rem;flex-shrink:0;"></i>
           </div>
           <div class="prompt-select-dropdown" id="${fmtDropdownId}">
@@ -806,18 +806,14 @@ function createAdditionalDocRow(defaultDocType = null) {
             <div class="prompt-select-options" id="${fmtOptionsId}"></div>
           </div>
         </div>
-        <input type="hidden" id="${fmtValueId}" class="add-doc-format-value" value="file" />
-      </div>
-      <div class="add-doc-col-name">
-        <label class="add-doc-label">Document Name</label>
-        <input type="text" class="form-control form-control-sm add-doc-name" placeholder="${initialLabel} document" />
+        <input type="hidden" id="${fmtValueId}" class="add-doc-format-value" value="link" />
       </div>
       <div class="add-doc-col-input">
-        <label class="add-doc-label add-doc-input-label">File</label>
-        <div class="add-doc-file-wrap">
+        <label class="add-doc-label add-doc-input-label">URL</label>
+        <div class="add-doc-file-wrap" style="display:none;">
           <input type="file" class="form-control form-control-sm add-doc-file" accept=".txt,.md,.pdf,.doc,.docx,.json,.csv,.png,.jpg,.jpeg" />
         </div>
-        <div class="add-doc-link-wrap" style="display:none;">
+        <div class="add-doc-link-wrap">
           <input type="url" class="form-control form-control-sm add-doc-link-url" placeholder="https://xxx.larksuite.com/docx/..." />
           <div class="add-doc-link-error text-danger" style="font-size:0.72rem;margin-top:2px;display:none;"></div>
         </div>
@@ -846,8 +842,8 @@ function createAdditionalDocRow(defaultDocType = null) {
 
   // Initialize format dropdown
   const DOC_FORMAT_OPTIONS = [
-    { value: "file", label: "File Upload", description: "Upload a file (PDF, TXT, MD, etc.)" },
     { value: "link", label: "Lark Link", description: "Paste a Lark document or wiki URL" },
+    { value: "file", label: "File Upload", description: "Upload a file (PDF, TXT, MD, etc.)" },
   ];
   createStaticOptionSelect({
     wrapId: fmtWrapId,
@@ -862,7 +858,6 @@ function createAdditionalDocRow(defaultDocType = null) {
 
   const typeValueInput = row.querySelector(".add-doc-type-value");
   const formatValueInput = row.querySelector(".add-doc-format-value");
-  const nameInput = row.querySelector(".add-doc-name");
   const fileWrap = row.querySelector(".add-doc-file-wrap");
   const linkWrap = row.querySelector(".add-doc-link-wrap");
   const fileInput = row.querySelector(".add-doc-file");
@@ -870,13 +865,6 @@ function createAdditionalDocRow(defaultDocType = null) {
   const linkError = row.querySelector(".add-doc-link-error");
   const inputLabel = row.querySelector(".add-doc-input-label");
   const removeButton = row.querySelector(".remove-doc-btn");
-
-  const syncNamePlaceholder = () => {
-    const selectedType = String(typeValueInput?.value || "Other").trim();
-    if (!nameInput.value.trim()) {
-      nameInput.placeholder = selectedType === "Other" ? "Document name (optional)" : `${selectedType} document`;
-    }
-  };
 
   // Format toggle: show file input or link input
   const syncFormatVisibility = () => {
@@ -920,15 +908,11 @@ function createAdditionalDocRow(defaultDocType = null) {
     if (linkError.style.display !== "none") validateLarkUrl();
   });
 
-  const onTypeChange = () => syncNamePlaceholder();
-  typeValueInput?.addEventListener("change", onTypeChange);
-
   removeButton?.addEventListener("click", () => {
     row.remove();
     updateAdditionalDocHelper();
   });
 
-  syncNamePlaceholder();
   syncFormatVisibility();
   updateAdditionalDocHelper();
 }
@@ -954,7 +938,6 @@ qaForm.addEventListener("submit", async (e) => {
   for (const row of docRows) {
     const format = row.querySelector(".add-doc-format-value")?.value || "file";
     const docType = row.querySelector(".add-doc-type-value")?.value || "OTHER";
-    const docName = row.querySelector(".add-doc-name")?.value?.trim() || "";
 
     if (format === "link") {
       const linkUrl = row.querySelector(".add-doc-link-url")?.value?.trim() || "";
@@ -966,11 +949,11 @@ qaForm.addEventListener("submit", async (e) => {
         validationError = `${docType} document: Invalid Lark URL. Only Lark doc/wiki URLs are supported.`;
         break;
       }
-      docEntries.push({ format: "link", docType, docName: docName || `${docType} (link)`, linkUrl, file: null });
+      docEntries.push({ format: "link", docType, docName: `${docType} (link)`, linkUrl, file: null });
     } else {
       const file = row.querySelector(".add-doc-file")?.files?.[0] || null;
       if (!file) continue; // skip empty file rows
-      docEntries.push({ format: "file", docType, docName: docName || file.name, linkUrl: "", file });
+      docEntries.push({ format: "file", docType, docName: file.name, linkUrl: "", file });
     }
   }
 
@@ -1013,7 +996,7 @@ qaForm.addEventListener("submit", async (e) => {
   formData.append("platforms", Array.from(selectedPlatforms).join(","));
   formData.append("context", document.getElementById("contextInput")?.value?.trim() || "");
 
-  // Documents: parallel arrays for docTypes, docNames, docFormats, docLinkUrls
+  // Documents: parallel arrays for docTypes, docFormats, docLinkUrls
   // Files go under "documents" field (only for format=file entries)
   for (const entry of docEntries) {
     formData.append("docTypes", entry.docType);
