@@ -12,6 +12,7 @@ const ClaudeService = require("./ai/ClaudeService");
 const CopilotService = require("./ai/CopilotService");
 const LiteLLMService = require("./ai/LiteLLMService");
 const LarkService = require("./LarkService");
+const FigmaService = require("./FigmaService");
 const ConfigLoader = require("../utils/ConfigLoader");
 const path = require("path");
 
@@ -247,6 +248,8 @@ const normalizeGeneratedTestCases = (generated, featureFallback = "", targetPlat
     return {
         feature: String(generated?.feature || featureFallback || "").trim(),
         platforms: Array.isArray(generated?.platforms) ? generated.platforms : [],
+        assumptions: Array.isArray(generated?.assumptions) ? generated.assumptions : [],
+        documentConflicts: Array.isArray(generated?.documentConflicts) ? generated.documentConflicts : [],
         testCases: flatTestCases,
     };
 };
@@ -312,10 +315,11 @@ const extractTextFromFile = async (filePath = "", logger = null) => {
  * Enrich all documents with extracted text from uploaded files or fetched from links.
  * Unified: works for any docType (PRD, RFC, FIGMA, etc.) and any format (file, link).
  */
-const enrichDocuments = async (documents = [], logger = null) => {
+const enrichDocuments = async (documents = [], logger = null, promptId = "") => {
     if (!Array.isArray(documents) || !documents.length) return [];
     logger?.start("Enriching documents");
     const enriched = [];
+    let figmaCounter = 0;
     for (const doc of documents) {
         if (String(doc.content || "").trim()) {
             logger?.step("Document already has content, skipping", { docType: doc.docType, chars: String(doc.content).length });
@@ -326,13 +330,54 @@ const enrichDocuments = async (documents = [], logger = null) => {
         const format = String(doc.format || "file").toLowerCase();
 
         if (format === "link") {
-            // Fetch content from Lark URL
             const linkUrl = String(doc.linkUrl || "").trim();
             if (!linkUrl) {
                 logger?.warn("Link document has no URL, skipping", { docType: doc.docType });
                 enriched.push(doc);
                 continue;
             }
+
+            // Route Figma URLs to FigmaService
+            if (FigmaService.isFigmaUrl(linkUrl)) {
+                logger?.step("Fetching Figma design document", { docType: doc.docType, linkUrl });
+                try {
+                    const figmaToken = ConfigLoader.get("FIGMA_ACCESS_TOKEN");
+                    if (!figmaToken) {
+                        throw Object.assign(new Error("FIGMA_ACCESS_TOKEN not configured. Set it in Settings."), { code: "FIGMA_TOKEN_MISSING" });
+                    }
+                    const result = await FigmaService.enrichFigmaDocument(linkUrl, figmaToken);
+                    const content = result.content || "";
+                    logger?.success("Figma document enriched", { docType: doc.docType, chars: content.length, hasImage: !!result.imageBuffer });
+
+                    // Store raw Figma JSON for traceability
+                    try {
+                        figmaCounter++;
+                        const suffix = figmaCounter > 1 ? `_${String(figmaCounter).padStart(2, "0")}` : "";
+                        const rawFileName = `fgm_${promptId}${suffix}.json`;
+                        FileReader.writeDataFile(`figma/${rawFileName}`, JSON.stringify(result.rawData, null, 2));
+                        logger?.info("Figma raw data stored", { path: `data/figma/${rawFileName}` });
+                    } catch (_) {}
+
+                    const enrichedDoc = { ...doc, content };
+                    // Attach image buffer for multimodal AI (Gemini/Claude)
+                    if (result.imageBuffer) {
+                        enrichedDoc.imageBuffer = result.imageBuffer;
+                        enrichedDoc.imageMimeType = "image/png";
+                    }
+                    enriched.push(enrichedDoc);
+                } catch (err) {
+                    logger?.fail("Figma document fetch failed", {
+                        docType: doc.docType,
+                        linkUrl,
+                        error: err.message,
+                        errorCode: err.code || "FIGMA_FETCH_FAILED",
+                    });
+                    throw err;
+                }
+                continue;
+            }
+
+            // Fetch content from Lark URL
             logger?.step("Fetching document from link", { docType: doc.docType, linkUrl });
             try {
                 const result = await LarkService.fetchContentFromUrl(linkUrl);
@@ -509,14 +554,19 @@ const processSubmission = async (payload = {}, { isRetry = false } = {}) => {
         logger.success("Prompt record created", { status: "RECEIVED" });
     } else {
         updatePromptRecord(promptId, {
+            status: "PROCESSING",
             model: selectedModel || null,
+            endAt: null,
+            failureNote: null,
+            errorMessage: null,
         });
+        logger.success("Prompt record updated for retry", { status: "PROCESSING" });
     }
 
     // Enrich documents with extracted text from uploaded files or Lark links
     logger.step("Enriching documents");
     try {
-        validatedPayload.documents = await enrichDocuments(validatedPayload.documents, logger);
+        validatedPayload.documents = await enrichDocuments(validatedPayload.documents, logger, promptId);
     } catch (enrichError) {
         const errorMsg = String(enrichError?.message || enrichError || "Document enrichment failed");
         logger.fail(enrichError, { stage: "enrichDocuments", promptId });

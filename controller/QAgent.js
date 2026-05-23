@@ -2,6 +2,7 @@ const QAgentService = require("../service/QAgentService");
 const FileExtractor = require("../utils/FileExtractor");
 const { resolveDocType } = require("../constants/docTypes");
 const { isValidLarkUrl } = require("../service/LarkService");
+const { isFigmaUrl } = require("../service/FigmaService");
 const { ERROR_CODES: LARK_ERROR_CODES } = require("../constants/api/LarkApi");
 const path = require("path");
 const fs = require("fs");
@@ -110,13 +111,13 @@ const askAi = async (req, res) => {
 					});
 				}
 
-				if (!isValidLarkUrl(linkUrl)) {
-					return res.status(400).json({
-						success: false,
-						error: `Document row ${idx + 1} (${docType}): only Lark doc/wiki URLs are supported (e.g. https://xxx.larksuite.com/docx/...).`,
-						errorCode: "INVALID_LARK_URL",
-						documentIndex: idx,
-					});
+			if (!isValidLarkUrl(linkUrl) && !isFigmaUrl(linkUrl)) {
+				return res.status(400).json({
+					success: false,
+					error: `Document row ${idx + 1} (${docType}): only Lark doc/wiki and Figma design URLs are supported.`,
+					errorCode: "INVALID_DOC_URL",
+					documentIndex: idx,
+				});
 				}
 
 				documents.push({

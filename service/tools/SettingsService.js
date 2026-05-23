@@ -25,6 +25,7 @@ const DEFAULT_SETTING_KEYS = [
 	{ key: "TESTRAIL_USERNAME", confidential: true },
 	{ key: "LARK_APP_ID", confidential: false },
 	{ key: "LARK_APP_SECRET", confidential: true },
+	{ key: "FIGMA_ACCESS_TOKEN", confidential: true },
 ]
 
 const GITHUB_MODELS_CATALOG_URL = "https://models.github.ai/catalog/models"
