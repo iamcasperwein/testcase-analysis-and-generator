@@ -814,7 +814,7 @@ function createAdditionalDocRow(defaultDocType = null) {
           <input type="file" class="form-control form-control-sm add-doc-file" accept=".txt,.md,.pdf,.doc,.docx,.json,.csv,.png,.jpg,.jpeg" />
         </div>
         <div class="add-doc-link-wrap">
-          <input type="url" class="form-control form-control-sm add-doc-link-url" placeholder="https://xxx.larksuite.com/docx/..." />
+          <input type="url" class="form-control form-control-sm add-doc-link-url" placeholder="https://xxx.larksuite.com/docx/... or https://www.figma.com/design/..." />
           <div class="add-doc-link-error text-danger" style="font-size:0.72rem;margin-top:2px;display:none;"></div>
         </div>
       </div>
@@ -842,7 +842,7 @@ function createAdditionalDocRow(defaultDocType = null) {
 
   // Initialize format dropdown
   const DOC_FORMAT_OPTIONS = [
-    { value: "link", label: "Lark Link", description: "Paste a Lark document or wiki URL" },
+    { value: "link", label: "Doc Link", description: "Paste a Lark or Figma URL" },
     { value: "file", label: "File Upload", description: "Upload a file (PDF, TXT, MD, etc.)" },
   ];
   createStaticOptionSelect({
@@ -885,16 +885,18 @@ function createAdditionalDocRow(defaultDocType = null) {
     }
   };
 
-  // Lark URL validation — keep in sync with constants/api/LarkApi.js URL_PATTERNS
+  // Doc URL validation — accepts Lark doc/wiki and Figma design/file URLs
   const LARK_URL_REGEX = /^https?:\/\/[\w-]+(?:\.[\w-]+)*\.(larksuite\.com|feishu\.cn)\/(docx|wiki)\/[\w-]+/i;
-  const validateLarkUrl = () => {
+  const FIGMA_URL_REGEX = /^https?:\/\/(www\.)?figma\.com\/(design|file)\/[a-zA-Z0-9]+/i;
+  const isValidDocUrl = (url) => LARK_URL_REGEX.test(url) || FIGMA_URL_REGEX.test(url);
+  const validateDocUrl = () => {
     const url = linkInput.value.trim();
     if (!url) {
       linkError.style.display = "none";
       return true; // empty is handled by submit validation
     }
-    if (!LARK_URL_REGEX.test(url)) {
-      linkError.textContent = "Only valid Lark doc/wiki URLs are accepted (e.g. https://xxx.larksuite.com/docx/...)";
+    if (!isValidDocUrl(url)) {
+      linkError.textContent = "Only Lark doc/wiki or Figma design URLs are accepted";
       linkError.style.display = "";
       return false;
     }
@@ -903,9 +905,9 @@ function createAdditionalDocRow(defaultDocType = null) {
   };
 
   formatValueInput.addEventListener("change", syncFormatVisibility);
-  linkInput.addEventListener("blur", validateLarkUrl);
+  linkInput.addEventListener("blur", validateDocUrl);
   linkInput.addEventListener("input", () => {
-    if (linkError.style.display !== "none") validateLarkUrl();
+    if (linkError.style.display !== "none") validateDocUrl();
   });
 
   removeButton?.addEventListener("click", () => {
@@ -931,8 +933,10 @@ qaForm.addEventListener("submit", async (e) => {
   // Collect all document rows
   const docRows = Array.from(document.querySelectorAll(".additional-doc-row"));
   const docEntries = [];
-  // Keep in sync with constants/api/LarkApi.js URL_PATTERNS
+  // Keep in sync with constants/api/LarkApi.js URL_PATTERNS and FigmaService.isFigmaUrl
   const LARK_URL_REGEX = /^https?:\/\/[\w-]+(?:\.[\w-]+)*\.(larksuite\.com|feishu\.cn)\/(docx|wiki)\/[\w-]+/i;
+  const FIGMA_URL_REGEX = /^https?:\/\/(www\.)?figma\.com\/(design|file)\/[a-zA-Z0-9]+/i;
+  const isValidDocUrl = (url) => LARK_URL_REGEX.test(url) || FIGMA_URL_REGEX.test(url);
 
   let validationError = "";
   for (const row of docRows) {
@@ -945,8 +949,8 @@ qaForm.addEventListener("submit", async (e) => {
         validationError = `${docType} document: Link URL is required.`;
         break;
       }
-      if (!LARK_URL_REGEX.test(linkUrl)) {
-        validationError = `${docType} document: Invalid Lark URL. Only Lark doc/wiki URLs are supported.`;
+      if (!isValidDocUrl(linkUrl)) {
+        validationError = `${docType} document: Invalid URL. Only Lark doc/wiki and Figma design URLs are supported.`;
         break;
       }
       docEntries.push({ format: "link", docType, docName: `${docType} (link)`, linkUrl, file: null });

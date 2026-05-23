@@ -1,4 +1,4 @@
-const { DOC_TYPES, DOC_TYPE_MAP, resolveDocType, getDocTypePriority, sortByPriority } = require("../constants/docTypes");
+const { DOC_TYPES, DOC_TYPE_MAP, resolveDocType } = require("../constants/docTypes");
 
 const SYSTEM_PROMPT = `You are a Senior QE Engineer with 10+ years of experience in test planning, test case design, and quality assessment. You specialize in deriving comprehensive, actionable test cases from product specifications.
 
@@ -9,12 +9,14 @@ Your core principles:
 4. If a requirement is ambiguous, create a test case that surfaces the ambiguity rather than assuming intent.
 5. Never invent features or behaviors not stated in the source documents.`;
 
-const DEFAULT_PLATFORMS = Object.freeze(["ios", "android", "mobile-web", "desktop-web"]);
+const DEFAULT_PLATFORMS = Object.freeze(["ios", "android", "mobile-web", "desktop-web", "backend"]);
 
 const VALID_PLATFORMS = ["ios", "android", "mobile-web", "desktop-web", "backend"];
 
 const TEST_CASE_OUTPUT_SCHEMA = `{
     "feature": "string",
+    "assumptions": ["string — assumptions made due to missing or ambiguous info"],
+    "documentConflicts": ["string — mismatches or contradictions found between documents"],
     "testCases": [
         {
             "section": "string",
@@ -38,13 +40,6 @@ const TEST_CASE_OUTPUT_SCHEMA = `{
         }
     ]
 }`;
-
-const PRIORITY_LABELS = {
-    primary: "PRIMARY — source of truth",
-    high: "HIGH — implementation/design detail",
-    medium: "MEDIUM — supporting context",
-    low: "LOW — supplemental reference",
-};
 
 const normalizeText = (value) => String(value || "").trim();
 
@@ -72,17 +67,16 @@ const describeExtractionStatus = (content = "") => {
 
 /**
  * Build Document Inventory section for the prompt.
- * Lists all documents with their type, priority, and extraction status.
+ * Lists all documents with their type and extraction status.
  */
 const buildDocumentInventory = (documents = []) => {
     if (!documents.length) return "Document Inventory:\n- No documents provided.";
 
-    const rows = sortByPriority(documents).map((doc) => {
-        const dtDef = DOC_TYPE_MAP[doc.docType] || { label: doc.docType, priority: "low" };
+    const rows = documents.map((doc) => {
+        const dtDef = DOC_TYPE_MAP[doc.docType] || { label: doc.docType };
         const name = normalizeText(doc.name) || "Unnamed";
         const status = describeExtractionStatus(doc.content);
-        const priority = PRIORITY_LABELS[dtDef.priority] || dtDef.priority;
-        return `- [${doc.docType}] ${name} — priority: ${priority} (${status})`;
+        return `- [${doc.docType}] ${name} (${status})`;
     });
 
     return ["Document Inventory:", ...rows].join("\n");
@@ -110,12 +104,11 @@ const formatDocumentSection = (doc) => {
 };
 
 /**
- * Format all documents for prompt inclusion, sorted by priority.
+ * Format all documents for prompt inclusion.
  */
 const formatAllDocuments = (documents = []) => {
-    const sorted = sortByPriority(documents);
-    if (!sorted.length) return "No documents provided.";
-    return sorted.map(formatDocumentSection).join("\n\n");
+    if (!documents.length) return "No documents provided.";
+    return documents.map(formatDocumentSection).join("\n\n");
 };
 
 /**
@@ -157,13 +150,24 @@ const normalizePromptInput = (input = {}) => {
 
 // --- Prompt builders ---
 
-const buildPriorityGuidance = () => [
-    "Document Priority Rules:",
-    "- PRIMARY documents (PRD) are the source of truth. Derive all test scope from them.",
-    "- HIGH priority documents (RFC, Figma, API Contract) provide implementation detail, design specs, and API behavior.",
-    "- MEDIUM priority documents (Architecture, Test Plan, User Story) provide supporting context and constraints.",
-    "- LOW priority documents (Release Notes, Other) are supplemental references — consider but do not rely on them for scope.",
-    "- If documents conflict, follow this priority order: PRIMARY > HIGH > MEDIUM > LOW.",
+const buildDocumentGuidance = () => [
+    "Document Usage Rules:",
+    "- All provided documents have EQUAL weight. Cross-reference all documents to build a complete picture.",
+    "- If documents contain conflicting or mismatched requirements, explicitly flag each conflict in a dedicated section.",
+    "- If information is missing or ambiguous, state your assumptions clearly rather than guessing silently.",
+    "",
+    "Figma Design Document Guidance (when provided):",
+    "- Figma documents contain extracted UI structure, text content, component hierarchy, and interactive elements from design mockups.",
+    "- Use Figma context to derive ADDITIONAL test cases that other documents may not cover, including:",
+    "  • UI layout and visual consistency tests (element positioning, alignment, responsive behavior)",
+    "  • Interactive element behavior (buttons, inputs, toggles, dropdowns — states: default, hover, active, disabled, error)",
+    "  • Navigation flows and screen transitions visible in the design",
+    "  • Text content accuracy (labels, placeholders, error messages, tooltips matching design)",
+    "  • Component state variations (empty states, loading states, error states shown in frames)",
+    "  • Accessibility considerations derived from the UI structure (contrast, touch targets, focus order)",
+    "  • Edge cases visible in design but not mentioned in other docs (e.g., truncation, overflow, empty lists)",
+    "- Cross-reference other documents with Figma screens to identify gaps: requirements without corresponding UI, or UI elements without documented requirements.",
+    "- If Figma shows multiple frames/screens, generate test cases covering the flow between them.",
 ].join("\n");
 
 const buildTestCaseGenerationPrompt = (input = {}) => {
@@ -175,7 +179,8 @@ const buildTestCaseGenerationPrompt = (input = {}) => {
 
     const lines = [
         "Generate test cases for an application in valid JSON only.",
-        "Use the PRIMARY document (PRD) as the source of truth. Use HIGH/MEDIUM/LOW priority documents to refine workflows, business rules, UI states, and edge cases.",
+        "Cross-reference ALL provided documents equally to derive comprehensive test cases. Flag any conflicts or mismatches between documents.",
+        "State any assumptions you make explicitly in the output.",
         "Group related cases into sections and keep each test case precise, executable, and review-friendly.",
         "",
         "Product Context:",
@@ -186,7 +191,7 @@ const buildTestCaseGenerationPrompt = (input = {}) => {
         "- Some attached files may be binary (PDF/image). Use attached file context in addition to extracted text sections.",
         documentInventory,
         "",
-        buildPriorityGuidance(),
+        buildDocumentGuidance(),
         "",
         "Source Documents:",
         formatAllDocuments(documents),
@@ -212,6 +217,8 @@ const buildTestCaseGenerationPrompt = (input = {}) => {
         "Rules:",
         "- Return valid JSON only.",
         '- Each section must contain a "testCases" array.',
+        '- The "assumptions" array must list any assumptions made due to missing, incomplete, or ambiguous information. Use an empty array if none.',
+        '- The "documentConflicts" array must list any contradictions or mismatches found between the provided documents. Use an empty array if none.',
         "- Derive test case sections from the Testing Analysis scope and edge cases when available.",
         "- If a document is missing, do not invent those details.",
         "- Consider every document in the Document Inventory. Do not ignore listed artifacts.",
@@ -315,7 +322,9 @@ const buildTestAnalysisPrompt = (input = {}) => {
 
     return [
         "Create a testing analysis document in well-structured Markdown format.",
-        "Use the PRIMARY document (PRD) as the source of truth. Use HIGH/MEDIUM/LOW priority documents only when provided.",
+        "Cross-reference ALL provided documents equally. Flag any conflicts or mismatches between documents.",
+        "When a Figma design document is provided, explicitly analyze UI elements, interaction patterns, screen states, and visual flows in addition to functional requirements.",
+        "State any assumptions you make clearly.",
         "",
         "Product Context:",
         `- Feature: ${feature}`,
@@ -325,7 +334,7 @@ const buildTestAnalysisPrompt = (input = {}) => {
         "- Some attached files may be binary (PDF/image). Use attached file context in addition to extracted text sections.",
         documentInventory,
         "",
-        buildPriorityGuidance(),
+        buildDocumentGuidance(),
         "",
         "Source Documents:",
         formatAllDocuments(documents),
@@ -333,7 +342,7 @@ const buildTestAnalysisPrompt = (input = {}) => {
         "Required document structure (use exactly these markdown headings):",
         "",
         "# Testing Analysis Document",
-        "(Include metadata: Feature, Target Platforms, Documents Used with their priority levels)",
+        "(Include metadata: Feature, Target Platforms, Documents Used)",
         "",
         "## 1. Summary / Overview",
         "(Brief overview of what the feature does and the testing goal)",
@@ -355,6 +364,15 @@ const buildTestAnalysisPrompt = (input = {}) => {
         "",
         "## 7. Test Strategy Notes",
         "(Approach, environment requirements, test data needs)",
+        "",
+        "## 8. Assumptions",
+        "(List all assumptions made due to missing, incomplete, or ambiguous information across documents)",
+        "",
+        "## 9. Document Conflicts & Mismatches",
+        "(Flag any contradictions or mismatches found between the provided documents. For each conflict, cite both sources and note which interpretation was used for testing.)",
+        "",
+        "## 10. UI/Design Analysis (include only if Figma or design documents are provided)",
+        "(UI components identified, interaction patterns, screen states, visual flows, design-requirement gaps)",
         "",
         "Formatting rules:",
         "- Use proper Markdown: ## for sections, ### for subsections, - for bullet lists, **bold** for emphasis.",
