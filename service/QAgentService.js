@@ -315,10 +315,11 @@ const extractTextFromFile = async (filePath = "", logger = null) => {
  * Enrich all documents with extracted text from uploaded files or fetched from links.
  * Unified: works for any docType (PRD, RFC, FIGMA, etc.) and any format (file, link).
  */
-const enrichDocuments = async (documents = [], logger = null) => {
+const enrichDocuments = async (documents = [], logger = null, promptId = "") => {
     if (!Array.isArray(documents) || !documents.length) return [];
     logger?.start("Enriching documents");
     const enriched = [];
+    let figmaCounter = 0;
     for (const doc of documents) {
         if (String(doc.content || "").trim()) {
             logger?.step("Document already has content, skipping", { docType: doc.docType, chars: String(doc.content).length });
@@ -350,7 +351,9 @@ const enrichDocuments = async (documents = [], logger = null) => {
 
                     // Store raw Figma JSON for traceability
                     try {
-                        const rawFileName = `fgm_${Date.now()}.json`;
+                        figmaCounter++;
+                        const suffix = figmaCounter > 1 ? `_${String(figmaCounter).padStart(2, "0")}` : "";
+                        const rawFileName = `fgm_${promptId}${suffix}.json`;
                         FileReader.writeDataFile(`figma/${rawFileName}`, JSON.stringify(result.rawData, null, 2));
                         logger?.info("Figma raw data stored", { path: `data/figma/${rawFileName}` });
                     } catch (_) {}
@@ -563,7 +566,7 @@ const processSubmission = async (payload = {}, { isRetry = false } = {}) => {
     // Enrich documents with extracted text from uploaded files or Lark links
     logger.step("Enriching documents");
     try {
-        validatedPayload.documents = await enrichDocuments(validatedPayload.documents, logger);
+        validatedPayload.documents = await enrichDocuments(validatedPayload.documents, logger, promptId);
     } catch (enrichError) {
         const errorMsg = String(enrichError?.message || enrichError || "Document enrichment failed");
         logger.fail(enrichError, { stage: "enrichDocuments", promptId });
