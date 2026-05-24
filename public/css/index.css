@@ -418,6 +418,73 @@
       color: #6b7f9c;
     }
 
+    /* Bloom Toggle Card */
+    .bloom-toggle-card {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.75rem;
+      padding: 0.7rem 1rem;
+      border-radius: 0.7rem;
+      border: 1px solid #dce8ff;
+      background: linear-gradient(135deg, #f8fbff 0%, #f0f6ff 100%);
+      transition: border-color 0.2s, box-shadow 0.2s;
+      width: 40%;
+    }
+
+    .bloom-toggle-card:hover {
+      border-color: #b8d4ff;
+      box-shadow: 0 2px 8px rgba(37, 99, 235, 0.06);
+    }
+
+    .bloom-toggle-card:has(.bloom-toggle-input:checked) {
+      border-color: #93bbff;
+      background: linear-gradient(135deg, #eef4ff 0%, #e4edff 100%);
+    }
+
+    .bloom-toggle-left {
+      display: flex;
+      align-items: center;
+      gap: 0.65rem;
+    }
+
+    .bloom-toggle-icon {
+      width: 32px;
+      height: 32px;
+      border-radius: 8px;
+      background: linear-gradient(135deg, #dbeafe, #c7d7fe);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.95rem;
+      color: #2563eb;
+      flex-shrink: 0;
+    }
+
+    .bloom-toggle-card:has(.bloom-toggle-input:checked) .bloom-toggle-icon {
+      background: linear-gradient(135deg, #2563eb, #1d4ed8);
+      color: #fff;
+    }
+
+    .bloom-toggle-title {
+      font-size: 0.82rem;
+      font-weight: 600;
+      color: #1e3a6e;
+      line-height: 1.2;
+    }
+
+    .bloom-toggle-desc {
+      font-size: 0.72rem;
+      color: #6b8bbf;
+      margin-top: 1px;
+    }
+
+    .bloom-toggle-input {
+      width: 2.2em !important;
+      height: 1.15em !important;
+      cursor: pointer;
+    }
+
     /* Platform Multiselect Dropdown (reuses prompt-select styles) */
     .platform-multiselect-wrap .prompt-select-trigger {
       min-height: 42px;
@@ -1139,6 +1206,299 @@
     .analysis-md-rendered a:hover {
       color: #0b5ed7;
       border-bottom-color: rgba(11, 94, 215, 0.75);
+    }
+
+    /* --- Analysis Edit Mode --- */
+
+    .analysis-edit-mode {
+      display: flex;
+      flex-direction: column;
+      height: calc(100vh - 220px);
+      min-height: 350px;
+    }
+
+    .analysis-edit-toolbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0.5rem 0.75rem;
+      border-bottom: 1px solid #dbe7fb;
+      background: #f8faff;
+      border-radius: 6px 6px 0 0;
+      flex-shrink: 0;
+    }
+
+    .analysis-edit-toolbar .toolbar-left,
+    .analysis-edit-toolbar .toolbar-right {
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+    }
+
+    .bloom-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.3rem;
+      padding: 0.3rem 0.65rem;
+      font-size: 0.78rem;
+      font-weight: 500;
+      border-radius: 6px;
+      border: 1px solid #c8d6e5;
+      background: #fff;
+      color: #4a6785;
+      cursor: pointer;
+      transition: all 0.15s ease;
+      line-height: 1;
+    }
+
+    .bloom-chip:hover {
+      border-color: #0d6efd;
+      color: #0d6efd;
+      background: #f0f6ff;
+    }
+
+    .bloom-chip.active {
+      border-color: #0d6efd;
+      background: #0d6efd;
+      color: #fff;
+    }
+
+    .bloom-chip.active:hover {
+      background: #0b5ed7;
+      border-color: #0b5ed7;
+    }
+
+    .analysis-edit-panels {
+      flex: 1;
+      display: flex;
+      gap: 0;
+      overflow: hidden;
+      min-height: 0;
+    }
+
+    .analysis-edit-panels.split .editor-with-lines {
+      flex: 1;
+      border-right: 1px solid #dbe7fb;
+    }
+
+    .analysis-edit-panels.split .analysis-editor-textarea {
+      flex: 1;
+    }
+
+    .analysis-edit-panels.split .analysis-preview-panel {
+      flex: 1;
+      display: block;
+    }
+
+    .analysis-edit-panels.editor-only .editor-with-lines {
+      flex: 1;
+    }
+
+    .analysis-edit-panels.editor-only .analysis-editor-textarea {
+      flex: 1;
+    }
+
+    .analysis-edit-panels.editor-only .analysis-preview-panel {
+      display: none;
+    }
+
+    .analysis-editor-textarea {
+      font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+      font-size: 0.82rem;
+      line-height: 1.55;
+      padding: 0.75rem 1rem;
+      border: none;
+      outline: none;
+      resize: none;
+      background: #fff;
+      color: #1e293b;
+      overflow-y: auto;
+    }
+
+    .analysis-editor-textarea:focus {
+      background: #fefffe;
+    }
+
+    .analysis-preview-panel {
+      padding: 0.75rem 1rem;
+      overflow-y: auto;
+      background: #fcfcfd;
+    }
+
+    .toolbar-divider {
+      display: inline-block;
+      width: 1px;
+      height: 18px;
+      background: #c8d6e5;
+      margin: 0 0.3rem;
+      vertical-align: middle;
+    }
+
+    .analysis-edit-statusbar {
+      display: flex;
+      align-items: center;
+      gap: 0;
+      padding: 0.3rem 0.75rem;
+      font-size: 0.72rem;
+      color: #6b7f99;
+      background: #f8faff;
+      border-top: 1px solid #dbe7fb;
+      border-radius: 0 0 6px 6px;
+      flex-shrink: 0;
+    }
+
+    .analysis-edit-statusbar .statusbar-divider {
+      margin: 0 0.5rem;
+      color: #c8d6e5;
+    }
+
+    /* Editor with line numbers */
+    .editor-with-lines {
+      display: flex;
+      flex: 1;
+      min-height: 0;
+      overflow: hidden;
+    }
+
+    .line-numbers {
+      width: 40px;
+      padding: 0.75rem 0.25rem;
+      text-align: right;
+      font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+      font-size: 0.82rem;
+      line-height: 1.55;
+      color: #a0afc0;
+      background: #f1f5fa;
+      border-right: 1px solid #dbe7fb;
+      overflow: hidden;
+      user-select: none;
+      flex-shrink: 0;
+    }
+
+    .line-numbers div {
+      padding-right: 0.4rem;
+    }
+
+    .editor-with-lines .analysis-editor-textarea {
+      flex: 1;
+      border: none;
+      border-radius: 0;
+    }
+
+    /* Find & Replace bar */
+    .analysis-find-bar {
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+      padding: 0.4rem 0.75rem;
+      background: #f0f4ff;
+      border-bottom: 1px solid #dbe7fb;
+    }
+
+    .find-input {
+      padding: 0.25rem 0.5rem;
+      border: 1px solid #c8d6e5;
+      border-radius: 4px;
+      font-size: 0.8rem;
+      width: 140px;
+    }
+
+    .find-input:focus {
+      outline: none;
+      border-color: #4a90d9;
+    }
+
+    .find-match-count {
+      font-size: 0.72rem;
+      color: #6b7f99;
+      min-width: 32px;
+    }
+
+    /* Toolbar dropdowns */
+    .toolbar-dropdown-wrap {
+      position: relative;
+      display: inline-block;
+    }
+
+    .toolbar-dropdown-wrap .caret {
+      font-size: 0.6rem;
+      margin-left: 0.15rem;
+    }
+
+    .toolbar-dropdown {
+      position: absolute;
+      top: 100%;
+      left: 0;
+      min-width: 150px;
+      background: #fff;
+      border: 1px solid #dbe7fb;
+      border-radius: 6px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+      z-index: 100;
+      padding: 0.25rem 0;
+    }
+
+    .toolbar-dropdown-item {
+      padding: 0.4rem 0.75rem;
+      font-size: 0.8rem;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+
+    .toolbar-dropdown-item:hover {
+      background: #eef4ff;
+    }
+
+    /* Diff view */
+    .diff-view-container {
+      font-family: monospace;
+      font-size: 0.78rem;
+      line-height: 1.6;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+
+    .diff-line-add {
+      background: #e6ffed;
+      color: #22863a;
+    }
+
+    .diff-line-remove {
+      background: #ffeef0;
+      color: #cb2431;
+    }
+
+    .diff-line-context {
+      color: #586069;
+    }
+
+    .diff-line-header {
+      background: #f1f8ff;
+      color: #0366d6;
+      font-weight: 600;
+      padding: 0.2rem 0;
+    }
+
+    /* Fullscreen mode */
+    .analysis-edit-fullscreen {
+      position: fixed !important;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      z-index: 9999;
+      background: #fff;
+      border-radius: 0;
+      height: 100vh !important;
+      min-height: 100vh !important;
+    }
+
+    .analysis-edit-fullscreen .analysis-edit-toolbar {
+      border-radius: 0;
+    }
+
+    .analysis-edit-fullscreen .analysis-edit-statusbar {
+      border-radius: 0;
     }
 
     .section-item {

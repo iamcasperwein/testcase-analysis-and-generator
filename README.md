@@ -39,6 +39,7 @@ The **QE Test Case Generator** is a Node.js / Express backend that ingests produ
 
 - **Submit & Analyze** — Upload PRD/RFC/Figma documents (file upload or Doc Link) and receive an asynchronous job ID.
 - **Two-Stage AI Pipeline** — Step 1 produces an analysis; Step 2 produces test cases grounded on that analysis. Both stages use a dedicated system prompt with expert QA persona and provider-specific configuration (temperature, model routing). A **review checkpoint** between stages (default behavior) allows users to verify the analysis before committing to test case generation. Toggle `autoGenerateTestCases` to skip the review and run both stages back-to-back.
+- **Editable Analysis** — During the REVIEW phase, users can edit the analysis markdown directly via a split-view editor (raw markdown + live preview) with line numbers. Toolbar includes: formatting buttons (Bold, Italic, Heading, Ordered/Unordered List, Link, Code Block), fullscreen toggle, prettify, Find & Replace, section navigation dropdown, insert template snippets (table, matrix, risk, checklist), and a status bar (line/col, word count, char count). Keyboard shortcuts: `Ctrl/⌘+S` (save), `Ctrl/⌘+B` (bold), `Ctrl/⌘+I` (italic), `Ctrl/⌘+F` (find), `F11` (fullscreen), `Tab` (indent), `Escape` (cancel), native undo/redo. Save shows a diff review modal before confirming. Changes are saved via `PUT /testcase/updateAnalysis/:promptId`.
 - **Context-Aware Generation** — Token estimation and context limit validation prevent silent failures on large documents. Few-shot examples and self-evaluation checklists improve output quality on mid-tier models.
 - **CRUD on Test Cases** — Edit, move between sections, and delete generated test cases.
 - **Dashboard Analytics** — Aggregate counts, turnaround time, and failure notes.
@@ -360,6 +361,7 @@ The service exposes the following routes (mounted in [app.js](app.js)):
 | `POST` | `/generate/testcases/:promptId` | [controller/QAgent.js](controller/QAgent.js) | Generate test cases from a REVIEW-status prompt (Stage 2 only) |
 | `GET`  | `/testcase/:promptId` | [controller/TestCase.js](controller/TestCase.js) | Fetch generated test cases |
 | `GET`  | `/testcase/getAnalyzeResult/:promptId` | [controller/TestCase.js](controller/TestCase.js) | Fetch analysis Markdown |
+| `PUT`  | `/testcase/updateAnalysis/:promptId` | [controller/TestCase.js](controller/TestCase.js) | Update analysis Markdown (REVIEW status only) |
 | `POST`/`PUT` | `/testcase/edit` | [controller/TestCase.js](controller/TestCase.js) | Update a test case (title, steps, section, platforms) |
 | `POST` | `/testcase/bulkMoveSection` | [controller/TestCase.js](controller/TestCase.js) | Bulk move test cases to a target section (atomic, single API call) |
 | `POST` | `/testcase/add` | [controller/TestCase.js](controller/TestCase.js) | Add a new test case to a section |

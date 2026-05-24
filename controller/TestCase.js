@@ -1,4 +1,5 @@
 const TestCaseService = require("../service/TestCaseService");
+const { readPromptData } = require("../service/QAgentService");
 
 const getTestCases = async (req, res) => {
   try {
@@ -204,6 +205,38 @@ const bulkMoveSection = async (req, res) => {
   }
 };
 
+const updateAnalysis = async (req, res) => {
+  try {
+    const { promptId } = req.params;
+    const { content } = req.body || {};
+
+    if (!promptId) {
+      return res.status(400).json({ success: false, error: "promptId is required" });
+    }
+    if (!content || typeof content !== "string" || !content.trim()) {
+      return res.status(400).json({ success: false, error: "content is required and must be a non-empty string" });
+    }
+
+    // Check prompt status — only allow editing in REVIEW status
+    const prompts = readPromptData();
+    const prompt = prompts.find(p => p.promptId === promptId);
+    if (!prompt) {
+      return res.status(404).json({ success: false, error: "Prompt not found" });
+    }
+    if (!/^REVIEW$/i.test(prompt.status || "")) {
+      return res.status(403).json({ success: false, error: "Analysis can only be edited when status is REVIEW" });
+    }
+
+    await TestCaseService.updateAnalysis(promptId, content);
+    return res.status(200).json({ success: true, data: { promptId } });
+  } catch (err) {
+    if (err.code === "ENOENT") {
+      return res.status(404).json({ success: false, error: "Analysis file not found" });
+    }
+    return res.status(500).json({ success: false, error: err.message || "Failed to update analysis" });
+  }
+};
+
 module.exports = {
   getTestCases,
   getAnalyzeResult,
@@ -212,4 +245,5 @@ module.exports = {
   addTestCase,
   editSectionName,
   bulkMoveSection,
+  updateAnalysis,
 };

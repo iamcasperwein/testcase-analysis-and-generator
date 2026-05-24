@@ -575,9 +575,15 @@ const bulkMoveSection = async (promptId, testcaseIds, target, platformGroup = nu
     return { promptId, moved, targetSection: targetSectionName, mode: "unified" };
 };
 
+const updateAnalysis = async (promptId, content) => {
+    FileReader.writeDataFile(`analyze/${promptId}.md`, content);
+    return { promptId };
+}
+
 module.exports = {
     getTestCases,
     getAnalyzeData,
+    updateAnalysis,
     editTestCase,
     deleteTestCase,
     addTestCase,

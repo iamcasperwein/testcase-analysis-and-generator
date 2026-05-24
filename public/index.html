@@ -400,6 +400,13 @@
                 <i class="bi bi-download me-1"></i>Download
               </button>
               <button
+                class="btn btn-sm btn-outline-primary"
+                id="editAnalysisBtn"
+                style="display:none;"
+              >
+                <i class="bi bi-pencil-square me-1"></i>Edit
+              </button>
+              <button
                 class="btn btn-sm btn-primary"
                 id="generateFromAnalysisBtn"
                 style="display:none;"
@@ -411,7 +418,7 @@
           <div class="card-body">
             <div id="analysisStatus" class="small text-muted mb-2"></div>
             <div id="analysisContent" class="analysis-content-shell">
-              <div class="analysis-layout">
+              <div class="analysis-layout" id="analysisViewMode">
                 <aside id="analysisToc" class="analysis-toc" aria-label="Analysis table of contents">
                   <div class="analysis-toc-title">Contents</div>
                   <div class="analysis-toc-empty">No sections yet.</div>
@@ -419,6 +426,99 @@
                 <section id="analysisDoc" class="analysis-doc" aria-label="Analysis document">
                   <div class="analysis-doc-empty">No analysis loaded yet. Enter a Prompt ID and click "Load".</div>
                 </section>
+              </div>
+              <!-- Edit Mode -->
+              <div id="analysisEditMode" class="analysis-edit-mode" style="display:none;">
+                <div class="analysis-edit-toolbar">
+                  <div class="toolbar-left">
+                    <button class="bloom-chip active" id="btnSplitView" title="Split View">
+                      <i class="bi bi-layout-split"></i> Split
+                    </button>
+                    <button class="bloom-chip" id="btnEditorOnly" title="Editor Only">
+                      <i class="bi bi-pencil-square"></i> Editor
+                    </button>
+                    <span class="toolbar-divider"></span>
+                    <button class="bloom-chip" id="btnMdBold" title="Bold (Ctrl/⌘+B)">
+                      <i class="bi bi-type-bold"></i>
+                    </button>
+                    <button class="bloom-chip" id="btnMdItalic" title="Italic (Ctrl/⌘+I)">
+                      <i class="bi bi-type-italic"></i>
+                    </button>
+                    <button class="bloom-chip" id="btnMdHeading" title="Heading">
+                      <i class="bi bi-type-h2"></i>
+                    </button>
+                    <button class="bloom-chip" id="btnMdUl" title="Unordered List">
+                      <i class="bi bi-list-ul"></i>
+                    </button>
+                    <button class="bloom-chip" id="btnMdOl" title="Ordered List">
+                      <i class="bi bi-list-ol"></i>
+                    </button>
+                    <button class="bloom-chip" id="btnMdLink" title="Link">
+                      <i class="bi bi-link-45deg"></i>
+                    </button>
+                    <button class="bloom-chip" id="btnMdCode" title="Code Block">
+                      <i class="bi bi-code-slash"></i>
+                    </button>
+                    <span class="toolbar-divider"></span>
+                    <button class="bloom-chip" id="btnFullscreen" title="Fullscreen (F11)">
+                      <i class="bi bi-arrows-fullscreen"></i>
+                    </button>
+                    <button class="bloom-chip" id="btnMdPrettify" title="Prettify Markdown">
+                      <i class="bi bi-magic"></i>
+                    </button>
+                    <button class="bloom-chip" id="btnFindReplace" title="Find & Replace (Ctrl/⌘+F)">
+                      <i class="bi bi-search"></i>
+                    </button>
+                    <div class="toolbar-dropdown-wrap">
+                      <button class="bloom-chip" id="btnSectionNav" title="Jump to Section">
+                        <i class="bi bi-list-nested"></i> <span class="caret">▾</span>
+                      </button>
+                      <div class="toolbar-dropdown" id="sectionNavDropdown" style="display:none;"></div>
+                    </div>
+                    <div class="toolbar-dropdown-wrap">
+                      <button class="bloom-chip" id="btnInsertTemplate" title="Insert Template">
+                        <i class="bi bi-file-earmark-plus"></i> <span class="caret">▾</span>
+                      </button>
+                      <div class="toolbar-dropdown" id="templateDropdown" style="display:none;">
+                        <div class="toolbar-dropdown-item" data-template="table">Table (2-col)</div>
+                        <div class="toolbar-dropdown-item" data-template="matrix">Test Matrix</div>
+                        <div class="toolbar-dropdown-item" data-template="risk">Risk Table</div>
+                        <div class="toolbar-dropdown-item" data-template="checklist">Checklist</div>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="toolbar-right">
+                    <button class="btn btn-sm btn-primary" id="btnSaveAnalysis">
+                      <i class="bi bi-check-lg me-1"></i>Save
+                    </button>
+                    <button class="btn btn-sm btn-outline-secondary" id="btnCancelEdit">Cancel</button>
+                  </div>
+                </div>
+                <!-- Find & Replace bar -->
+                <div class="analysis-find-bar" id="analysisFindBar" style="display:none;">
+                  <input type="text" id="findInput" placeholder="Find..." class="find-input" />
+                  <input type="text" id="replaceInput" placeholder="Replace..." class="find-input" />
+                  <span id="findMatchCount" class="find-match-count">0/0</span>
+                  <button class="bloom-chip btn-sm" id="btnFindPrev" title="Previous"><i class="bi bi-chevron-up"></i></button>
+                  <button class="bloom-chip btn-sm" id="btnFindNext" title="Next"><i class="bi bi-chevron-down"></i></button>
+                  <button class="bloom-chip btn-sm" id="btnReplaceOne" title="Replace">Replace</button>
+                  <button class="bloom-chip btn-sm" id="btnReplaceAll" title="Replace All">All</button>
+                  <button class="bloom-chip btn-sm" id="btnFindClose" title="Close"><i class="bi bi-x"></i></button>
+                </div>
+                <div class="analysis-edit-panels split" id="analysisEditPanels">
+                  <div class="editor-with-lines">
+                    <div class="line-numbers" id="editorLineNumbers"></div>
+                    <textarea id="analysisEditor" class="analysis-editor-textarea" spellcheck="false" placeholder="Enter markdown content..."></textarea>
+                  </div>
+                  <div id="analysisPreview" class="analysis-preview-panel analysis-md-rendered"></div>
+                </div>
+                <div class="analysis-edit-statusbar" id="analysisEditStatusbar">
+                  <span id="editorStatusLine">Ln 1, Col 1</span>
+                  <span class="statusbar-divider">|</span>
+                  <span id="editorStatusWords">0 words</span>
+                  <span class="statusbar-divider">|</span>
+                  <span id="editorStatusChars">0 chars</span>
+                </div>
               </div>
             </div>
           </div>
@@ -1259,6 +1359,64 @@
           <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
           <button type="button" class="btn btn-sm btn-primary" id="confirmGenerateTestCasesBtn">
             <i class="bi bi-play-fill me-1"></i>Generate
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Unsaved Changes Modal (Bloom) -->
+  <div class="modal fade" id="unsavedChangesModal" tabindex="-1" aria-labelledby="unsavedChangesModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-sm">
+      <div class="modal-content tc-bloom-modal">
+        <div class="modal-header tc-bloom-header">
+          <div class="d-flex align-items-center gap-2">
+            <div class="tc-bloom-icon-wrap">
+              <i class="bi bi-exclamation-triangle"></i>
+            </div>
+            <div>
+              <div class="tc-bloom-modal-title" id="unsavedChangesModalLabel">Unsaved Changes</div>
+              <div class="tc-bloom-modal-sub">You have unsaved edits</div>
+            </div>
+          </div>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body tc-bloom-body">
+          <p class="mb-0">Discard your changes and switch back to view mode?</p>
+        </div>
+        <div class="modal-footer tc-bloom-footer d-flex justify-content-end gap-2">
+          <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal">Keep Editing</button>
+          <button type="button" class="btn btn-sm btn-danger" id="confirmDiscardChangesBtn">
+            <i class="bi bi-trash me-1"></i>Discard
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Diff Review Modal -->
+  <div class="modal fade" id="diffReviewModal" tabindex="-1" aria-labelledby="diffReviewModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-xl">
+      <div class="modal-content tc-bloom-modal">
+        <div class="modal-header tc-bloom-header">
+          <div class="d-flex align-items-center gap-2">
+            <div class="tc-bloom-icon-wrap">
+              <i class="bi bi-file-diff"></i>
+            </div>
+            <div>
+              <div class="tc-bloom-modal-title" id="diffReviewModalLabel">Review Changes</div>
+              <div class="tc-bloom-modal-sub">Compare original vs edited before saving</div>
+            </div>
+          </div>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body tc-bloom-body" style="max-height:60vh; overflow-y:auto;">
+          <div id="diffViewContainer" class="diff-view-container"></div>
+        </div>
+        <div class="modal-footer tc-bloom-footer d-flex justify-content-end gap-2">
+          <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal">Back to Editing</button>
+          <button type="button" class="btn btn-sm btn-primary" id="confirmSaveFromDiff">
+            <i class="bi bi-check-lg me-1"></i>Confirm Save
           </button>
         </div>
       </div>

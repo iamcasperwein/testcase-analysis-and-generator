@@ -1076,12 +1076,14 @@ async function doLoadAnalysis(promptId) {
     analysisStatus.textContent = "Analysis loaded.";
     downloadAnalysisBtn.disabled = !currentAnalysisText.trim();
     updateGenerateButtonVisibility();
+    updateEditButtonVisibility();
   } catch (err) {
     analysisToc.innerHTML = '<div class="analysis-toc-title">Contents</div><div class="analysis-toc-empty text-danger">Failed to load sections.</div>';
     analysisDoc.innerHTML = '<div class="analysis-doc-empty text-danger">Failed to load analysis.</div>';
     analysisStatus.textContent = err.message;
     downloadAnalysisBtn.disabled = true;
     updateGenerateButtonVisibility();
+    updateEditButtonVisibility();
   }
 }
 
@@ -1415,6 +1417,7 @@ confirmGenerateTestCasesBtn.addEventListener("click", async () => {
     // Update local prompt status
     const prompt = allPrompts.find(p => p.promptId === promptId);
     if (prompt) prompt.status = "GENERATING";
+    updateEditButtonVisibility();
   } catch (err) {
     analysisStatus.textContent = "Failed to start generation: " + (err.message || "Unknown error");
     analysisStatus.classList.remove("text-success");
@@ -1422,6 +1425,640 @@ confirmGenerateTestCasesBtn.addEventListener("click", async () => {
   } finally {
     confirmGenerateTestCasesBtn.disabled = false;
     confirmGenerateTestCasesBtn.innerHTML = '<i class="bi bi-play-fill me-1"></i>Generate';
+  }
+});
+
+// --- Analysis Edit Mode ---
+const editAnalysisBtn = document.getElementById("editAnalysisBtn");
+const analysisViewMode = document.getElementById("analysisViewMode");
+const analysisEditMode = document.getElementById("analysisEditMode");
+const analysisEditor = document.getElementById("analysisEditor");
+const analysisPreview = document.getElementById("analysisPreview");
+const analysisEditPanels = document.getElementById("analysisEditPanels");
+const btnSplitView = document.getElementById("btnSplitView");
+const btnEditorOnly = document.getElementById("btnEditorOnly");
+const btnSaveAnalysis = document.getElementById("btnSaveAnalysis");
+const btnCancelEdit = document.getElementById("btnCancelEdit");
+const unsavedChangesModal = new bootstrap.Modal(document.getElementById("unsavedChangesModal"));
+const confirmDiscardChangesBtn = document.getElementById("confirmDiscardChangesBtn");
+
+let analysisEditOriginalText = "";
+let analysisEditActive = false;
+let previewDebounceTimer = null;
+let lastRenderedPreview = "";
+
+function isAnalysisEditDirty() {
+  return analysisEditor.value !== analysisEditOriginalText;
+}
+
+function updateEditButtonVisibility() {
+  const promptId = currentAnalysisPromptId;
+  if (!promptId || !currentAnalysisText.trim()) {
+    editAnalysisBtn.style.display = "none";
+    return;
+  }
+  const prompt = allPrompts.find(p => p.promptId === promptId);
+  if (prompt && /^REVIEW$/i.test(prompt.status || "")) {
+    editAnalysisBtn.style.display = "";
+  } else {
+    editAnalysisBtn.style.display = "none";
+  }
+}
+
+function enterEditMode() {
+  analysisEditActive = true;
+  analysisEditOriginalText = currentAnalysisText;
+  analysisEditor.value = currentAnalysisText;
+  lastRenderedPreview = "";
+
+  analysisViewMode.style.display = "none";
+  analysisEditMode.style.display = "";
+  editAnalysisBtn.style.display = "none";
+  generateFromAnalysisBtn.style.display = "none";
+  downloadAnalysisBtn.disabled = true;
+
+  // Set split view as default
+  setEditLayout("split");
+  renderEditPreview();
+  updateEditorStatusBar();
+  updateLineNumbers();
+  analysisEditor.focus();
+}
+
+function exitEditMode() {
+  analysisEditActive = false;
+  analysisEditMode.style.display = "none";
+  analysisEditMode.classList.remove("analysis-edit-fullscreen");
+  analysisViewMode.style.display = "";
+  downloadAnalysisBtn.disabled = !currentAnalysisText.trim();
+  updateGenerateButtonVisibility();
+  updateEditButtonVisibility();
+
+  if (previewDebounceTimer) {
+    clearTimeout(previewDebounceTimer);
+    previewDebounceTimer = null;
+  }
+}
+
+function setEditLayout(mode) {
+  if (mode === "split") {
+    analysisEditPanels.className = "analysis-edit-panels split";
+    btnSplitView.classList.add("active");
+    btnEditorOnly.classList.remove("active");
+    renderEditPreview();
+  } else {
+    analysisEditPanels.className = "analysis-edit-panels editor-only";
+    btnEditorOnly.classList.add("active");
+    btnSplitView.classList.remove("active");
+  }
+}
+
+function renderEditPreview() {
+  const content = analysisEditor.value;
+  if (content === lastRenderedPreview) return;
+  lastRenderedPreview = content;
+
+  if (typeof marked !== "undefined") {
+    analysisPreview.innerHTML = marked.parse(content || "");
+  } else {
+    analysisPreview.innerHTML = `<pre style="white-space:pre-wrap;">${content || ""}</pre>`;
+  }
+}
+
+// Edit button click
+editAnalysisBtn.addEventListener("click", enterEditMode);
+
+// Layout toggle
+btnSplitView.addEventListener("click", () => setEditLayout("split"));
+btnEditorOnly.addEventListener("click", () => setEditLayout("editor-only"));
+
+// --- Markdown formatting helpers ---
+function insertAtCursor(ta, text) {
+  // Use execCommand to integrate with native undo stack
+  ta.focus();
+  document.execCommand("insertText", false, text);
+}
+
+function insertMdWrap(before, after) {
+  const ta = analysisEditor;
+  const start = ta.selectionStart, end = ta.selectionEnd;
+  const sel = ta.value.substring(start, end);
+
+  // Toggle off: if selection is already wrapped, remove the wrap
+  const bLen = before.length, aLen = after.length;
+  const outerStart = start - bLen;
+  const outerEnd = end + aLen;
+  if (outerStart >= 0 && outerEnd <= ta.value.length) {
+    const wrapBefore = ta.value.substring(outerStart, start);
+    const wrapAfter = ta.value.substring(end, outerEnd);
+    if (wrapBefore === before && wrapAfter === after) {
+      // Remove wrap: select including the markers, then replace with just the inner text
+      ta.setSelectionRange(outerStart, outerEnd);
+      insertAtCursor(ta, sel);
+      // Re-select the unwrapped text
+      ta.setSelectionRange(outerStart, outerStart + sel.length);
+      ta.dispatchEvent(new Event("input"));
+      return;
+    }
+  }
+
+  // Toggle off: if selection itself contains the wrap markers (e.g. user selected "**text**")
+  if (sel.startsWith(before) && sel.endsWith(after) && sel.length >= bLen + aLen) {
+    const inner = sel.substring(bLen, sel.length - aLen);
+    insertAtCursor(ta, inner);
+    ta.setSelectionRange(start, start + inner.length);
+    ta.dispatchEvent(new Event("input"));
+    return;
+  }
+
+  // Wrap selection (or insert placeholder)
+  const replacement = before + (sel || "text") + after;
+  insertAtCursor(ta, replacement);
+  // Select the inner text (not the markers)
+  if (sel) {
+    ta.setSelectionRange(start + bLen, start + bLen + sel.length);
+  } else {
+    ta.setSelectionRange(start + bLen, start + bLen + 4); // select "text"
+  }
+  ta.dispatchEvent(new Event("input"));
+}
+
+function insertMdLine(prefix) {
+  const ta = analysisEditor;
+  const start = ta.selectionStart;
+  const lineStart = ta.value.lastIndexOf("\n", start - 1) + 1;
+  const lineEnd = ta.value.indexOf("\n", start);
+  const end = lineEnd === -1 ? ta.value.length : lineEnd;
+  const line = ta.value.substring(lineStart, end);
+
+  // Toggle off: if line already starts with prefix, remove it
+  if (line.startsWith(prefix)) {
+    ta.setSelectionRange(lineStart, end);
+    insertAtCursor(ta, line.substring(prefix.length));
+    ta.dispatchEvent(new Event("input"));
+    return;
+  }
+
+  ta.setSelectionRange(lineStart, end);
+  insertAtCursor(ta, prefix + line);
+  ta.dispatchEvent(new Event("input"));
+}
+
+document.getElementById("btnMdBold").addEventListener("click", () => insertMdWrap("**", "**"));
+document.getElementById("btnMdItalic").addEventListener("click", () => insertMdWrap("*", "*"));
+document.getElementById("btnMdHeading").addEventListener("click", () => insertMdLine("## "));
+document.getElementById("btnMdUl").addEventListener("click", () => insertMdLine("- "));
+document.getElementById("btnMdOl").addEventListener("click", () => insertMdLine("1. "));
+document.getElementById("btnMdLink").addEventListener("click", () => insertMdWrap("[", "](url)"));
+document.getElementById("btnMdCode").addEventListener("click", () => insertMdWrap("```\n", "\n```"));
+
+// --- Prettify Markdown ---
+function prettifyMarkdown(text) {
+  // Process line by line, detect and align table blocks
+  const lines = text.split("\n");
+  const result = [];
+  let i = 0;
+  while (i < lines.length) {
+    // Detect table block: lines starting with |
+    if (lines[i].trim().startsWith("|")) {
+      const tableLines = [];
+      while (i < lines.length && lines[i].trim().startsWith("|")) {
+        tableLines.push(lines[i]);
+        i++;
+      }
+      // Parse cells
+      const parsed = tableLines.map(line => {
+        const trimmed = line.trim().replace(/^\|/, "").replace(/\|$/, "");
+        return trimmed.split("|").map(c => c.trim());
+      });
+      // Find max columns
+      const maxCols = Math.max(...parsed.map(r => r.length));
+      // Find max width per column
+      const colWidths = Array(maxCols).fill(0);
+      parsed.forEach((row, ri) => {
+        // Skip separator row for width calc
+        const isSep = row.every(c => /^[-:]+$/.test(c) || c === "");
+        if (isSep) return;
+        row.forEach((cell, ci) => {
+          colWidths[ci] = Math.max(colWidths[ci], cell.length);
+        });
+      });
+      // Rebuild aligned
+      parsed.forEach(row => {
+        const isSep = row.every(c => /^[-:]+$/.test(c) || c === "");
+        const cells = [];
+        for (let ci = 0; ci < maxCols; ci++) {
+          const cell = row[ci] || "";
+          if (isSep) {
+            cells.push("-".repeat(colWidths[ci] || 3));
+          } else {
+            cells.push(cell.padEnd(colWidths[ci]));
+          }
+        }
+        result.push("| " + cells.join(" | ") + " |");
+      });
+    } else {
+      // Normalize: collapse multiple blank lines to max 2
+      if (lines[i].trim() === "" && result.length > 0 && result[result.length - 1].trim() === "") {
+        // skip extra blank lines (allow at most one)
+        i++;
+        continue;
+      }
+      result.push(lines[i]);
+      i++;
+    }
+  }
+  return result.join("\n");
+}
+
+document.getElementById("btnMdPrettify").addEventListener("click", () => {
+  const ta = analysisEditor;
+  ta.value = prettifyMarkdown(ta.value);
+  ta.dispatchEvent(new Event("input"));
+  updateEditorStatusBar();
+});
+
+// Ctrl+B / Ctrl+I shortcuts in editor
+analysisEditor.addEventListener("keydown", (e) => {
+  if ((e.ctrlKey || e.metaKey) && e.key === "b") { e.preventDefault(); insertMdWrap("**", "**"); }
+  if ((e.ctrlKey || e.metaKey) && e.key === "i") { e.preventDefault(); insertMdWrap("*", "*"); }
+});
+
+// --- Status bar ---
+function updateEditorStatusBar() {
+  const ta = analysisEditor;
+  const val = ta.value;
+  const pos = ta.selectionStart;
+  const lines = val.substring(0, pos).split("\n");
+  const ln = lines.length;
+  const col = lines[lines.length - 1].length + 1;
+  const words = val.trim() ? val.trim().split(/\s+/).length : 0;
+  document.getElementById("editorStatusLine").textContent = `Ln ${ln}, Col ${col}`;
+  document.getElementById("editorStatusWords").textContent = `${words} words`;
+  document.getElementById("editorStatusChars").textContent = `${val.length} chars`;
+}
+analysisEditor.addEventListener("input", updateEditorStatusBar);
+analysisEditor.addEventListener("click", updateEditorStatusBar);
+analysisEditor.addEventListener("keyup", updateEditorStatusBar);
+
+// --- Fullscreen toggle ---
+document.getElementById("btnFullscreen").addEventListener("click", () => {
+  const editMode = document.getElementById("analysisEditMode");
+  editMode.classList.toggle("analysis-edit-fullscreen");
+  const btn = document.getElementById("btnFullscreen");
+  const isFs = editMode.classList.contains("analysis-edit-fullscreen");
+  btn.innerHTML = isFs ? '<i class="bi bi-fullscreen-exit"></i>' : '<i class="bi bi-arrows-fullscreen"></i>';
+  btn.title = isFs ? "Exit Fullscreen (F11)" : "Fullscreen (F11)";
+});
+// F11 shortcut
+analysisEditor.addEventListener("keydown", (e) => {
+  if (e.key === "F11") { e.preventDefault(); document.getElementById("btnFullscreen").click(); }
+});
+
+// --- Synchronized scroll (editor ↔ preview) ---
+let syncScrollActive = true;
+let syncScrollSource = null;
+analysisEditor.addEventListener("scroll", () => {
+  if (!syncScrollActive || syncScrollSource === "preview") return;
+  syncScrollSource = "editor";
+  const preview = document.getElementById("analysisPreview");
+  const ratio = analysisEditor.scrollTop / (analysisEditor.scrollHeight - analysisEditor.clientHeight || 1);
+  preview.scrollTop = ratio * (preview.scrollHeight - preview.clientHeight || 1);
+  requestAnimationFrame(() => { syncScrollSource = null; });
+});
+document.getElementById("analysisPreview").addEventListener("scroll", () => {
+  if (!syncScrollActive || syncScrollSource === "editor") return;
+  syncScrollSource = "preview";
+  const preview = document.getElementById("analysisPreview");
+  const ratio = preview.scrollTop / (preview.scrollHeight - preview.clientHeight || 1);
+  analysisEditor.scrollTop = ratio * (analysisEditor.scrollHeight - analysisEditor.clientHeight || 1);
+  requestAnimationFrame(() => { syncScrollSource = null; });
+});
+
+// --- Line numbers ---
+function updateLineNumbers() {
+  const ta = analysisEditor;
+  const lineCount = ta.value.split("\n").length;
+  const container = document.getElementById("editorLineNumbers");
+  const lines = [];
+  for (let i = 1; i <= lineCount; i++) lines.push(`<div>${i}</div>`);
+  container.innerHTML = lines.join("");
+  // Sync scroll position
+  container.scrollTop = ta.scrollTop;
+}
+analysisEditor.addEventListener("input", updateLineNumbers);
+analysisEditor.addEventListener("scroll", () => {
+  document.getElementById("editorLineNumbers").scrollTop = analysisEditor.scrollTop;
+});
+
+// --- Tab key inserts spaces ---
+analysisEditor.addEventListener("keydown", (e) => {
+  if (e.key === "Tab") {
+    e.preventDefault();
+    insertAtCursor(analysisEditor, "  ");
+  }
+});
+
+// --- Find & Replace ---
+const analysisFindBar = document.getElementById("analysisFindBar");
+const findInput = document.getElementById("findInput");
+const replaceInput = document.getElementById("replaceInput");
+const findMatchCount = document.getElementById("findMatchCount");
+let findMatches = [];
+let findCurrentIndex = -1;
+
+document.getElementById("btnFindReplace").addEventListener("click", toggleFindBar);
+function toggleFindBar() {
+  const visible = analysisFindBar.style.display !== "none";
+  analysisFindBar.style.display = visible ? "none" : "flex";
+  if (!visible) { findInput.focus(); findInput.select(); }
+}
+
+function doFind() {
+  const query = findInput.value;
+  findMatches = [];
+  findCurrentIndex = -1;
+  if (!query) { findMatchCount.textContent = "0/0"; return; }
+  const text = analysisEditor.value;
+  let idx = 0;
+  const lowerQ = query.toLowerCase();
+  const lowerText = text.toLowerCase();
+  while ((idx = lowerText.indexOf(lowerQ, idx)) !== -1) {
+    findMatches.push(idx);
+    idx += lowerQ.length;
+  }
+  if (findMatches.length > 0) { findCurrentIndex = 0; highlightFindMatch(); }
+  findMatchCount.textContent = findMatches.length > 0 ? `1/${findMatches.length}` : "0/0";
+}
+
+function highlightFindMatch() {
+  if (findCurrentIndex < 0 || findCurrentIndex >= findMatches.length) return;
+  const pos = findMatches[findCurrentIndex];
+  const len = findInput.value.length;
+  analysisEditor.focus();
+  analysisEditor.setSelectionRange(pos, pos + len);
+  // Scroll into view
+  const linesBefore = analysisEditor.value.substring(0, pos).split("\n").length;
+  const lineHeight = analysisEditor.scrollHeight / (analysisEditor.value.split("\n").length || 1);
+  analysisEditor.scrollTop = Math.max(0, (linesBefore - 3) * lineHeight);
+  findMatchCount.textContent = `${findCurrentIndex + 1}/${findMatches.length}`;
+}
+
+findInput.addEventListener("input", doFind);
+document.getElementById("btnFindNext").addEventListener("click", () => {
+  if (findMatches.length === 0) return;
+  findCurrentIndex = (findCurrentIndex + 1) % findMatches.length;
+  highlightFindMatch();
+});
+document.getElementById("btnFindPrev").addEventListener("click", () => {
+  if (findMatches.length === 0) return;
+  findCurrentIndex = (findCurrentIndex - 1 + findMatches.length) % findMatches.length;
+  highlightFindMatch();
+});
+document.getElementById("btnReplaceOne").addEventListener("click", () => {
+  if (findCurrentIndex < 0 || findMatches.length === 0) return;
+  const pos = findMatches[findCurrentIndex];
+  const len = findInput.value.length;
+  analysisEditor.setSelectionRange(pos, pos + len);
+  insertAtCursor(analysisEditor, replaceInput.value);
+  doFind();
+});
+document.getElementById("btnReplaceAll").addEventListener("click", () => {
+  if (findMatches.length === 0) return;
+  const query = findInput.value;
+  const replacement = replaceInput.value;
+  // Replace all using regex (case-insensitive)
+  const escaped = query.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const re = new RegExp(escaped, "gi");
+  const newVal = analysisEditor.value.replace(re, replacement);
+  analysisEditor.value = newVal;
+  analysisEditor.dispatchEvent(new Event("input"));
+  doFind();
+});
+document.getElementById("btnFindClose").addEventListener("click", () => {
+  analysisFindBar.style.display = "none";
+});
+
+// Ctrl/Cmd+F opens find bar (override browser default in editor)
+analysisEditor.addEventListener("keydown", (e) => {
+  if ((e.ctrlKey || e.metaKey) && e.key === "f") {
+    e.preventDefault();
+    toggleFindBar();
+  }
+});
+
+// --- Section Navigation Dropdown ---
+const sectionNavDropdown = document.getElementById("sectionNavDropdown");
+document.getElementById("btnSectionNav").addEventListener("click", () => {
+  const visible = sectionNavDropdown.style.display !== "none";
+  if (visible) { sectionNavDropdown.style.display = "none"; return; }
+  // Build items from headings in editor
+  const lines = analysisEditor.value.split("\n");
+  let html = "";
+  let charPos = 0;
+  lines.forEach((line, i) => {
+    const match = line.match(/^(#{1,3})\s+(.+)/);
+    if (match) {
+      const level = match[1].length;
+      const title = match[2].replace(/[#*`]/g, "").trim();
+      const indent = (level - 1) * 12;
+      html += `<div class="toolbar-dropdown-item" data-line-pos="${charPos}" style="padding-left:${indent + 12}px;">${title}</div>`;
+    }
+    charPos += line.length + 1; // +1 for \n
+  });
+  if (!html) html = '<div class="toolbar-dropdown-item" style="color:#999;">No headings found</div>';
+  sectionNavDropdown.innerHTML = html;
+  sectionNavDropdown.style.display = "block";
+
+  // Click handler
+  sectionNavDropdown.querySelectorAll("[data-line-pos]").forEach(item => {
+    item.addEventListener("click", () => {
+      const pos = parseInt(item.dataset.linePos);
+      analysisEditor.focus();
+      analysisEditor.setSelectionRange(pos, pos);
+      const linesBefore = analysisEditor.value.substring(0, pos).split("\n").length;
+      const lineHeight = analysisEditor.scrollHeight / (analysisEditor.value.split("\n").length || 1);
+      analysisEditor.scrollTop = Math.max(0, (linesBefore - 2) * lineHeight);
+      sectionNavDropdown.style.display = "none";
+    });
+  });
+});
+// Close dropdown on outside click
+document.addEventListener("click", (e) => {
+  if (!e.target.closest("#btnSectionNav") && !e.target.closest("#sectionNavDropdown")) {
+    sectionNavDropdown.style.display = "none";
+  }
+  if (!e.target.closest("#btnInsertTemplate") && !e.target.closest("#templateDropdown")) {
+    document.getElementById("templateDropdown").style.display = "none";
+  }
+});
+
+// --- Insert Template Snippets ---
+const templateSnippets = {
+  table: "| Column 1 | Column 2 |\n|----------|----------|\n| Cell 1   | Cell 2   |\n| Cell 3   | Cell 4   |",
+  matrix: "| Scenario | Input | Expected | Actual | Status |\n|----------|-------|----------|--------|--------|\n| TC-01    |       |          |        | -      |\n| TC-02    |       |          |        | -      |",
+  risk: "| Risk | Likelihood | Impact | Mitigation |\n|------|-----------|--------|------------|\n|      | Low/Med/High | Low/Med/High |            |",
+  checklist: "- [ ] Item 1\n- [ ] Item 2\n- [ ] Item 3\n- [ ] Item 4"
+};
+
+document.getElementById("btnInsertTemplate").addEventListener("click", () => {
+  const dd = document.getElementById("templateDropdown");
+  dd.style.display = dd.style.display === "none" ? "block" : "none";
+});
+document.querySelectorAll("#templateDropdown .toolbar-dropdown-item").forEach(item => {
+  item.addEventListener("click", () => {
+    const key = item.dataset.template;
+    if (templateSnippets[key]) {
+      insertAtCursor(analysisEditor, "\n" + templateSnippets[key] + "\n");
+      updateEditorStatusBar();
+    }
+    document.getElementById("templateDropdown").style.display = "none";
+  });
+});
+
+// --- Diff View before Save ---
+function generateSimpleDiff(original, modified) {
+  const origLines = original.split("\n");
+  const modLines = modified.split("\n");
+  const result = [];
+  let i = 0, j = 0;
+  while (i < origLines.length || j < modLines.length) {
+    if (i < origLines.length && j < modLines.length && origLines[i] === modLines[j]) {
+      result.push({ type: "context", text: origLines[i] });
+      i++; j++;
+    } else {
+      let foundI = -1, foundJ = -1;
+      for (let la = 1; la < 6; la++) {
+        if (foundJ === -1 && j + la < modLines.length && i < origLines.length && origLines[i] === modLines[j + la]) foundJ = j + la;
+        if (foundI === -1 && i + la < origLines.length && j < modLines.length && origLines[i + la] === modLines[j]) foundI = i + la;
+      }
+      if (foundI !== -1 && (foundJ === -1 || foundI - i <= foundJ - j)) {
+        while (i < foundI) { result.push({ type: "remove", text: origLines[i] }); i++; }
+      } else if (foundJ !== -1) {
+        while (j < foundJ) { result.push({ type: "add", text: modLines[j] }); j++; }
+      } else {
+        if (i < origLines.length) { result.push({ type: "remove", text: origLines[i] }); i++; }
+        if (j < modLines.length) { result.push({ type: "add", text: modLines[j] }); j++; }
+      }
+    }
+  }
+  return result;
+}
+
+function renderDiffView(diffLines) {
+  const container = document.getElementById("diffViewContainer");
+  let html = "";
+  let contextBuffer = [];
+  function escapeHtml(s) { return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;"); }
+  function flushContext() {
+    if (contextBuffer.length > 6) {
+      contextBuffer.slice(0, 3).forEach(l => { html += `<div class="diff-line-context"> ${escapeHtml(l)}</div>`; });
+      html += `<div class="diff-line-header">... ${contextBuffer.length - 6} unchanged lines ...</div>`;
+      contextBuffer.slice(-3).forEach(l => { html += `<div class="diff-line-context"> ${escapeHtml(l)}</div>`; });
+    } else {
+      contextBuffer.forEach(l => { html += `<div class="diff-line-context"> ${escapeHtml(l)}</div>`; });
+    }
+    contextBuffer = [];
+  }
+  diffLines.forEach(d => {
+    if (d.type === "context") { contextBuffer.push(d.text); }
+    else {
+      flushContext();
+      if (d.type === "add") html += `<div class="diff-line-add">+ ${escapeHtml(d.text)}</div>`;
+      else html += `<div class="diff-line-remove">- ${escapeHtml(d.text)}</div>`;
+    }
+  });
+  flushContext();
+  container.innerHTML = html || '<div class="diff-line-context" style="text-align:center;padding:1rem;">No changes detected.</div>';
+}
+
+const diffReviewModal = new bootstrap.Modal(document.getElementById("diffReviewModal"));
+
+// Debounced preview on input
+analysisEditor.addEventListener("input", () => {
+  if (analysisEditPanels.classList.contains("editor-only")) return;
+  if (previewDebounceTimer) clearTimeout(previewDebounceTimer);
+  previewDebounceTimer = setTimeout(renderEditPreview, 500);
+});
+
+// Save
+btnSaveAnalysis.addEventListener("click", () => {
+  const promptId = currentAnalysisPromptId;
+  if (!promptId) return;
+
+  // If no changes, just exit
+  if (!isAnalysisEditDirty()) { exitEditMode(); return; }
+
+  // Show diff review modal
+  const diff = generateSimpleDiff(analysisEditOriginalText, analysisEditor.value);
+  renderDiffView(diff);
+  diffReviewModal.show();
+});
+
+document.getElementById("confirmSaveFromDiff").addEventListener("click", async () => {
+  const promptId = currentAnalysisPromptId;
+  diffReviewModal.hide();
+
+  btnSaveAnalysis.disabled = true;
+  btnSaveAnalysis.innerHTML = '<span class="spinner-border spinner-border-sm me-1" role="status"></span>Saving...';
+
+  try {
+    await apiRequest(`/testcase/updateAnalysis/${encodeURIComponent(promptId)}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ content: analysisEditor.value }),
+    });
+
+    currentAnalysisText = analysisEditor.value;
+    analysisEditOriginalText = currentAnalysisText;
+    exitEditMode();
+    renderAnalysisDocument(currentAnalysisText);
+    analysisStatus.textContent = "Analysis saved.";
+    analysisStatus.classList.remove("text-danger");
+    analysisStatus.classList.add("text-success");
+    showBanner("Analysis saved successfully.", "success");
+  } catch (err) {
+    analysisStatus.textContent = "Save failed: " + (err.message || "Unknown error");
+    analysisStatus.classList.remove("text-success");
+    analysisStatus.classList.add("text-danger");
+    showBanner("Save failed: " + (err.message || "Unknown error"), "danger");
+  } finally {
+    btnSaveAnalysis.disabled = false;
+    btnSaveAnalysis.innerHTML = '<i class="bi bi-check-lg me-1"></i>Save';
+  }
+});
+
+// Cancel
+btnCancelEdit.addEventListener("click", () => {
+  if (isAnalysisEditDirty()) {
+    unsavedChangesModal.show();
+  } else {
+    exitEditMode();
+  }
+});
+
+// Confirm discard
+confirmDiscardChangesBtn.addEventListener("click", () => {
+  unsavedChangesModal.hide();
+  exitEditMode();
+});
+
+// Keyboard shortcuts (scoped to edit mode)
+document.addEventListener("keydown", (e) => {
+  if (!analysisEditActive) return;
+
+  // Ctrl/Cmd + S → Save
+  if ((e.ctrlKey || e.metaKey) && e.key === "s") {
+    e.preventDefault();
+    btnSaveAnalysis.click();
+    return;
+  }
+
+  // Escape → Cancel
+  if (e.key === "Escape") {
+    e.preventDefault();
+    btnCancelEdit.click();
+    return;
   }
 });
 
