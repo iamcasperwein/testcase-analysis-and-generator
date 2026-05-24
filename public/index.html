@@ -305,6 +305,24 @@
                 <input type="hidden" id="platformValueInput" name="platforms" value="" />
               </div>
 
+              <!-- Auto-Generate Toggle -->
+              <div class="col-12">
+                <div class="bloom-toggle-card">
+                  <div class="bloom-toggle-left">
+                    <div class="bloom-toggle-icon">
+                      <i class="bi bi-lightning-charge"></i>
+                    </div>
+                    <div class="bloom-toggle-text">
+                      <div class="bloom-toggle-title">Auto-generate test cases</div>
+                      <div class="bloom-toggle-desc">Skip the review step and generate test cases immediately after analysis</div>
+                    </div>
+                  </div>
+                  <div class="form-check form-switch mb-0">
+                    <input class="form-check-input bloom-toggle-input" type="checkbox" role="switch" id="autoGenerateToggle">
+                  </div>
+                </div>
+              </div>
+
               <!-- Row 3: Documents -->
               <div class="col-12">
                 <div class="d-flex align-items-center justify-content-between mb-2">
@@ -380,6 +398,13 @@
                 disabled
               >
                 <i class="bi bi-download me-1"></i>Download
+              </button>
+              <button
+                class="btn btn-sm btn-primary"
+                id="generateFromAnalysisBtn"
+                style="display:none;"
+              >
+                <i class="bi bi-play-fill me-1"></i>Generate Test Cases
               </button>
             </div>
           </div>
@@ -1192,6 +1217,50 @@
       <div class="settings-dialog-actions">
         <button type="button" class="btn btn-outline-secondary" id="syncConfigDeleteCancelBtn">Cancel</button>
         <button type="button" class="btn btn-danger" id="syncConfigDeleteConfirmBtn"><i class="bi bi-trash3 me-1"></i>Remove</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Generate Test Cases Confirmation Modal (Bloom) -->
+  <div class="modal fade" id="generateTestCasesModal" tabindex="-1" aria-labelledby="generateTestCasesModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content tc-bloom-modal">
+        <div class="modal-header tc-bloom-header">
+          <div class="d-flex align-items-center gap-2">
+            <div class="tc-bloom-icon-wrap">
+              <i class="bi bi-play-circle"></i>
+            </div>
+            <div>
+              <div class="tc-bloom-modal-title" id="generateTestCasesModalLabel">Generate Test Cases</div>
+              <div class="tc-bloom-modal-sub">Review complete — ready to generate</div>
+            </div>
+          </div>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body tc-bloom-body">
+          <p class="mb-2">You are about to generate test cases based on the analysis for:</p>
+          <div class="mb-3 p-2 bg-light rounded border">
+            <div class="small text-muted">Project</div>
+            <div class="fw-semibold" id="genTcProjectName">—</div>
+          </div>
+          <div class="d-flex gap-3 mb-3">
+            <div class="p-2 bg-light rounded border flex-fill">
+              <div class="small text-muted">Agent</div>
+              <div class="fw-semibold" id="genTcAgent">—</div>
+            </div>
+            <div class="p-2 bg-light rounded border flex-fill">
+              <div class="small text-muted">Model</div>
+              <div class="fw-semibold" id="genTcModel">—</div>
+            </div>
+          </div>
+          <p class="small text-muted mb-0">This will use the reviewed analysis and submitted artifacts to generate structured test cases. This may take a few minutes.</p>
+        </div>
+        <div class="modal-footer tc-bloom-footer d-flex justify-content-end gap-2">
+          <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+          <button type="button" class="btn btn-sm btn-primary" id="confirmGenerateTestCasesBtn">
+            <i class="bi bi-play-fill me-1"></i>Generate
+          </button>
+        </div>
       </div>
     </div>
   </div>

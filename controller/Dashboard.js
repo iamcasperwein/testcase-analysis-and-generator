@@ -23,7 +23,8 @@ const getDashboard = async (req, res) => {
 
         const total      = prompts.length;
         const completed  = prompts.filter(p => /COMPLETED|DONE/i.test(p.status || "")).length;
-        const inProgress = prompts.filter(p => /PROCESSING|IN_PROGRESS/i.test(p.status || "")).length;
+        const inProgress = prompts.filter(p => /ANALYZING|GENERATING|PROCESSING|IN_PROGRESS/i.test(p.status || "")).length;
+        const inReview   = prompts.filter(p => /REVIEW/i.test(p.status || "")).length;
 
         const turnarounds = prompts
             .filter(p => p.startAt && p.endAt)
@@ -42,12 +43,14 @@ const getDashboard = async (req, res) => {
                 totalPrompts: total,
                 completed,
                 inProgress,
+                inReview,
                 avgTurnaroundMs,
                 totalTestCases: totalTestCases || null,
                 prompts: prompts.map(p => ({
                     promptId:      p.promptId,
                     projectName:   p.projectName || null,
                     status:        p.status || null,
+                    agent:         p.agent || null,
                     model:         resolveModelName(p),
                     testCaseCount: p.testCaseCount ?? null,
                     turnaroundMs:  (p.startAt && p.endAt)

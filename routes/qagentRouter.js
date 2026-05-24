@@ -36,4 +36,6 @@ router.post("/ask", upload.fields([
 
 router.post("/retry/:promptId", QAgent.retryPrompt)
 
+router.post("/testcases/:promptId", QAgent.generateTestCases)
+
 module.exports = router

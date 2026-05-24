@@ -280,6 +280,7 @@ const createInitialRecord = ({ promptId, payload, agent, model }) => ({
         : [],
     createdAt: new Date().toISOString(),
     startAt: new Date().toISOString(),
+    autoGenerateTestCases: payload.autoGenerateTestCases === true,
     endAt: null,
     testCaseCount: null,
     resultAnalysis: `analyze/${promptId}.md`,
@@ -450,6 +451,7 @@ const sanitizeSubmissionPayload = (payload = {}) => {
         platforms: normalizePlatforms(payload.platforms),
         documents,
         context: String(payload.context || "").trim(),
+        autoGenerateTestCases: payload.autoGenerateTestCases === true,
     };
 };
 
@@ -554,13 +556,13 @@ const processSubmission = async (payload = {}, { isRetry = false } = {}) => {
         logger.success("Prompt record created", { status: "RECEIVED" });
     } else {
         updatePromptRecord(promptId, {
-            status: "PROCESSING",
+            status: "ANALYZING",
             model: selectedModel || null,
             endAt: null,
             failureNote: null,
             errorMessage: null,
         });
-        logger.success("Prompt record updated for retry", { status: "PROCESSING" });
+        logger.success("Prompt record updated for retry", { status: "ANALYZING" });
     }
 
     // Enrich documents with extracted text from uploaded files or Lark links
@@ -581,12 +583,12 @@ const processSubmission = async (payload = {}, { isRetry = false } = {}) => {
     }
     logger.success("Document enrichment complete", { totalDocs: validatedPayload.documents.length });
 
-    updatePromptRecord(promptId, { status: isRetry ? "RETRYING" : "IN_PROGRESS", startAt: new Date().toISOString(), endAt: null, failureNote: null, errorMessage: null });
-    logger.info("Status updated", { status: isRetry ? "RETRYING" : "IN_PROGRESS" });
+    updatePromptRecord(promptId, { status: "ANALYZING", startAt: new Date().toISOString(), endAt: null, failureNote: null, errorMessage: null });
+    logger.info("Status updated", { status: "ANALYZING" });
 
     try {
-        updatePromptRecord(promptId, { status: "PROCESSING" });
-        logger.info("Status updated", { status: "PROCESSING" });
+        updatePromptRecord(promptId, { status: "ANALYZING" });
+        logger.info("Status updated", { status: "ANALYZING" });
 
         // --- STEP 1: Analysis ---
         let analysisText = "";
@@ -621,7 +623,17 @@ const processSubmission = async (payload = {}, { isRetry = false } = {}) => {
             logger.success("Step 1/3 - Analysis saved", { path: `analyze/${promptId}.md` });
         }
 
+        // --- Check if we should stop for review ---
+        const shouldAutoGenerate = validatedPayload.autoGenerateTestCases === true;
+        if (!shouldAutoGenerate && !isRetry) {
+            updatePromptRecord(promptId, { status: "REVIEW" });
+            logger.success("Analysis complete — awaiting review", { status: "REVIEW" });
+            return { promptId, agent, status: "REVIEW", testCaseCount: 0 };
+        }
+
         // --- STEP 2: Test Case Generation ---
+        updatePromptRecord(promptId, { status: "GENERATING" });
+        logger.info("Status updated", { status: "GENERATING" });
         logger.step("Step 2/3 - Building test case generation prompt");
         const testCasePrompt = await TestCaseService.getTestCaseGenerationPrompt({
             ...validatedPayload,

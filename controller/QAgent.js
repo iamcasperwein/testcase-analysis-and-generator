@@ -178,6 +178,7 @@ const askAi = async (req, res) => {
 		const payload = {
 			...body,
 			promptId,
+			autoGenerateTestCases: String(body.autoGenerateTestCases || "false").trim().toLowerCase() === "true",
 			documents,
 		};
 
@@ -225,7 +226,7 @@ const retryPrompt = async (req, res) => {
 			return res.status(404).json({ success: false, error: `Prompt not found: ${promptId}` });
 		}
 		if (!/FAILED|ERROR/i.test(record.status || "")) {
-			return res.status(400).json({ success: false, error: `Prompt is not failed (status: ${record.status})` });
+			return res.status(400).json({ success: false, error: `Prompt is not in a retryable state (status: ${record.status}). Only FAILED prompts can be retried.` });
 		}
 
 		const uploadsDir = path.join(__dirname, "../data/uploads");
@@ -258,7 +259,66 @@ const retryPrompt = async (req, res) => {
 	}
 };
 
+const generateTestCases = async (req, res) => {
+	try {
+		const { promptId } = req.params;
+		if (!promptId) {
+			return res.status(400).json({ success: false, error: "promptId is required" });
+		}
+
+		const records = QAgentService.readPromptData();
+		const record = records.find((r) => String(r.promptId || "") === String(promptId));
+		if (!record) {
+			return res.status(404).json({ success: false, error: `Prompt not found: ${promptId}` });
+		}
+		if (!/REVIEW/i.test(record.status || "")) {
+			return res.status(400).json({ success: false, error: `Test cases can only be generated from REVIEW status (current: ${record.status}).` });
+		}
+
+		// Validate analysis file exists
+		try {
+			const FileReader = require("../utils/FileReader");
+			const analysis = FileReader.readDataFile(`analyze/${promptId}.md`);
+			if (!String(analysis || "").trim()) {
+				return res.status(400).json({ success: false, error: "Analysis not found or empty. Please retry submission." });
+			}
+		} catch (_) {
+			return res.status(400).json({ success: false, error: "Analysis file not found. Please retry submission." });
+		}
+
+		const uploadsDir = path.join(__dirname, "../data/uploads");
+
+		const payload = {
+			promptId,
+			projectName: record.projectName || "",
+			feature: record.feature || record.projectName || "",
+			agent: record.agent || "claude",
+			model: record.model || "",
+			platforms: record.platforms || [],
+			autoGenerateTestCases: true,
+			documents: inferDocumentsFromUploads(uploadsDir, promptId, record.documents),
+		};
+
+		QAgentService.processSubmission(payload, { isRetry: true })
+			.then((result) => {
+				console.log(`[QAgentController] Generate from review completed: promptId=${result.promptId}, status=${result.status}, testCaseCount=${result.testCaseCount}`);
+			})
+			.catch((error) => {
+				console.error(`[QAgentController] Generate from review failed: promptId=${promptId}, error=${error.message}`);
+			});
+
+		res.status(202).json({
+			success: true,
+			message: "Test case generation started. Processing in background.",
+			data: { promptId, status: "GENERATING" },
+		});
+	} catch (error) {
+		res.status(500).json({ success: false, error: error.message });
+	}
+};
+
 module.exports = {
 	askAi,
 	retryPrompt,
+	generateTestCases,
 };

@@ -999,6 +999,7 @@ qaForm.addEventListener("submit", async (e) => {
   formData.append("feature", document.getElementById("projectNameInput").value.trim());
   formData.append("platforms", Array.from(selectedPlatforms).join(","));
   formData.append("context", document.getElementById("contextInput")?.value?.trim() || "");
+  formData.append("autoGenerateTestCases", document.getElementById("autoGenerateToggle").checked ? "true" : "false");
 
   // Documents: parallel arrays for docTypes, docFormats, docLinkUrls
   // Files go under "documents" field (only for format=file entries)
@@ -1074,11 +1075,13 @@ async function doLoadAnalysis(promptId) {
 
     analysisStatus.textContent = "Analysis loaded.";
     downloadAnalysisBtn.disabled = !currentAnalysisText.trim();
+    updateGenerateButtonVisibility();
   } catch (err) {
     analysisToc.innerHTML = '<div class="analysis-toc-title">Contents</div><div class="analysis-toc-empty text-danger">Failed to load sections.</div>';
     analysisDoc.innerHTML = '<div class="analysis-doc-empty text-danger">Failed to load analysis.</div>';
     analysisStatus.textContent = err.message;
     downloadAnalysisBtn.disabled = true;
+    updateGenerateButtonVisibility();
   }
 }
 
@@ -1358,6 +1361,67 @@ downloadAnalysisBtn.addEventListener("click", async () => {
   } finally {
     downloadAnalysisBtn.disabled = false;
     downloadAnalysisBtn.textContent = "Download";
+  }
+});
+
+// --- Generate Test Cases from REVIEW status ---
+const generateFromAnalysisBtn = document.getElementById("generateFromAnalysisBtn");
+const generateTestCasesModal = new bootstrap.Modal(document.getElementById("generateTestCasesModal"));
+const confirmGenerateTestCasesBtn = document.getElementById("confirmGenerateTestCasesBtn");
+
+function updateGenerateButtonVisibility() {
+  const promptId = currentAnalysisPromptId;
+  if (!promptId) {
+    generateFromAnalysisBtn.style.display = "none";
+    return;
+  }
+  const prompt = allPrompts.find(p => p.promptId === promptId);
+  if (prompt && /^REVIEW$/i.test(prompt.status || "")) {
+    generateFromAnalysisBtn.style.display = "";
+  } else {
+    generateFromAnalysisBtn.style.display = "none";
+  }
+}
+
+generateFromAnalysisBtn.addEventListener("click", () => {
+  const promptId = currentAnalysisPromptId;
+  if (!promptId) return;
+  const prompt = allPrompts.find(p => p.promptId === promptId);
+  if (!prompt) return;
+
+  document.getElementById("genTcProjectName").textContent = prompt.projectName || promptId;
+  document.getElementById("genTcAgent").textContent = prompt.agent || "—";
+  document.getElementById("genTcModel").textContent = prompt.model || "default";
+  generateTestCasesModal.show();
+});
+
+confirmGenerateTestCasesBtn.addEventListener("click", async () => {
+  const promptId = currentAnalysisPromptId;
+  if (!promptId) return;
+
+  confirmGenerateTestCasesBtn.disabled = true;
+  confirmGenerateTestCasesBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1" role="status"></span>Generating...';
+
+  try {
+    const response = await apiRequest(`/generate/testcases/${encodeURIComponent(promptId)}`, {
+      method: "POST",
+    });
+    generateTestCasesModal.hide();
+    analysisStatus.textContent = "Test case generation started. Check the Test Scope tab for results.";
+    analysisStatus.classList.remove("text-danger");
+    analysisStatus.classList.add("text-success");
+    generateFromAnalysisBtn.style.display = "none";
+
+    // Update local prompt status
+    const prompt = allPrompts.find(p => p.promptId === promptId);
+    if (prompt) prompt.status = "GENERATING";
+  } catch (err) {
+    analysisStatus.textContent = "Failed to start generation: " + (err.message || "Unknown error");
+    analysisStatus.classList.remove("text-success");
+    analysisStatus.classList.add("text-danger");
+  } finally {
+    confirmGenerateTestCasesBtn.disabled = false;
+    confirmGenerateTestCasesBtn.innerHTML = '<i class="bi bi-play-fill me-1"></i>Generate';
   }
 });
 
@@ -5114,6 +5178,9 @@ function getStatusBadge(status) {
     done:        "bg-success",
     processing:  "bg-warning text-dark",
     in_progress: "bg-warning text-dark",
+    analyzing:   "bg-info text-dark",
+    generating:  "bg-warning text-dark",
+    review:      "bg-primary",
     failed:      "bg-danger",
     error:       "bg-danger",
   };
@@ -5253,7 +5320,7 @@ async function loadDashboard() {
 
     const total     = data?.totalPrompts    ?? prompts.length;
     const completed = data?.completed       ?? prompts.filter(p => /completed|done/i.test(p.status || "")).length;
-    const inProg    = data?.inProgress      ?? prompts.filter(p => /processing|in_progress/i.test(p.status || "")).length;
+    const inProg    = data?.inProgress      ?? prompts.filter(p => /analyzing|generating|processing|in_progress/i.test(p.status || "")).length;
     const avgMs     = data?.avgTurnaroundMs ?? null;
     const totalTc   = data?.totalTestCases  ?? prompts.reduce((acc, p) => acc + (p.testCaseCount ?? 0), 0);
 
