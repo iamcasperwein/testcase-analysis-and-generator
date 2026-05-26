@@ -1483,6 +1483,11 @@ function enterEditMode() {
   updateEditorStatusBar();
   updateLineNumbers();
   analysisEditor.focus();
+
+  // Update URL to reflect edit mode
+  if (typeof updateUrl === "function") {
+    updateUrl("analysis", currentAnalysisPromptId, true, true);
+  }
 }
 
 function exitEditMode() {
@@ -1493,6 +1498,11 @@ function exitEditMode() {
   downloadAnalysisBtn.disabled = !currentAnalysisText.trim();
   updateGenerateButtonVisibility();
   updateEditButtonVisibility();
+
+  // Remove edit param from URL
+  if (typeof updateUrl === "function") {
+    updateUrl("analysis", currentAnalysisPromptId, false, true);
+  }
 
   if (previewDebounceTimer) {
     clearTimeout(previewDebounceTimer);
@@ -5748,7 +5758,7 @@ const analysisDropdown = buildPromptDropdown(
   document.getElementById("analysisPromptTrigger"),
   document.getElementById("analysisPromptDropdown"),
   document.getElementById("analysisPromptIdInput"),
-  (id) => { doLoadAnalysis(id); }
+  (id) => { doLoadAnalysis(id); updateUrl("analysis", id, false, false); }
 );
 
 const scopeDropdown = buildPromptDropdown(
@@ -5758,7 +5768,7 @@ const scopeDropdown = buildPromptDropdown(
   document.getElementById("scopePromptTrigger"),
   document.getElementById("scopePromptDropdown"),
   document.getElementById("scopePromptIdInput"),
-  (id) => { loadTestScope(id); }
+  (id) => { loadTestScope(id); updateUrl("testcases", id, false, false); }
 );
 
 async function loadAllPrompts() {
@@ -5772,7 +5782,7 @@ async function loadAllPrompts() {
 }
 
 // Load prompts on startup and refresh dropdowns when tabs are shown
-loadAllPrompts();
+const _initialPromptsLoaded = loadAllPrompts();
 loadSyncConfig(); // Pre-load sync config for Move Section auto-suite selection
 document.getElementById("test-analysis-tab").addEventListener("shown.bs.tab", loadAllPrompts);
 document.getElementById("test-scope-tab").addEventListener("shown.bs.tab", loadAllPrompts);
@@ -6049,20 +6059,14 @@ function renderDashTable(prompts) {
   dashTableBody.querySelectorAll(".dash-prompt-link, .dash-view-analysis").forEach(el => {
     el.addEventListener("click", () => {
       const id = el.dataset.promptid || el.dataset.id;
-      document.getElementById("analysisPromptIdInput").value = id;
-      analysisDropdown.selectPromptById(id);
-      document.getElementById("test-analysis-tab").click();
-      doLoadAnalysis(id);
+      navigateToPage("analysis", id);
     });
   });
 
   dashTableBody.querySelectorAll(".dash-view-testcases").forEach(el => {
     el.addEventListener("click", () => {
       const id = el.dataset.id;
-      document.getElementById("scopePromptIdInput").value = id;
-      scopeDropdown.selectPromptById(id);
-      document.getElementById("test-scope-tab").click();
-      loadTestScope(id);
+      navigateToPage("testcases", id);
     });
   });
 
@@ -6172,26 +6176,146 @@ dashRefreshBtn.addEventListener("click", () => {
 document.getElementById("dashboard-tab").addEventListener("shown.bs.tab", loadDashboard);
 loadDashboard();
 
-// --- Hash-based section/tab navigation ---
-const hashToTab = {
-  '#dashboard': 'dashboard-tab',
-  '#form': 'form-tab',
-  '#test-analysis': 'test-analysis-tab',
-  '#testcases': 'test-scope-tab',
-  '#test-scope': 'test-scope-tab',
-  '#settings': 'settings-tab'
+// --- URL-based navigation with query params ---
+const PAGE_PARAM = "page";
+const PROMPT_PARAM = "promptId";
+const EDIT_PARAM = "edit";
+
+const pageToTab = {
+  dashboard: "dashboard-tab",
+  form: "form-tab",
+  analysis: "test-analysis-tab",
+  testcases: "test-scope-tab",
+  settings: "settings-tab",
 };
-const tabToHash = {
-  'dashboard-tab': '#dashboard',
-  'form-tab': '#form',
-  'test-analysis-tab': '#test-analysis',
-  'test-scope-tab': '#testcases',
-  'settings-tab': '#settings'
+const tabToPage = {
+  "dashboard-tab": "dashboard",
+  "form-tab": "form",
+  "test-analysis-tab": "analysis",
+  "test-scope-tab": "testcases",
+  "settings-tab": "settings",
 };
 
-function activateTabFromHash() {
-  const hash = window.location.hash.toLowerCase();
-  const tabId = hashToTab[hash];
+// Legacy hash support (map old hashes to page names)
+const hashToPage = {
+  "#dashboard": "dashboard",
+  "#form": "form",
+  "#test-analysis": "analysis",
+  "#testcases": "testcases",
+  "#test-scope": "testcases",
+  "#settings": "settings",
+};
+
+let _suppressUrlUpdate = false;
+
+function getUrlState() {
+  const params = new URLSearchParams(window.location.search);
+  let page = params.get(PAGE_PARAM);
+  const promptId = params.get(PROMPT_PARAM);
+  const edit = params.get(EDIT_PARAM) === "true";
+
+  // Fallback: check hash for legacy URLs
+  if (!page && window.location.hash) {
+    page = hashToPage[window.location.hash.toLowerCase()] || null;
+  }
+
+  return { page: page || "dashboard", promptId, edit };
+}
+
+function buildUrl(page, promptId, edit) {
+  const params = new URLSearchParams();
+  if (page && page !== "dashboard") params.set(PAGE_PARAM, page);
+  if (promptId) params.set(PROMPT_PARAM, promptId);
+  if (edit) params.set(EDIT_PARAM, "true");
+  const qs = params.toString();
+  return window.location.pathname + (qs ? "?" + qs : "");
+}
+
+function updateUrl(page, promptId, edit, replace) {
+  if (_suppressUrlUpdate) return;
+  const url = buildUrl(page, promptId, edit);
+  if (replace) {
+    history.replaceState({ page, promptId, edit }, "", url);
+  } else {
+    history.pushState({ page, promptId, edit }, "", url);
+  }
+}
+
+function getCurrentPage() {
+  // Determine current active tab
+  const activeTab = document.querySelector('#topPanelTabs .nav-link.active');
+  return activeTab ? (tabToPage[activeTab.id] || "dashboard") : "dashboard";
+}
+
+function getCurrentPromptIdForPage(page) {
+  if (page === "analysis") return currentAnalysisPromptId || null;
+  if (page === "testcases") {
+    const input = document.getElementById("scopePromptIdInput");
+    return input ? input.value || null : null;
+  }
+  return null;
+}
+
+// Update URL on tab change
+document.querySelectorAll('[data-bs-toggle="tab"]').forEach(tabEl => {
+  tabEl.addEventListener("shown.bs.tab", () => {
+    if (_suppressUrlUpdate) return;
+    const page = tabToPage[tabEl.id] || "dashboard";
+    const promptId = getCurrentPromptIdForPage(page);
+    updateUrl(page, promptId, false, false);
+  });
+});
+
+// Navigate to a page + prompt programmatically (used internally)
+function navigateToPage(page, promptId, opts = {}) {
+  const { replace = false, edit = false, skipLoad = false } = opts;
+  const tabId = pageToTab[page];
+  if (!tabId) return;
+
+  _suppressUrlUpdate = true;
+  const tabEl = document.getElementById(tabId);
+  if (tabEl) {
+    const bsTab = new bootstrap.Tab(tabEl);
+    bsTab.show();
+  }
+  _suppressUrlUpdate = false;
+
+  updateUrl(page, promptId, edit, replace);
+
+  if (skipLoad) return;
+
+  if (page === "analysis" && promptId) {
+    document.getElementById("analysisPromptIdInput").value = promptId;
+    if (typeof analysisDropdown !== "undefined" && analysisDropdown.selectPromptById) {
+      analysisDropdown.selectPromptById(promptId);
+    }
+    doLoadAnalysis(promptId).then(() => {
+      if (edit && typeof enterEditMode === "function") {
+        // Only enter edit mode if status is REVIEW
+        const record = (allPrompts || []).find(r => String(r.promptId) === String(promptId));
+        if (record && /REVIEW/i.test(record.status || "")) {
+          enterEditMode();
+        }
+      }
+    });
+  } else if (page === "testcases" && promptId) {
+    document.getElementById("scopePromptIdInput").value = promptId;
+    if (typeof scopeDropdown !== "undefined" && scopeDropdown.selectPromptById) {
+      scopeDropdown.selectPromptById(promptId);
+    }
+    loadTestScope(promptId);
+  }
+}
+
+// Handle browser back/forward
+window.addEventListener("popstate", (e) => {
+  const state = e.state || getUrlState();
+  const page = state.page || "dashboard";
+  const promptId = state.promptId || null;
+  const edit = state.edit || false;
+
+  _suppressUrlUpdate = true;
+  const tabId = pageToTab[page];
   if (tabId) {
     const tabEl = document.getElementById(tabId);
     if (tabEl) {
@@ -6199,23 +6323,40 @@ function activateTabFromHash() {
       bsTab.show();
     }
   }
-}
+  _suppressUrlUpdate = false;
 
-// Update hash on tab change
-document.querySelectorAll('[data-bs-toggle="tab"]').forEach(tabEl => {
-  tabEl.addEventListener('shown.bs.tab', () => {
-    const h = tabToHash[tabEl.id];
-    if (h) {
-      history.replaceState(null, '', h);
+  // Load content without touching history
+  if (page === "analysis" && promptId) {
+    document.getElementById("analysisPromptIdInput").value = promptId;
+    if (typeof analysisDropdown !== "undefined" && analysisDropdown.selectPromptById) {
+      analysisDropdown.selectPromptById(promptId);
     }
-  });
+    doLoadAnalysis(promptId).then(() => {
+      if (edit && typeof enterEditMode === "function") {
+        const record = (allPrompts || []).find(r => String(r.promptId) === String(promptId));
+        if (record && /REVIEW/i.test(record.status || "")) enterEditMode();
+      }
+    });
+  } else if (page === "testcases" && promptId) {
+    document.getElementById("scopePromptIdInput").value = promptId;
+    if (typeof scopeDropdown !== "undefined" && scopeDropdown.selectPromptById) {
+      scopeDropdown.selectPromptById(promptId);
+    }
+    loadTestScope(promptId);
+  }
 });
 
-// Activate tab on hashchange and initial load
-window.addEventListener('hashchange', activateTabFromHash);
-if (window.location.hash) {
-  activateTabFromHash();
+// On initial page load: restore state from URL
+function restoreFromUrl() {
+  const { page, promptId, edit } = getUrlState();
+  if (page !== "dashboard" || promptId) {
+    // Wait for prompts to load before navigating
+    _initialPromptsLoaded.then(() => {
+      navigateToPage(page, promptId, { replace: true, edit });
+    });
+  }
 }
+restoreFromUrl();
 
 // Initialize Bootstrap tooltips
 document.querySelectorAll('[data-bs-toggle="tooltip"]').forEach(el => {

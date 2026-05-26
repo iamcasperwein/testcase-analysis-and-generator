@@ -82,7 +82,7 @@ const getPromptLog = async (req, res) => {
             return res.status(400).json({ success: false, error: "promptId is required" });
         }
 
-        const logPath = path.join(__dirname, "../data/runtime", `${promptId}.txt`);
+        const logPath = path.join(__dirname, "../../data/runtime", `${promptId}.txt`);
         if (!fs.existsSync(logPath)) {
             return res.status(404).json({ success: false, error: "Log file not found for this prompt." });
         }

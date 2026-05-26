@@ -71,7 +71,7 @@ const normalizeAgentName = (value) => {
     return AGENTS[agentName] ? agentName : "claude";
 };
 
-const PROMPT_DATA_LOCK = path.join(__dirname, "../data/promptdata.lock");
+const PROMPT_DATA_LOCK = path.join(__dirname, "../../data/promptdata.lock");
 const LOCK_RETRY_MS = 50;
 const LOCK_MAX_RETRIES = 40;
 const LOCK_STALE_MS = 10000;
@@ -695,4 +695,5 @@ module.exports = {
     processSubmission,
     sanitizeSubmissionPayload,
     readPromptData,
+    updatePromptRecord,
 };

@@ -229,7 +229,7 @@ const retryPrompt = async (req, res) => {
 			return res.status(400).json({ success: false, error: `Prompt is not in a retryable state (status: ${record.status}). Only FAILED prompts can be retried.` });
 		}
 
-		const uploadsDir = path.join(__dirname, "../data/uploads");
+		const uploadsDir = path.join(__dirname, "../../data/uploads");
 
 		const payload = {
 			promptId,
@@ -252,7 +252,7 @@ const retryPrompt = async (req, res) => {
 		res.status(202).json({
 			success: true,
 			message: "Retry accepted. Processing started in background.",
-			data: { promptId, status: "RETRYING" },
+			data: { promptId, status: "ANALYZING" },
 		});
 	} catch (error) {
 		res.status(500).json({ success: false, error: error.message });
@@ -275,6 +275,13 @@ const generateTestCases = async (req, res) => {
 			return res.status(400).json({ success: false, error: `Test cases can only be generated from REVIEW status (current: ${record.status}).` });
 		}
 
+		// Atomic status transition: set GENERATING immediately to prevent duplicate requests
+		const { updatePromptRecord } = QAgentService;
+		const updated = updatePromptRecord(promptId, { status: "GENERATING" });
+		if (!updated || !/GENERATING/i.test(updated.status || "")) {
+			return res.status(409).json({ success: false, error: "Generation already in progress." });
+		}
+
 		// Validate analysis file exists
 		try {
 			const FileReader = require("../utils/FileReader");
@@ -286,7 +293,7 @@ const generateTestCases = async (req, res) => {
 			return res.status(400).json({ success: false, error: "Analysis file not found. Please retry submission." });
 		}
 
-		const uploadsDir = path.join(__dirname, "../data/uploads");
+		const uploadsDir = path.join(__dirname, "../../data/uploads");
 
 		const payload = {
 			promptId,
