@@ -6185,13 +6185,13 @@ document.getElementById("dashboard-tab").addEventListener("shown.bs.tab", () => 
 });
 loadDashboard();
 
-// --- Dashboard auto-refresh (every 10s, only when dashboard tab is active) ---
+// --- Dashboard auto-refresh (every 15s, only when dashboard tab is active) ---
 setInterval(() => {
   const dashTab = document.getElementById("dashboard-tab");
   if (dashTab && dashTab.classList.contains("active")) {
     loadDashboard(true);
   }
-}, 1000);
+}, 15000);
 
 // --- URL-based navigation with query params ---
 const PAGE_PARAM = "page";
