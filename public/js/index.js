@@ -5954,9 +5954,11 @@ function formatLogAsTerminal(raw) {
   }).join("\n");
 }
 
-async function loadDashboard() {
-  dashStatus.textContent = "Loading...";
-  dashTableBody.innerHTML = `<tr><td colspan="8" class="dash-empty"><div class="spinner-border spinner-border-sm text-primary me-2" role="status"></div>Fetching data...</td></tr>`;
+async function loadDashboard(silent = false) {
+  if (!silent) {
+    dashStatus.textContent = "Loading...";
+    dashTableBody.innerHTML = `<tr><td colspan="8" class="dash-empty"><div class="spinner-border spinner-border-sm text-primary me-2" role="status"></div>Fetching data...</td></tr>`;
+  }
 
   try {
     const resp = await apiRequest("/dashboard");
@@ -5964,6 +5966,11 @@ async function loadDashboard() {
 
     const prompts   = Array.isArray(data?.prompts) ? data.prompts :
                       Array.isArray(data)           ? data         : [];
+
+    // Skip re-render if data hasn't changed (silent refresh)
+    const newHash = JSON.stringify(prompts.map(p => p.promptId + ":" + p.status + ":" + (p.testCaseCount || 0)));
+    if (silent && window._dashLastHash === newHash) return;
+    window._dashLastHash = newHash;
 
     const total     = data?.totalPrompts    ?? prompts.length;
     const completed = data?.completed       ?? prompts.filter(p => /completed|done/i.test(p.status || "")).length;
@@ -6173,8 +6180,18 @@ dashRefreshBtn.addEventListener("click", () => {
     }, 200);
   });
 });
-document.getElementById("dashboard-tab").addEventListener("shown.bs.tab", loadDashboard);
+document.getElementById("dashboard-tab").addEventListener("shown.bs.tab", () => {
+  loadDashboard();
+});
 loadDashboard();
+
+// --- Dashboard auto-refresh (every 10s, only when dashboard tab is active) ---
+setInterval(() => {
+  const dashTab = document.getElementById("dashboard-tab");
+  if (dashTab && dashTab.classList.contains("active")) {
+    loadDashboard(true);
+  }
+}, 1000);
 
 // --- URL-based navigation with query params ---
 const PAGE_PARAM = "page";

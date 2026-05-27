@@ -97,14 +97,16 @@ const generateFromPrompt = async (prompt, options = {}) => {
 	try {
 		const isReasoningModel = /\b(gpt-5|o[1-9]|o3|o4)\b/i.test(model)
 
+		const COPILOT_MAX_TOKENS = Math.min(DEFAULTS.MAX_TOKENS, 32768);
+
 		response = await axios.post(
 			apiUrl,
 			{
 				model,
 				...(isReasoningModel ? {} : { temperature: DEFAULTS.TEMPERATURE }),
 				...(isReasoningModel
-					? { max_completion_tokens: DEFAULTS.MAX_TOKENS }
-					: { max_tokens: DEFAULTS.MAX_TOKENS }),
+					? { max_completion_tokens: COPILOT_MAX_TOKENS }
+					: { max_tokens: COPILOT_MAX_TOKENS }),
 				messages: [
 					{
 						role: "system",
