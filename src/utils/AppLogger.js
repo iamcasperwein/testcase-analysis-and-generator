@@ -1,7 +1,7 @@
 const fs = require("fs")
 const path = require("path")
 
-const LOG_ROOT = path.join(__dirname, "../data")
+const LOG_ROOT = path.join(__dirname, "../../data")
 
 const ensureDirectory = (targetPath) => {
 	fs.mkdirSync(path.dirname(targetPath), { recursive: true })

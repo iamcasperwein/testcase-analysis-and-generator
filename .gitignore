@@ -2,12 +2,14 @@
 config.json
 .vscode/
 .opencode/
+AGENTS.md
 
 node_modules/
 data/uploads/
 data/runtime/
 data/analyze/
 data/testcases/
+data/figma/
 data/promptdata.lock
 data/promptdata.json
 data/testrail-sync-config.json

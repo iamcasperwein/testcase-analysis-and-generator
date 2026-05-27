@@ -1,6 +1,10 @@
 # QE Test Case Generator
 
 > An AI-assisted backend service that converts product specifications (PRD, RFC, Figma) into structured, reviewable QA test cases — automating one of the most time-consuming activities in the QA lifecycle.
+>
+## Related Docs:
+- [AI-Driven QE Analysis and Test Case Generation Tools](https://traveloka.sg.larksuite.com/wiki/AKoWwqEbXi0vYKkElHWlioZzg9d)
+- [[Usage Guide] QE AI-Driven Tools](https://traveloka.sg.larksuite.com/wiki/LIoKwX4TeinpRHkaq0BlYmUygpe) Using this guideline doc for setup
 
 ---
 
@@ -38,7 +42,9 @@ The **QE Test Case Generator** is a Node.js / Express backend that ingests produ
 ### Primary Capabilities
 
 - **Submit & Analyze** — Upload PRD/RFC/Figma documents (file upload or Doc Link) and receive an asynchronous job ID.
-- **Two-Stage AI Pipeline** — Step 1 produces an analysis; Step 2 produces test cases grounded on that analysis. Both stages use a dedicated system prompt with expert QA persona and provider-specific configuration (temperature, model routing).
+- **Two-Stage AI Pipeline** — Step 1 produces an analysis; Step 2 produces test cases grounded on that analysis. Both stages use a dedicated system prompt with expert QA persona and provider-specific configuration (temperature, model routing). A **review checkpoint** between stages (default behavior) allows users to verify the analysis before committing to test case generation. Toggle `autoGenerateTestCases` to skip the review and run both stages back-to-back.
+- **Editable Analysis** — During the REVIEW phase, users can edit the analysis markdown directly via a split-view editor (raw markdown + live preview) with line numbers. Toolbar includes: formatting buttons (Bold, Italic, Heading, Ordered/Unordered List, Link, Code Block), fullscreen toggle, prettify, Find & Replace, section navigation dropdown, insert template snippets (table, matrix, risk, checklist), and a status bar (line/col, word count, char count). Keyboard shortcuts: `Ctrl/⌘+S` (save), `Ctrl/⌘+B` (bold), `Ctrl/⌘+I` (italic), `Ctrl/⌘+F` (find), `F11` (fullscreen), `Tab` (indent), `Escape` (cancel), native undo/redo. Save shows a diff review modal before confirming. Changes are saved via `PUT /testcase/updateAnalysis/:promptId`.
+- **URL-based Navigation** — Page state is persisted in URL query params (`?page=analysis&promptId=X`). Supports browser back/forward, page refresh restores context, and direct links to specific prompts. Legacy hash URLs (`#test-analysis`) are supported as fallback. Edit mode can be deep-linked via `&edit=true`.
 - **Context-Aware Generation** — Token estimation and context limit validation prevent silent failures on large documents. Few-shot examples and self-evaluation checklists improve output quality on mid-tier models.
 - **CRUD on Test Cases** — Edit, move between sections, and delete generated test cases.
 - **Dashboard Analytics** — Aggregate counts, turnaround time, and failure notes.
@@ -188,6 +194,10 @@ Produces a structured Markdown analysis document. The prompt instructs the model
 5. **Edge Cases** — Boundary conditions
 6. **Risks & Mitigations** — Potential risks
 7. **Test Strategy Notes** — Approach, environment, test data needs
+8. **Assumptions** — Assumptions made by the AI due to ambiguous or missing information
+9. **Document Conflicts** — Contradictions or mismatches found across submitted documents
+10. **Document Assessment** — Per-document summary: what it covers, key extractions, clarity rating (Clear/Partially Clear/Unclear), gaps
+11. **UI/Design Analysis** — Visual states, interactions, and design-document gaps (when Figma context is provided)
 
 **Prompt structure (order matters — critical info placed at top for model attention):**
 
@@ -264,6 +274,8 @@ All generated test cases conform to this JSON structure:
 ```json
 {
     "feature": "string",
+    "assumptions": ["string"],
+    "documentConflicts": ["string"],
     "testCases": [
         {
             "section": "string",
@@ -350,8 +362,11 @@ The service exposes the following routes (mounted in [app.js](app.js)):
 | Method | Path | Handler | Description |
 |---|---|---|---|
 | `POST` | `/generate/ask` | [controller/QAgent.js](controller/QAgent.js) | Submit PRD/RFC/Figma and start AI generation |
+| `POST` | `/generate/retry/:promptId` | [controller/QAgent.js](controller/QAgent.js) | Retry a FAILED prompt (re-runs full pipeline) |
+| `POST` | `/generate/testcases/:promptId` | [controller/QAgent.js](controller/QAgent.js) | Generate test cases from a REVIEW-status prompt (Stage 2 only) |
 | `GET`  | `/testcase/:promptId` | [controller/TestCase.js](controller/TestCase.js) | Fetch generated test cases |
 | `GET`  | `/testcase/getAnalyzeResult/:promptId` | [controller/TestCase.js](controller/TestCase.js) | Fetch analysis Markdown |
+| `PUT`  | `/testcase/updateAnalysis/:promptId` | [controller/TestCase.js](controller/TestCase.js) | Update analysis Markdown (REVIEW status only) |
 | `POST`/`PUT` | `/testcase/edit` | [controller/TestCase.js](controller/TestCase.js) | Update a test case (title, steps, section, platforms) |
 | `POST` | `/testcase/bulkMoveSection` | [controller/TestCase.js](controller/TestCase.js) | Bulk move test cases to a target section (atomic, single API call) |
 | `POST` | `/testcase/add` | [controller/TestCase.js](controller/TestCase.js) | Add a new test case to a section |
@@ -466,7 +481,7 @@ sequenceDiagram
     Ctrl->>Svc: processSubmission(payload)
     Svc->>Svc: sanitizeSubmissionPayload + enrichDocuments (PDF parse for files, Lark API fetch for links)
     Svc->>Svc: resolveAgent(payload.agent) → AIService + resolveModelName → model
-    Svc->>FS: appendPromptRecord (status=RECEIVED → IN_PROGRESS → PROCESSING)
+    Svc->>FS: appendPromptRecord (status=RECEIVED → ANALYZING)
 
     Svc->>TC: getTestAnalysisPrompt(payload)
     TC-->>Svc: analysis prompt (string)
@@ -476,6 +491,13 @@ sequenceDiagram
     API-->>AI: analysis text
     AI-->>Svc: analysisText
     Svc->>FS: write analyze/{promptId}.md
+
+    alt autoGenerateTestCases = false (default)
+        Svc->>FS: updatePromptRecord(status=REVIEW)
+        Note over Svc: Pipeline stops here — awaits POST /generate/testcases/:promptId
+    else autoGenerateTestCases = true
+        Svc->>Svc: Continue to Stage 2 (status=GENERATING)
+    end
 
     Svc->>TC: getTestCaseGenerationPrompt(payload + analysisContext)
     TC-->>Svc: testcase prompt (with few-shot examples + self-eval checklist)
@@ -766,8 +788,8 @@ sequenceDiagram
     Svc->>FR: readDataFile(promptdata.json)
     FR-->>Svc: raw JSON
     Svc-->>Ctrl: prompts[]
-    Ctrl->>Ctrl: compute totals, completed, inProgress, avgTurnaroundMs
-    Ctrl-->>Client: 200 { totalPrompts, completed, inProgress, avgTurnaroundMs, prompts[] }
+    Ctrl->>Ctrl: compute totals, completed, inProgress, inReview, avgTurnaroundMs
+    Ctrl-->>Client: 200 { totalPrompts, completed, inProgress, inReview, avgTurnaroundMs, prompts[] }
 ```
 
 ---
@@ -789,7 +811,7 @@ sequenceDiagram
     Ctrl->>Svc: getPromptList()
     Svc->>FR: readDataFile(promptdata.json)
     FR-->>Svc: raw JSON
-    Svc->>Svc: map → { promptId, projectName, platforms }
+    Svc->>Svc: map → { promptId, projectName, platforms, status, agent, model }
     Svc-->>Ctrl: list
     Ctrl-->>Client: 200 { success, data: list }
 ```
@@ -1108,9 +1130,20 @@ sequenceDiagram
 ### Job Status Lifecycle
 
 ```
-RECEIVED → IN_PROGRESS → PROCESSING → COMPLETED
-                                   ↘ FAILED (failureNote, errorMessage)
+RECEIVED → ANALYZING → REVIEW → GENERATING → COMPLETED
+                  ↘ FAILED          ↘ FAILED
 ```
+
+| Status | Meaning |
+|--------|---------|
+| `RECEIVED` | Submission accepted, queued for processing |
+| `ANALYZING` | AI is generating the analysis document (Stage 1) |
+| `REVIEW` | Analysis complete, awaiting user review before test case generation. Only reached when `autoGenerateTestCases = false` (default). |
+| `GENERATING` | AI is generating test cases (Stage 2) |
+| `COMPLETED` | Both stages finished successfully |
+| `FAILED` | Any stage encountered an error (`failureNote`, `errorMessage` populated) |
+
+**Auto-Generate Toggle**: When `autoGenerateTestCases = true`, the pipeline skips the REVIEW checkpoint and proceeds directly from ANALYZING → GENERATING → COMPLETED. When `false` (default), it stops at REVIEW and waits for the user to manually trigger generation via `POST /generate/testcases/:promptId`.
 
 ---
 
@@ -1132,6 +1165,7 @@ Stored in `.env` at the project root and managed at runtime via `/settings/*`.
 | `GITHUB_MODELS_API_URL` | ✗ | Override for inference endpoint (default `https://models.inference.ai.azure.com/chat/completions`) |
 | `LARK_APP_ID` | ✓ (if using Lark links) | Lark Open Platform App ID |
 | `LARK_APP_SECRET` | ✓ (if using Lark links) | Lark Open Platform App Secret |
+| `FIGMA_ACCESS_TOKEN` | ✓ (if using Figma links) | Figma personal/OAuth access token for REST API |
 | `OPENAI_API_KEY` | ✗ | Reserved for a future OpenAI agent |
 | `TESTRAIL_URL` | ✗ | Base URL of TestRail instance (planned) |
 | `TESTRAIL_USERNAME` | ✗ | TestRail user (planned) |
@@ -1176,6 +1210,7 @@ qe-test-case-generator/
 ├── service/                 # Business logic
 │   ├── QAgentService.js     # Orchestrates the AI pipeline
 │   ├── LarkService.js       # Lark Open API integration (URL parsing, auth, content fetch)
+│   ├── FigmaService.js      # Figma REST API integration (URL parsing, text/component extraction, frame images)
 │   ├── ClaudeService.js     # Anthropic Claude integration
 │   ├── GeminiService.js     # Google Gemini integration (Strategy/Facade)
 │   ├── CopilotService.js    # GitHub Copilot/GitHub Models integration

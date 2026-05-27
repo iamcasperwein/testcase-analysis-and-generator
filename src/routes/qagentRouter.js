@@ -7,7 +7,7 @@ const fs = require("fs")
 const QAgent = require("../controller/QAgent")
 
 // Ensure uploads directory exists
-const uploadsDir = path.join(__dirname, "../data/uploads")
+const uploadsDir = path.join(__dirname, "../../data/uploads")
 if (!fs.existsSync(uploadsDir)) {
     fs.mkdirSync(uploadsDir, { recursive: true })
 }
@@ -35,5 +35,7 @@ router.post("/ask", upload.fields([
 ]), QAgent.askAi)
 
 router.post("/retry/:promptId", QAgent.retryPrompt)
+
+router.post("/testcases/:promptId", QAgent.generateTestCases)
 
 module.exports = router

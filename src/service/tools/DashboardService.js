@@ -18,6 +18,9 @@ const getPromptList = async () => {
         promptId:    p.promptId,
         projectName: p.projectName || null,
         platforms:   Array.isArray(p.platforms) ? p.platforms : [],
+        status:      p.status || null,
+        agent:       p.agent || null,
+        model:       p.model || null,
     }));
 };
 

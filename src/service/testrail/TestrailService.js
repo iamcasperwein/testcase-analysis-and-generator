@@ -1,7 +1,7 @@
 const axios = require("axios")
 const FileReader = require("../../utils/FileReader")
 const { createActionLogger } = require("../../utils/AppLogger")
-const TestrailSyncConfigService = require("../testrail/TestrailSyncConfigService")
+const TestrailSyncConfigService = require("./TestrailSyncConfigService")
 const ConfigLoader = require("../../utils/ConfigLoader")
 
 const createValidationError = (message, statusCode = 400) => {

@@ -1,7 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 
-const DATA_DIR = path.resolve(path.join(__dirname, '../data'));
+const DATA_DIR = path.resolve(path.join(__dirname, '../../data'));
 
 const resolveSafePath = (fileName) => {
     const resolved = path.resolve(path.join(DATA_DIR, fileName));

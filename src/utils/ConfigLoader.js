@@ -1,7 +1,7 @@
 const fs = require("fs")
 const path = require("path")
 
-const CONFIG_FILE_PATH = path.join(__dirname, "../config.json")
+const CONFIG_FILE_PATH = path.join(__dirname, "../../config.json")
 
 /**
  * Read all config values from config.json.
