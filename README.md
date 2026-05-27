@@ -1,6 +1,10 @@
 # QE Test Case Generator
 
 > An AI-assisted backend service that converts product specifications (PRD, RFC, Figma) into structured, reviewable QA test cases — automating one of the most time-consuming activities in the QA lifecycle.
+>
+## Related Docs:
+- [AI-Driven QE Analysis and Test Case Generation Tools](https://traveloka.sg.larksuite.com/wiki/AKoWwqEbXi0vYKkElHWlioZzg9d)
+- [[Usage Guide] QE AI-Driven Tools](https://traveloka.sg.larksuite.com/wiki/LIoKwX4TeinpRHkaq0BlYmUygpe) Using this guideline doc for setup
 
 ---
 
