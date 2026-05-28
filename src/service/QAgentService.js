@@ -12,6 +12,7 @@ const ClaudeService = require("./ai/ClaudeService");
 const CopilotService = require("./ai/CopilotService");
 const LiteLLMService = require("./ai/LiteLLMService");
 const LarkService = require("./LarkService");
+const { getProvider: getLarkProvider } = require("./LarkProviderFactory");
 const FigmaService = require("./FigmaService");
 const ConfigLoader = require("../utils/ConfigLoader");
 const path = require("path");
@@ -381,7 +382,7 @@ const enrichDocuments = async (documents = [], logger = null, promptId = "") => 
             // Fetch content from Lark URL
             logger?.step("Fetching document from link", { docType: doc.docType, linkUrl });
             try {
-                const result = await LarkService.fetchContentFromUrl(linkUrl);
+                const result = await getLarkProvider().fetchContentFromUrl(linkUrl);
                 const content = result.content || "";
                 logger?.success("Link document fetched", { docType: doc.docType, chars: content.length });
 
@@ -390,6 +391,13 @@ const enrichDocuments = async (documents = [], logger = null, promptId = "") => 
                     const sanitizedName = `${doc.docType}_link_${Date.now()}.txt`;
                     FileReader.writeDataFile(`uploads/${sanitizedName}`, content);
                     logger?.info("Link content stored for traceability", { path: `uploads/${sanitizedName}` });
+                } catch (_) {}
+
+                // Save to /data/temps/{docID}.md for reference
+                try {
+                    const docId = result.documentId || `unknown_${Date.now()}`;
+                    FileReader.writeDataFile(`temps/${docId}.md`, content);
+                    logger?.info("Lark doc saved to temps", { path: `temps/${docId}.md`, docId });
                 } catch (_) {}
 
                 enriched.push({ ...doc, content });

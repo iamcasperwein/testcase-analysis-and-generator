@@ -345,6 +345,10 @@
     #form-pane .form-card .card-body {
       overflow: visible;
     }
+    #settingsSubTabsContent {
+      max-height: calc(100vh - 250px);
+      overflow-y: auto;
+    }
     #settings-pane .prompt-select-wrap,
     #form-pane .prompt-select-wrap,
     #form-pane .add-doc-type-wrap {
@@ -3422,4 +3426,201 @@
     /* ── Edit modal platform chips ── */
     #editTcPlatformOptions .platform-chip {
       cursor: pointer;
+    }
+
+    /* ── Lark Integration ── */
+    .lark-status-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      display: inline-block;
+      background: #ccc;
+      flex-shrink: 0;
+    }
+    .lark-status-dot.status-ok {
+      background: #22c55e;
+    }
+    .lark-status-dot.status-fail {
+      background: #ef4444;
+    }
+    .lark-status-dot.status-pending {
+      background: #f59e0b;
+    }
+
+    .lark-status-card {
+      border: 1px solid #e2e8f0;
+      border-radius: 10px;
+      background: #fff;
+      overflow: hidden;
+    }
+    .lark-status-card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 10px 16px;
+      background: #f8fafc;
+      border-bottom: 1px solid #e2e8f0;
+    }
+    .lark-status-badge {
+      font-size: 0.7rem;
+      padding: 2px 10px;
+      border-radius: 20px;
+      font-weight: 600;
+      background: #e2e8f0;
+      color: #64748b;
+    }
+    .lark-status-badge.badge-ok {
+      background: #dcfce7;
+      color: #16a34a;
+    }
+    .lark-status-badge.badge-warn {
+      background: #fef3c7;
+      color: #d97706;
+    }
+    .lark-status-badge.badge-fail {
+      background: #fee2e2;
+      color: #dc2626;
+    }
+    .lark-status-card-body {
+      padding: 0;
+    }
+    .lark-status-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 12px 16px;
+      border-bottom: 1px solid #f1f5f9;
+    }
+    .lark-status-row:last-child {
+      border-bottom: none;
+    }
+    .lark-status-icon {
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.85rem;
+      background: #f1f5f9;
+      color: #94a3b8;
+      flex-shrink: 0;
+    }
+    .lark-status-icon.icon-ok {
+      background: #dcfce7;
+      color: #16a34a;
+    }
+    .lark-status-icon.icon-fail {
+      background: #fee2e2;
+      color: #dc2626;
+    }
+    .lark-status-icon.icon-warn {
+      background: #fef3c7;
+      color: #d97706;
+    }
+    .lark-status-info {
+      flex: 1;
+      min-width: 0;
+    }
+    .lark-status-label {
+      font-size: 0.82rem;
+      font-weight: 500;
+      color: #1e293b;
+    }
+    .lark-status-detail {
+      font-size: 0.72rem;
+      color: #64748b;
+      margin-top: 1px;
+    }
+    .lark-status-action {
+      flex-shrink: 0;
+    }
+
+    .lark-auth-card {
+      border: 1px solid #bfdbfe;
+      border-radius: 10px;
+      background: #eff6ff;
+      overflow: hidden;
+    }
+    .lark-auth-card-header {
+      padding: 10px 16px;
+      font-size: 0.82rem;
+      font-weight: 600;
+      color: #1e40af;
+      background: #dbeafe;
+      border-bottom: 1px solid #bfdbfe;
+    }
+    .lark-auth-card-body {
+      padding: 14px 16px;
+    }
+    .lark-auth-url-box {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 12px;
+      background: #fff;
+      border: 1px solid #e2e8f0;
+      border-radius: 6px;
+    }
+    .lark-auth-url-box a {
+      flex: 1;
+      word-break: break-all;
+    }
+
+    .lark-section-card {
+      border: 1px solid #e2e8f0;
+      border-radius: 10px;
+      background: #fff;
+      padding: 14px 16px;
+    }
+
+    .lark-provider-option {
+      cursor: pointer;
+      flex: 1;
+    }
+    .lark-provider-option input[type="radio"] {
+      display: none;
+    }
+    .lark-provider-card {
+      border: 2px solid #e2e8f0;
+      border-radius: 10px;
+      padding: 12px 16px;
+      transition: border-color 0.15s, background 0.15s;
+    }
+    .lark-provider-option input[type="radio"]:checked + .lark-provider-card {
+      border-color: #3b82f6;
+      background: #eff6ff;
+    }
+    .lark-provider-card:hover {
+      border-color: #93c5fd;
+    }
+    .lark-provider-title {
+      font-size: 0.82rem;
+      font-weight: 600;
+      color: #1e293b;
+    }
+    .lark-provider-desc {
+      font-size: 0.7rem;
+      color: #64748b;
+      margin-top: 2px;
+    }
+
+    #larkAdvancedToggle {
+      cursor: pointer;
+    }
+    #larkAdvancedChevron {
+      transition: transform 0.2s;
+    }
+    #larkAdvancedChevron.rotated {
+      transform: rotate(90deg);
+    }
+
+    /* Setup stepper */
+    .lark-setup-step-icon {
+      width: 20px;
+      height: 20px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
     }

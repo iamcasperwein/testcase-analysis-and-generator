@@ -484,9 +484,10 @@
                         <div class="toolbar-dropdown-item" data-template="matrix">Test Matrix</div>
                         <div class="toolbar-dropdown-item" data-template="risk">Risk Table</div>
                         <div class="toolbar-dropdown-item" data-template="checklist">Checklist</div>
-                      </div>
-                    </div>
-                  </div>
+                </div>
+              </div>
+              </div>
+
                   <div class="toolbar-right">
                     <button class="btn btn-sm btn-primary" id="btnSaveAnalysis">
                       <i class="bi bi-check-lg me-1"></i>Save
@@ -658,11 +659,8 @@
         aria-labelledby="settings-tab"
       >
         <div class="card form-card">
-          <div class="card-header d-flex justify-content-between align-items-center">
+          <div class="card-header">
             <h5 class="mb-0"><i class="bi bi-gear me-1"></i>Settings Workspace</h5>
-            <button class="btn btn-sm btn-outline-secondary" id="refreshSettingsBtn">
-              <i class="bi bi-arrow-clockwise me-1"></i>Refresh
-            </button>
           </div>
           <div class="card-body">
 
@@ -708,6 +706,20 @@
                   aria-selected="false"
                 >
                   TestRail Sync
+                </button>
+              </li>
+              <li class="nav-item" role="presentation">
+                <button
+                  class="nav-link"
+                  id="settings-lark-integration-tab"
+                  data-bs-toggle="tab"
+                  data-bs-target="#settings-lark-integration-pane"
+                  type="button"
+                  role="tab"
+                  aria-controls="settings-lark-integration-pane"
+                  aria-selected="false"
+                >
+                  Lark Integration
                 </button>
               </li>
             </ul>
@@ -861,12 +873,210 @@
                   </div>
                 </div>
               </div>
+
+              <div
+                class="tab-pane fade"
+                id="settings-lark-integration-pane"
+                role="tabpanel"
+                aria-labelledby="settings-lark-integration-tab"
+              >
+                <div class="border rounded p-3 mb-3" style="border-color:#d8e5f8 !important; background:#f8fbff;">
+                  <div class="d-flex justify-content-between align-items-start gap-3 flex-wrap mb-3">
+                    <div>
+                      <h6 class="mb-1"><i class="bi bi-link-45deg me-1"></i>Lark CLI Integration</h6>
+                      <div class="small text-muted">Manage lark-cli installation, authentication, and provider settings for document fetching.</div>
+                    </div>
+                    <button class="btn btn-sm btn-outline-secondary" id="larkRefreshStatusBtn" type="button">
+                      <i class="bi bi-arrow-clockwise me-1"></i>Refresh
+                    </button>
+                  </div>
+
+                  <!-- Connection Status Card -->
+                  <div class="lark-status-card mb-3">
+                    <div class="lark-status-card-header">
+                      <span class="fw-semibold small">Connection Status</span>
+                      <span class="lark-status-badge" id="larkOverallBadge">Checking...</span>
+                    </div>
+                    <div class="lark-status-card-body">
+                      <div class="lark-status-row">
+                        <div class="lark-status-icon" id="larkIconInstalled"><i class="bi bi-circle"></i></div>
+                        <div class="lark-status-info">
+                          <div class="lark-status-label">CLI Installation</div>
+                          <div class="lark-status-detail" id="larkDetailInstalled">Checking...</div>
+                        </div>
+                      </div>
+                      <div class="lark-status-row">
+                        <div class="lark-status-icon" id="larkIconConfigured"><i class="bi bi-circle"></i></div>
+                        <div class="lark-status-info">
+                          <div class="lark-status-label">App Configuration</div>
+                          <div class="lark-status-detail" id="larkDetailConfigured">Checking...</div>
+                        </div>
+                      </div>
+                      <div class="lark-status-row">
+                        <div class="lark-status-icon" id="larkIconAuth"><i class="bi bi-circle"></i></div>
+                        <div class="lark-status-info">
+                          <div class="lark-status-label">User Authentication</div>
+                          <div class="lark-status-detail" id="larkDetailAuth">Checking...</div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- One-Click Setup -->
+                  <div class="lark-section-card mb-3" id="larkSetupSection">
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                      <div>
+                        <div class="fw-semibold small mb-1">Quick Setup</div>
+                        <div class="small text-muted">One-click install, configure, and authorize lark-cli.</div>
+                      </div>
+                      <button class="btn btn-primary btn-sm" id="larkSetupBtn">
+                        <i class="bi bi-rocket-takeoff me-1"></i>Set Up Lark
+                      </button>
+                    </div>
+
+                    <!-- Setup Progress Stepper -->
+                    <div id="larkSetupProgress" style="display:none;" class="mt-3 pt-3 border-top">
+                      <div class="d-flex flex-column gap-2">
+                        <div class="d-flex align-items-center gap-2" id="larkSetupStepInstall">
+                          <span class="lark-setup-step-icon"><i class="bi bi-circle"></i></span>
+                          <span class="small">Install lark-cli</span>
+                        </div>
+                        <div class="d-flex align-items-center gap-2" id="larkSetupStepConfig">
+                          <span class="lark-setup-step-icon"><i class="bi bi-circle"></i></span>
+                          <span class="small">Configure Lark app</span>
+                        </div>
+                        <div class="d-flex align-items-center gap-2" id="larkSetupStepAuth">
+                          <span class="lark-setup-step-icon"><i class="bi bi-circle"></i></span>
+                          <span class="small">Authorize user</span>
+                        </div>
+                      </div>
+
+                      <!-- Setup Message (text only, no spinner) -->
+                      <div class="mt-3" id="larkSetupMsg" style="display:none;">
+                        <span class="small text-muted" id="larkSetupMsgText"></span>
+                      </div>
+
+                      <!-- Setup Auth Link (shown when user needs to open browser) -->
+                      <div class="mt-3" id="larkSetupLinkArea" style="display:none;">
+                        <div class="lark-auth-card">
+                          <div class="lark-auth-card-header">
+                            <i class="bi bi-box-arrow-up-right me-1"></i><span id="larkSetupLinkTitle">Open this link to continue</span>
+                          </div>
+                          <div class="lark-auth-card-body">
+                            <p class="small text-muted mb-2" id="larkSetupLinkDesc">Click the link below to authorize in your browser. This page will update automatically once you're done.</p>
+                            <div class="lark-auth-url-box mb-2">
+                              <a href="#" target="_blank" rel="noopener" id="larkSetupLink" class="small text-break"></a>
+                              <button class="btn btn-sm btn-outline-secondary" id="larkSetupCopyBtn" title="Copy URL">
+                                <i class="bi bi-clipboard"></i>
+                              </button>
+                            </div>
+                            <a href="#" target="_blank" rel="noopener" id="larkSetupOpenBtn" class="btn btn-sm btn-primary">
+                              <i class="bi bi-box-arrow-up-right me-1"></i>Open Link
+                            </a>
+                          </div>
+                        </div>
+                      </div>
+
+                      <!-- Setup Error -->
+                      <div class="mt-3 alert alert-danger small" id="larkSetupError" style="display:none;"></div>
+
+                      <!-- Setup Success -->
+                      <div class="mt-3 alert alert-success small" id="larkSetupSuccess" style="display:none;">
+                        <i class="bi bi-check-circle-fill me-1"></i>Connected! Lark integration is ready.
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- Connection Test -->
+                  <div class="lark-section-card mb-3">
+                    <div class="d-flex justify-content-between align-items-center">
+                      <div>
+                        <div class="fw-semibold small mb-1">Connection Test</div>
+                        <div class="small text-muted">Verify that lark-cli can successfully fetch documents.</div>
+                      </div>
+                      <button class="btn btn-sm btn-outline-primary" id="larkTestConnectionBtn">
+                        <i class="bi bi-plug me-1"></i>Test Connection
+                      </button>
+                    </div>
+                    <div class="mt-2" id="larkTestResult" style="display:none;"></div>
+                  </div>
+
+                  <!-- Provider Toggle -->
+                  <div class="lark-section-card mb-3">
+                    <div class="fw-semibold small mb-2">Document Fetch Provider</div>
+                    <div class="d-flex align-items-center gap-3">
+                      <label class="lark-provider-option">
+                        <input type="radio" name="larkProviderRadio" id="larkProviderCli" value="cli">
+                        <div class="lark-provider-card">
+                          <div class="lark-provider-title">lark-cli <span class="badge bg-primary bg-opacity-10 text-primary ms-1" style="font-size:0.65rem;">default</span></div>
+                          <div class="lark-provider-desc">Uses local CLI binary with user auth</div>
+                        </div>
+                      </label>
+                      <label class="lark-provider-option">
+                        <input type="radio" name="larkProviderRadio" id="larkProviderSdk" value="sdk">
+                        <div class="lark-provider-card">
+                          <div class="lark-provider-title">SDK</div>
+                          <div class="lark-provider-desc">Requires APP_ID + APP_SECRET</div>
+                        </div>
+                      </label>
+                    </div>
+                  </div>
+
+                  <!-- Advanced Details (collapsible) -->
+                  <div class="lark-section-card">
+                    <div class="d-flex align-items-center gap-2 cursor-pointer" id="larkAdvancedToggle" role="button">
+                      <i class="bi bi-chevron-right small" id="larkAdvancedChevron"></i>
+                      <span class="fw-semibold small">Advanced Details</span>
+                    </div>
+                    <div id="larkAdvancedContent" style="display:none;" class="mt-2 pt-2 border-top">
+                      <table class="table table-sm table-borderless mb-0 small">
+                        <tbody>
+                          <tr><td class="text-muted" style="width:140px;">CLI Version</td><td id="larkAdvVersion">—</td></tr>
+                          <tr><td class="text-muted">App ID</td><td id="larkAdvAppId">—</td></tr>
+                          <tr><td class="text-muted">Brand</td><td id="larkAdvBrand">—</td></tr>
+                          <tr><td class="text-muted">User</td><td id="larkAdvUser">—</td></tr>
+                          <tr><td class="text-muted">Scopes</td><td id="larkAdvScopes">docx:document:readonly, wiki:wiki:readonly, docx:document</td></tr>
+                          <tr><td class="text-muted">Config Path</td><td id="larkAdvConfigPath">~/.lark-cli/config.json</td></tr>
+                          <tr><td class="text-muted">Provider</td><td id="larkAdvProvider">—</td></tr>
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+
+                </div>
+              </div>
             </div>
           </div>
         </div>
       </div>
         </div>
       </main>
+    </div>
+  </div>
+
+  <!-- Prompt Details Modal -->
+  <div class="modal fade" id="promptDetailsModal" tabindex="-1" aria-labelledby="promptDetailsModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable tc-view-dialog">
+      <div class="modal-content tc-bloom-modal">
+        <div class="modal-header tc-bloom-header">
+          <div class="d-flex align-items-center gap-2">
+            <div class="tc-bloom-icon-wrap">
+              <i class="bi bi-info-circle"></i>
+            </div>
+            <div>
+              <div class="tc-bloom-modal-title" id="promptDetailsModalLabel">Prompt Details</div>
+              <div class="tc-bloom-modal-sub" id="promptDetailsModalSub">—</div>
+            </div>
+          </div>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body tc-bloom-body" id="promptDetailsModalBody">
+          <!-- Populated by JS -->
+        </div>
+        <div class="modal-footer tc-bloom-footer">
+          <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Close</button>
+        </div>
+      </div>
     </div>
   </div>
 
