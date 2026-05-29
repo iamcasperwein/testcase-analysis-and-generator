@@ -44,7 +44,7 @@ The **QE Test Case Generator** is a Node.js / Express backend that ingests produ
 - **Submit & Analyze** — Upload PRD/RFC/Figma documents (file upload or Doc Link) and receive an asynchronous job ID.
 - **Two-Stage AI Pipeline** — Step 1 produces an analysis; Step 2 produces test cases grounded on that analysis. Both stages use a dedicated system prompt with expert QA persona and provider-specific configuration (temperature, model routing). A **review checkpoint** between stages (default behavior) allows users to verify the analysis before committing to test case generation. Toggle `autoGenerateTestCases` to skip the review and run both stages back-to-back.
 - **Editable Analysis** — During the REVIEW phase, users can edit the analysis markdown directly via a split-view editor (raw markdown + live preview) with line numbers. Toolbar includes: formatting buttons (Bold, Italic, Heading, Ordered/Unordered List, Link, Code Block), fullscreen toggle, prettify, Find & Replace, section navigation dropdown, insert template snippets (table, matrix, risk, checklist), and a status bar (line/col, word count, char count). Keyboard shortcuts: `Ctrl/⌘+S` (save), `Ctrl/⌘+B` (bold), `Ctrl/⌘+I` (italic), `Ctrl/⌘+F` (find), `F11` (fullscreen), `Tab` (indent), `Escape` (cancel), native undo/redo. Save shows a diff review modal before confirming. Changes are saved via `PUT /testcase/updateAnalysis/:promptId`.
-- **URL-based Navigation** — Page state is persisted in URL query params (`?page=analysis&promptId=X`). Supports browser back/forward, page refresh restores context, and direct links to specific prompts. Legacy hash URLs (`#test-analysis`) are supported as fallback. Edit mode can be deep-linked via `&edit=true`.
+- **URL-based Navigation** — Page state is persisted in URL query params (`?page=analysis&promptId=X`). Supports browser back/forward, page refresh restores context, and direct links to specific prompts. Legacy hash URLs (`#test-analysis`) are supported as fallback. Edit mode can be deep-linked via `&edit=true`. Settings sub-tabs are tracked via `&subpage=environment|model-catalog|testrail-sync|lark-integration`.
 - **Context-Aware Generation** — Token estimation and context limit validation prevent silent failures on large documents. Few-shot examples and self-evaluation checklists improve output quality on mid-tier models.
 - **CRUD on Test Cases** — Edit, move between sections, and delete generated test cases.
 - **Dashboard Analytics** — Aggregate counts, turnaround time, and failure notes.
@@ -121,8 +121,26 @@ Routes  →  Controller  →  Service  →  Utils / External APIs / File Store
 | **Factory** | `createInitialRecord` in [service/QAgentService.js](service/QAgentService.js#L113-L131) | Centralizes the construction of a normalized prompt record. |
 | **Async Job / Fire-and-Forget** | [controller/QAgent.js](controller/QAgent.js#L77-L92) | Returns `202 Accepted` and continues processing in the background. |
 | **Validation Error** | `SubmissionValidationError` class | Structured, status-code-aware errors propagated to the controller. |
+| **Provider Factory** | [service/LarkProviderFactory.js](src/service/LarkProviderFactory.js) | Switches between lark-cli and SDK-based doc fetching based on `config.larkProvider`. |
 
 ---
+
+### Lark CLI Integration
+
+The app supports two providers for fetching Lark document content:
+
+| Provider | Package | Config Key | When Used |
+|----------|---------|------------|-----------|
+| **cli** (default) | `@larksuite/cli` (global) | `"larkProvider": "cli"` | Default; requires lark-cli installed and authenticated |
+| **sdk** (legacy) | `@larksuiteoapi/node-sdk` | `"larkProvider": "sdk"` | Requires `LARK_APP_ID` + `LARK_APP_SECRET` in config.json |
+
+**Setup (Settings > Lark Integration tab):**
+1. One-click "Set Up Lark" button: installs lark-cli, creates a Lark app via `config init --new`, and initiates user auth
+2. User opens two browser links sequentially (app creation + OAuth consent) — both triggered by one button click
+3. Auto-polling confirms authorization — no manual "Verify" step needed
+4. Provider: toggle between cli/sdk at any time
+
+**Send to Lark:** "Send to Lark" button on Test Analysis page (REVIEW/COMPLETED) creates a new Lark document with the analysis content and returns its URL.
 
 ## AI Pipeline & Prompt Architecture
 
@@ -386,6 +404,14 @@ The service exposes the following routes (mounted in [app.js](app.js)):
 | `GET` | `/testrail/syncconfig` | [controller/TestrailSyncConfig.js](controller/TestrailSyncConfig.js) | List all platform-to-suite sync mappings |
 | `POST` | `/testrail/syncconfig` | [controller/TestrailSyncConfig.js](controller/TestrailSyncConfig.js) | Create or update a platform-to-suite mapping |
 | `DELETE` | `/testrail/syncconfig/:platformGroup` | [controller/TestrailSyncConfig.js](controller/TestrailSyncConfig.js) | Remove a platform-to-suite mapping |
+| `GET` | `/lark-cli/status` | [controller/LarkCli.js](src/controller/LarkCli.js) | Check lark-cli install, config, auth status |
+| `POST` | `/lark-cli/setup` | [controller/LarkCli.js](src/controller/LarkCli.js) | One-click setup: install + config init + auth login |
+| `GET` | `/lark-cli/setup-poll` | [controller/LarkCli.js](src/controller/LarkCli.js) | Poll setup progress (auto-polls device-code) |
+| `POST` | `/lark-cli/install` | [controller/LarkCli.js](src/controller/LarkCli.js) | Install `@larksuite/cli` globally (legacy) |
+| `POST` | `/lark-cli/auth-login` | [controller/LarkCli.js](src/controller/LarkCli.js) | Initiate device-code auth flow (legacy) |
+| `POST` | `/lark-cli/auth-poll` | [controller/LarkCli.js](src/controller/LarkCli.js) | Poll auth completion with device code (legacy) |
+| `PUT` | `/lark-cli/provider` | [controller/LarkCli.js](src/controller/LarkCli.js) | Switch Lark provider (cli/sdk) |
+| `POST` | `/lark-cli/send-analysis/:promptId` | [controller/LarkCli.js](src/controller/LarkCli.js) | Create Lark doc from test analysis |
 
 ### API Contracts
 
@@ -789,7 +815,7 @@ sequenceDiagram
     FR-->>Svc: raw JSON
     Svc-->>Ctrl: prompts[]
     Ctrl->>Ctrl: compute totals, completed, inProgress, inReview, avgTurnaroundMs
-    Ctrl-->>Client: 200 { totalPrompts, completed, inProgress, inReview, avgTurnaroundMs, prompts[] }
+    Ctrl-->>Client: 200 { totalPrompts, completed, inProgress, inReview, avgTurnaroundMs, prompts[] (with full details: feature, platforms, documents, dates, autoGenerateTestCases) }
 ```
 
 ---

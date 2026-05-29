@@ -11,20 +11,20 @@ const createValidationError = (message, statusCode = 400) => {
 const normalizeAgent = (value = "") => String(value || "").trim().toLowerCase()
 
 const DEFAULT_SETTING_KEYS = [
-	{ key: "CLAUDE_API_KEY", confidential: true },
-	{ key: "CLAUDE_MODEL", confidential: false },
-	{ key: "GEMINI_API_KEY", confidential: true },
-	{ key: "GEMINI_MODEL", confidential: false },
-	{ key: "GITHUB_TOKEN", confidential: true },
+	// { key: "CLAUDE_API_KEY", confidential: true },
+	// { key: "CLAUDE_MODEL", confidential: false },
+	// { key: "GEMINI_API_KEY", confidential: true },
+	// { key: "GEMINI_MODEL", confidential: false },
+	// { key: "GITHUB_TOKEN", confidential: true },
 	{ key: "LITELLM_API_KEY", confidential: true },
 	{ key: "LITELLM_BASE_URL", confidential: false },
 	{ key: "TESTRAIL_PASSWORD", confidential: true },
 	{ key: "TESTRAIL_PROJECT_ID", confidential: false },
-	{ key: "TESTRAIL_SUITE_ID", confidential: false },
+	// { key: "TESTRAIL_SUITE_ID", confidential: false },
 	{ key: "TESTRAIL_URL", confidential: false },
 	{ key: "TESTRAIL_USERNAME", confidential: true },
-	{ key: "LARK_APP_ID", confidential: false },
-	{ key: "LARK_APP_SECRET", confidential: true },
+	// { key: "LARK_APP_ID", confidential: false },
+	// { key: "LARK_APP_SECRET", confidential: true },
 	{ key: "FIGMA_ACCESS_TOKEN", confidential: true },
 ]
 

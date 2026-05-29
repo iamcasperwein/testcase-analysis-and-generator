@@ -1,7 +1,7 @@
 // --- Constants ---
 const AGENTS = Object.freeze([
   { value: "litellm", label: "LiteLLM", description: "Unified LLM proxy (any provider)" },
-  { value: "copilot", label: "GitHub Copilot", description: "GitHub Models via Copilot token" },
+  // { value: "copilot", label: "GitHub Copilot", description: "GitHub Models via Copilot token" },
   // { value: "claude", label: "Claude", description: "Anthropic Claude model" },
   // { value: "gemini", label: "Gemini", description: "Google Gemini model" },
 ]);
@@ -400,6 +400,12 @@ async function loadModelsForAgent(agent) {
     }));
 
     modelPicker.setOptions(options);
+
+    // Default to claude-sonnet-4.6 for litellm if available
+    if (normalizedAgent === "litellm") {
+      const preferred = options.find(o => o.value.includes("claude-sonnet-4.6"));
+      if (preferred) modelPicker.setSelection(preferred.value);
+    }
   } catch (err) {
     if (err.name === "AbortError") return;
     modelPicker.setOptions([{ value: "", label: "Failed to load models" }]);
@@ -1375,14 +1381,17 @@ function updateGenerateButtonVisibility() {
   const promptId = currentAnalysisPromptId;
   if (!promptId) {
     generateFromAnalysisBtn.style.display = "none";
+    if (window._updateSendToLarkVisibility) window._updateSendToLarkVisibility("");
     return;
   }
   const prompt = allPrompts.find(p => p.promptId === promptId);
-  if (prompt && /^REVIEW$/i.test(prompt.status || "")) {
+  const status = prompt?.status || "";
+  if (/^REVIEW$/i.test(status)) {
     generateFromAnalysisBtn.style.display = "";
   } else {
     generateFromAnalysisBtn.style.display = "none";
   }
+  if (window._updateSendToLarkVisibility) window._updateSendToLarkVisibility(status.toUpperCase());
 }
 
 generateFromAnalysisBtn.addEventListener("click", () => {
@@ -4602,7 +4611,7 @@ async function handleBulkDelete() {
 }
 
 // --- SETTINGS CRUD: /settings ---
-const refreshSettingsBtn = document.getElementById("refreshSettingsBtn");
+
 const settingsRows = document.getElementById("settingsRows");
 const addSettingRowBtn = document.getElementById("addSettingRowBtn");
 const saveSettingsBtn = document.getElementById("saveSettingsBtn");
@@ -5282,16 +5291,6 @@ saveSettingsBtn.addEventListener("click", async () => {
   }
 });
 
-refreshSettingsBtn.addEventListener("click", () => {
-  refreshSettingsBtn.classList.add("btn-spin");
-  refreshSettingsBtn.disabled = true;
-  loadSettingsPageData().finally(() => {
-    setTimeout(() => {
-      refreshSettingsBtn.classList.remove("btn-spin");
-      refreshSettingsBtn.disabled = false;
-    }, 600);
-  });
-});
 modelCatalogAgentValue?.addEventListener("change", () => {
   loadModelCatalog(modelCatalogAgentPicker?.getValue() || modelCatalogAgentValue.value);
 });
@@ -5845,6 +5844,128 @@ function escapeHtml(value) {
     .replace(/'/g, "&#39;");
 }
 
+function openPromptDetailsModal(promptId) {
+  const prompt = (window._dashPrompts || allPrompts || []).find(p => (p.promptId || p.id) === promptId);
+  if (!prompt) return;
+
+  const modalEl = document.getElementById("promptDetailsModal");
+  const sub = document.getElementById("promptDetailsModalSub");
+  const body = document.getElementById("promptDetailsModalBody");
+
+  sub.textContent = prompt.projectName || promptId;
+
+  const statusKey = String(prompt.status || "").toLowerCase().replace(/ /g, "_");
+  const platforms = Array.isArray(prompt.platforms) ? prompt.platforms : [];
+  const documents = Array.isArray(prompt.documents) ? prompt.documents : [];
+
+  const formatDate = (d) => {
+    if (!d) return "—";
+    const dt = new Date(d);
+    return dt.toLocaleString("en-US", { year: "numeric", month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
+  };
+
+  const docsHtml = documents.length
+    ? `<table class="table table-sm table-bordered mb-0" style="font-size:0.82rem;">
+        <thead class="table-light">
+          <tr>
+            <th style="width:40%;">Name</th>
+            <th style="width:20%;">Type</th>
+            <th style="width:20%;">Format</th>
+            <th style="width:20%;">Link</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${documents.map(doc => {
+            const name = doc.name || doc.originalName || doc.filename || "Untitled";
+            const link = doc.linkUrl
+              ? `<a href="${escapeHtml(doc.linkUrl)}" target="_blank" rel="noopener" class="text-decoration-none">Open <i class="bi bi-box-arrow-up-right" style="font-size:0.65rem;"></i></a>`
+              : `<span class="text-muted">—</span>`;
+            return `<tr>
+              <td>${escapeHtml(name)}</td>
+              <td><span class="badge bg-light text-dark border">${escapeHtml(doc.docType || "—")}</span></td>
+              <td>${escapeHtml(doc.format || "—")}</td>
+              <td>${link}</td>
+            </tr>`;
+          }).join("")}
+        </tbody>
+      </table>`
+    : `<span class="text-muted">No documents attached</span>`;
+
+  const platformBadges = platforms.length
+    ? platforms.map(p => `<span class="badge bg-light text-dark border me-1 mb-1">${escapeHtml(p)}</span>`).join("")
+    : `<span class="text-muted">—</span>`;
+
+  body.innerHTML = `
+    <div class="tc-view-meta-row mb-3">
+      <div class="tc-view-meta-block">
+        <span class="tc-view-meta-label"><i class="bi bi-hash me-1"></i>Prompt ID</span>
+        <span class="tc-view-meta-value" style="font-family:monospace;font-size:0.8rem;">${escapeHtml(promptId)}</span>
+      </div>
+      <div class="tc-view-meta-block">
+        <span class="tc-view-meta-label"><i class="bi bi-flag me-1"></i>Status</span>
+        <span class="tc-view-meta-value">${getStatusBadge(prompt.status)}</span>
+      </div>
+    </div>
+
+    <div class="tc-view-meta-row mb-3">
+      <div class="tc-view-meta-block">
+        <span class="tc-view-meta-label"><i class="bi bi-folder me-1"></i>Project</span>
+        <span class="tc-view-meta-value">${escapeHtml(prompt.projectName || "—")}</span>
+      </div>
+      <div class="tc-view-meta-block">
+        <span class="tc-view-meta-label"><i class="bi bi-puzzle me-1"></i>Feature</span>
+        <span class="tc-view-meta-value">${escapeHtml(prompt.feature || "—")}</span>
+      </div>
+    </div>
+
+    <div class="tc-view-meta-row mb-3">
+      <div class="tc-view-meta-block">
+        <span class="tc-view-meta-label"><i class="bi bi-robot me-1"></i>Agent</span>
+        <span class="tc-view-meta-value">${escapeHtml(prompt.agent || "—")}</span>
+      </div>
+      <div class="tc-view-meta-block">
+        <span class="tc-view-meta-label"><i class="bi bi-cpu me-1"></i>Model</span>
+        <span class="tc-view-meta-value">${escapeHtml(prompt.model || "—")}</span>
+      </div>
+    </div>
+
+    <div class="mb-3">
+      <div class="tc-view-field-label mb-1"><i class="bi bi-device-hdd me-1"></i>Platforms</div>
+      <div class="d-flex flex-wrap">${platformBadges}</div>
+    </div>
+
+    <div class="mb-3">
+      <div class="tc-view-field-label mb-1"><i class="bi bi-file-earmark-text me-1"></i>Documents</div>
+      <div class="ps-1">${docsHtml}</div>
+    </div>
+
+    <div class="tc-view-meta-row mb-2">
+      <div class="tc-view-meta-block">
+        <span class="tc-view-meta-label"><i class="bi bi-calendar-plus me-1"></i>Created</span>
+        <span class="tc-view-meta-value">${formatDate(prompt.createdAt || prompt.created_at)}</span>
+      </div>
+      <div class="tc-view-meta-block">
+        <span class="tc-view-meta-label"><i class="bi bi-toggles me-1"></i>Auto-Generate</span>
+        <span class="tc-view-meta-value">${prompt.autoGenerateTestCases ? '<span class="badge bg-success">ON</span>' : '<span class="badge bg-secondary">OFF</span>'}</span>
+      </div>
+    </div>
+
+    <div class="tc-view-meta-row">
+      <div class="tc-view-meta-block">
+        <span class="tc-view-meta-label"><i class="bi bi-calendar-x me-1"></i>Ended</span>
+        <span class="tc-view-meta-value">${formatDate(prompt.endAt)}</span>
+      </div>
+      <div class="tc-view-meta-block">
+        <span class="tc-view-meta-label"><i class="bi bi-calendar-check me-1"></i>Started</span>
+        <span class="tc-view-meta-value">${formatDate(prompt.startAt)}</span>
+      </div>
+    </div>
+  `;
+
+  const bsModal = bootstrap.Modal.getOrCreateInstance(modalEl);
+  bsModal.show();
+}
+
 function openFailedPromptInfo(promptId, note) {
   failedPromptIdText.textContent = promptId || "—";
   failedPromptNoteText.textContent = String(note || "No failure details.");
@@ -6054,13 +6175,21 @@ function renderDashTable(prompts) {
         <td>${duration}</td>
         <td>${created}</td>
         <td class="text-start">
-          <button class="btn btn-sm btn-outline-primary py-0 px-1 dash-view-analysis" data-id="${promptId}" title="View Analysis" style="font-size:0.75rem;"><i class="bi bi-bar-chart-line"></i></button>
+          <button class="btn btn-sm btn-outline-info py-0 px-1 dash-view-details" data-id="${promptId}" title="View Details" style="font-size:0.75rem;"><i class="bi bi-eye"></i></button>
+          <button class="btn btn-sm btn-outline-primary py-0 px-1 ms-1 dash-view-analysis" data-id="${promptId}" title="View Analysis" style="font-size:0.75rem;"><i class="bi bi-bar-chart-line"></i></button>
           <button class="btn btn-sm btn-outline-secondary py-0 px-1 ms-1 dash-view-testcases" data-id="${promptId}" title="View Test Cases" style="font-size:0.75rem;"><i class="bi bi-list-check"></i></button>
           <button class="btn btn-sm btn-outline-dark py-0 px-1 ms-1 dash-view-log" data-id="${promptId}" title="View Processing Log" style="font-size:0.75rem;"><i class="bi bi-terminal"></i></button>
           ${failureInfoButton}
           ${retryButton}
         </td>`;
       dashTableBody.appendChild(tr);
+  });
+
+  dashTableBody.querySelectorAll(".dash-view-details").forEach(el => {
+    el.addEventListener("click", () => {
+      const id = el.dataset.id;
+      openPromptDetailsModal(id);
+    });
   });
 
   dashTableBody.querySelectorAll(".dash-prompt-link, .dash-view-analysis").forEach(el => {
@@ -6197,6 +6326,7 @@ setInterval(() => {
 const PAGE_PARAM = "page";
 const PROMPT_PARAM = "promptId";
 const EDIT_PARAM = "edit";
+const SUBPAGE_PARAM = "subpage";
 
 const pageToTab = {
   dashboard: "dashboard-tab",
@@ -6230,31 +6360,33 @@ function getUrlState() {
   let page = params.get(PAGE_PARAM);
   const promptId = params.get(PROMPT_PARAM);
   const edit = params.get(EDIT_PARAM) === "true";
+  const subpage = params.get(SUBPAGE_PARAM) || null;
 
   // Fallback: check hash for legacy URLs
   if (!page && window.location.hash) {
     page = hashToPage[window.location.hash.toLowerCase()] || null;
   }
 
-  return { page: page || "dashboard", promptId, edit };
+  return { page: page || "dashboard", promptId, edit, subpage };
 }
 
-function buildUrl(page, promptId, edit) {
+function buildUrl(page, promptId, edit, subpage) {
   const params = new URLSearchParams();
   if (page && page !== "dashboard") params.set(PAGE_PARAM, page);
   if (promptId) params.set(PROMPT_PARAM, promptId);
   if (edit) params.set(EDIT_PARAM, "true");
+  if (subpage) params.set(SUBPAGE_PARAM, subpage);
   const qs = params.toString();
   return window.location.pathname + (qs ? "?" + qs : "");
 }
 
-function updateUrl(page, promptId, edit, replace) {
+function updateUrl(page, promptId, edit, replace, subpage) {
   if (_suppressUrlUpdate) return;
-  const url = buildUrl(page, promptId, edit);
+  const url = buildUrl(page, promptId, edit, subpage);
   if (replace) {
-    history.replaceState({ page, promptId, edit }, "", url);
+    history.replaceState({ page, promptId, edit, subpage }, "", url);
   } else {
-    history.pushState({ page, promptId, edit }, "", url);
+    history.pushState({ page, promptId, edit, subpage }, "", url);
   }
 }
 
@@ -6273,19 +6405,64 @@ function getCurrentPromptIdForPage(page) {
   return null;
 }
 
+// Settings sub-tab ID to subpage name mapping
+const settingsSubTabToSubpage = {
+  "settings-environment-tab": "environment",
+  "settings-model-catalog-tab": "model-catalog",
+  "settings-testrail-sync-tab": "testrail-sync",
+  "settings-lark-integration-tab": "lark-integration",
+};
+const subpageToSettingsSubTab = {
+  "environment": "settings-environment-tab",
+  "model-catalog": "settings-model-catalog-tab",
+  "testrail-sync": "settings-testrail-sync-tab",
+  "lark-integration": "settings-lark-integration-tab",
+};
+
+function activateSubpage(page, subpage) {
+  if (page === "settings" && subpage) {
+    const subTabId = subpageToSettingsSubTab[subpage];
+    if (subTabId) {
+      const subTabEl = document.getElementById(subTabId);
+      if (subTabEl) {
+        const bsSubTab = new bootstrap.Tab(subTabEl);
+        bsSubTab.show();
+      }
+    }
+  }
+}
+
+function getCurrentSubpage(page) {
+  if (page === "settings") {
+    const activeSubTab = document.querySelector("#settingsSubTabs .nav-link.active");
+    if (activeSubTab) return settingsSubTabToSubpage[activeSubTab.id] || null;
+  }
+  return null;
+}
+
 // Update URL on tab change
-document.querySelectorAll('[data-bs-toggle="tab"]').forEach(tabEl => {
+document.querySelectorAll('#topPanelTabs [data-bs-toggle="tab"]').forEach(tabEl => {
   tabEl.addEventListener("shown.bs.tab", () => {
     if (_suppressUrlUpdate) return;
     const page = tabToPage[tabEl.id] || "dashboard";
     const promptId = getCurrentPromptIdForPage(page);
-    updateUrl(page, promptId, false, false);
+    const subpage = getCurrentSubpage(page);
+    updateUrl(page, promptId, false, false, subpage);
+  });
+});
+
+// Update URL when settings sub-tabs change
+document.querySelectorAll("#settingsSubTabs .nav-link").forEach(subTabEl => {
+  subTabEl.addEventListener("shown.bs.tab", () => {
+    if (_suppressUrlUpdate) return;
+    const subpage = settingsSubTabToSubpage[subTabEl.id] || null;
+    updateUrl("settings", null, false, false, subpage);
   });
 });
 
 // Navigate to a page + prompt programmatically (used internally)
 function navigateToPage(page, promptId, opts = {}) {
-  const { replace = false, edit = false, skipLoad = false } = opts;
+  const { replace = false, edit = false, skipLoad = false, subpage = null } = opts;
   const tabId = pageToTab[page];
   if (!tabId) return;
 
@@ -6297,7 +6474,12 @@ function navigateToPage(page, promptId, opts = {}) {
   }
   _suppressUrlUpdate = false;
 
-  updateUrl(page, promptId, edit, replace);
+  updateUrl(page, promptId, edit, replace, subpage);
+
+  // Activate sub-tab if specified
+  if (subpage) {
+    activateSubpage(page, subpage);
+  }
 
   if (skipLoad) return;
 
@@ -6330,6 +6512,7 @@ window.addEventListener("popstate", (e) => {
   const page = state.page || "dashboard";
   const promptId = state.promptId || null;
   const edit = state.edit || false;
+  const subpage = state.subpage || null;
 
   _suppressUrlUpdate = true;
   const tabId = pageToTab[page];
@@ -6340,6 +6523,7 @@ window.addEventListener("popstate", (e) => {
       bsTab.show();
     }
   }
+  if (subpage) activateSubpage(page, subpage);
   _suppressUrlUpdate = false;
 
   // Load content without touching history
@@ -6365,11 +6549,11 @@ window.addEventListener("popstate", (e) => {
 
 // On initial page load: restore state from URL
 function restoreFromUrl() {
-  const { page, promptId, edit } = getUrlState();
+  const { page, promptId, edit, subpage } = getUrlState();
   if (page !== "dashboard" || promptId) {
     // Wait for prompts to load before navigating
     _initialPromptsLoaded.then(() => {
-      navigateToPage(page, promptId, { replace: true, edit });
+      navigateToPage(page, promptId, { replace: true, edit, subpage });
     });
   }
 }
@@ -6379,3 +6563,453 @@ restoreFromUrl();
 document.querySelectorAll('[data-bs-toggle="tooltip"]').forEach(el => {
   new bootstrap.Tooltip(el);
 });
+
+// ══════════════════════════════════════════════════════════════════════════════
+// ██ LARK CLI INTEGRATION
+// ══════════════════════════════════════════════════════════════════════════════
+
+(function initLarkIntegration() {
+  // DOM refs - Status
+  const iconInstalled = document.getElementById("larkIconInstalled");
+  const iconConfigured = document.getElementById("larkIconConfigured");
+  const iconAuth = document.getElementById("larkIconAuth");
+  const detailInstalled = document.getElementById("larkDetailInstalled");
+  const detailConfigured = document.getElementById("larkDetailConfigured");
+  const detailAuth = document.getElementById("larkDetailAuth");
+  const overallBadge = document.getElementById("larkOverallBadge");
+  const refreshBtn = document.getElementById("larkRefreshStatusBtn");
+  const providerCli = document.getElementById("larkProviderCli");
+  const providerSdk = document.getElementById("larkProviderSdk");
+  const testConnectionBtn = document.getElementById("larkTestConnectionBtn");
+  const testResult = document.getElementById("larkTestResult");
+  const advancedToggle = document.getElementById("larkAdvancedToggle");
+  const advancedContent = document.getElementById("larkAdvancedContent");
+  const advancedChevron = document.getElementById("larkAdvancedChevron");
+
+  // DOM refs - Setup
+  const setupSection = document.getElementById("larkSetupSection");
+  const setupBtn = document.getElementById("larkSetupBtn");
+  const setupProgress = document.getElementById("larkSetupProgress");
+  const setupStepInstall = document.getElementById("larkSetupStepInstall");
+  const setupStepConfig = document.getElementById("larkSetupStepConfig");
+  const setupStepAuth = document.getElementById("larkSetupStepAuth");
+  const setupMsg = document.getElementById("larkSetupMsg");
+  const setupMsgText = document.getElementById("larkSetupMsgText");
+  const setupLinkArea = document.getElementById("larkSetupLinkArea");
+  const setupLink = document.getElementById("larkSetupLink");
+  const setupOpenBtn = document.getElementById("larkSetupOpenBtn");
+  const setupCopyBtn = document.getElementById("larkSetupCopyBtn");
+  const setupLinkTitle = document.getElementById("larkSetupLinkTitle");
+  const setupLinkDesc = document.getElementById("larkSetupLinkDesc");
+  const setupError = document.getElementById("larkSetupError");
+  const setupSuccess = document.getElementById("larkSetupSuccess");
+
+  let _setupPollTimer = null;
+
+  // Icon helper
+  function setIcon(el, status) {
+    if (!el) return;
+    el.className = "lark-status-icon";
+    if (status === true) {
+      el.classList.add("icon-ok");
+      el.innerHTML = '<i class="bi bi-check-lg"></i>';
+    } else if (status === false) {
+      el.classList.add("icon-fail");
+      el.innerHTML = '<i class="bi bi-x-lg"></i>';
+    } else {
+      el.classList.add("icon-warn");
+      el.innerHTML = '<i class="bi bi-exclamation"></i>';
+    }
+  }
+
+  function setStepIcon(stepEl, state) {
+    if (!stepEl) return;
+    const iconEl = stepEl.querySelector(".lark-setup-step-icon");
+    if (!iconEl) return;
+    if (state === "done") {
+      iconEl.innerHTML = '<i class="bi bi-check-circle-fill text-success"></i>';
+    } else if (state === "active") {
+      iconEl.innerHTML = '<div class="spinner-border spinner-border-sm text-primary" role="status"></div>';
+    } else if (state === "error") {
+      iconEl.innerHTML = '<i class="bi bi-x-circle-fill text-danger"></i>';
+    } else {
+      iconEl.innerHTML = '<i class="bi bi-circle text-muted"></i>';
+    }
+  }
+
+  function setBadge(allOk, partial) {
+    if (!overallBadge) return;
+    overallBadge.className = "lark-status-badge";
+    if (allOk) {
+      overallBadge.classList.add("badge-ok");
+      overallBadge.textContent = "Connected";
+    } else if (partial) {
+      overallBadge.classList.add("badge-warn");
+      overallBadge.textContent = "Partial";
+    } else {
+      overallBadge.classList.add("badge-fail");
+      overallBadge.textContent = "Not Ready";
+    }
+  }
+
+  // Fetch and display status
+  async function refreshLarkStatus() {
+    try {
+      const res = await fetch("/lark-cli/status");
+      const data = await res.json();
+
+      setIcon(iconInstalled, data.installed);
+      setIcon(iconConfigured, data.configured);
+      setIcon(iconAuth, data.authenticated);
+
+      if (detailInstalled) detailInstalled.textContent = data.installed ? `v${data.version} installed` : "Not installed";
+      if (detailConfigured) detailConfigured.textContent = data.configured ? `App: ${data.appId}` : "No app configured";
+      if (detailAuth) detailAuth.textContent = data.authenticated ? "Authorized and ready" : "Not logged in";
+
+      // Overall badge
+      const allOk = data.installed && data.configured && data.authenticated;
+      const partial = data.installed && data.configured;
+      setBadge(allOk, partial);
+
+      // Show/hide setup section
+      if (setupSection) {
+        setupSection.style.display = allOk ? "none" : "";
+      }
+
+      // Provider radio
+      if (data.provider === "sdk") {
+        if (providerSdk) providerSdk.checked = true;
+      } else {
+        if (providerCli) providerCli.checked = true;
+      }
+
+      // Advanced details
+      const advVersion = document.getElementById("larkAdvVersion");
+      const advAppId = document.getElementById("larkAdvAppId");
+      const advProvider = document.getElementById("larkAdvProvider");
+      const advUser = document.getElementById("larkAdvUser");
+      if (advVersion) advVersion.textContent = data.version || "—";
+      if (advAppId) advAppId.textContent = data.appId || "—";
+      if (advProvider) advProvider.textContent = data.provider || "cli";
+      if (advUser) advUser.textContent = data.authenticated ? "Logged in" : "Not logged in";
+
+    } catch (err) {
+      console.error("[LarkIntegration] Failed to fetch status:", err);
+      setIcon(iconInstalled, false);
+      setIcon(iconConfigured, false);
+      setIcon(iconAuth, false);
+      setBadge(false, false);
+    }
+  }
+
+  // --- One-Click Setup Flow ---
+
+  setupBtn?.addEventListener("click", async () => {
+    setupBtn.disabled = true;
+    setupBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Setting up...';
+    if (setupProgress) setupProgress.style.display = "";
+    if (setupError) setupError.style.display = "none";
+    if (setupSuccess) setupSuccess.style.display = "none";
+    if (setupLinkArea) setupLinkArea.style.display = "none";
+
+    // Reset step icons
+    setStepIcon(setupStepInstall, "active");
+    setStepIcon(setupStepConfig, "pending");
+    setStepIcon(setupStepAuth, "pending");
+    if (setupMsg) { setupMsg.style.display = ""; if (setupMsgText) setupMsgText.textContent = "Starting setup..."; }
+    try {
+      const res = await fetch("/lark-cli/setup", { method: "POST" });
+      const data = await res.json();
+
+      if (!data.success) {
+        showSetupError(data.error || "Setup failed");
+        return;
+      }
+
+      handleSetupState(data);
+
+      // Start polling
+      startSetupPolling();
+
+    } catch (err) {
+      showSetupError(err.message);
+    }
+  });
+
+  function handleSetupState(data) {
+    const state = data.state;
+
+    // Server restarted mid-flow — state reset to idle
+    if (state === "idle") {
+      stopSetupPolling();
+      showSetupError("Server restarted. Please click setup again.");
+      return;
+    }
+
+    if (state === "done") {
+      setStepIcon(setupStepInstall, "done");
+      setStepIcon(setupStepConfig, "done");
+      setStepIcon(setupStepAuth, "done");
+      if (setupMsg) setupMsg.style.display = "none";
+      if (setupLinkArea) setupLinkArea.style.display = "none";
+      if (setupSuccess) setupSuccess.style.display = "";
+      stopSetupPolling();
+      setupBtn.style.display = "none";
+      refreshLarkStatus();
+      return;
+    }
+
+    if (state === "installing") {
+      setStepIcon(setupStepInstall, "active");
+      if (setupMsgText) setupMsgText.textContent = "Installing lark-cli...";
+    }
+
+    if (state === "configuring" || state === "awaiting_config") {
+      setStepIcon(setupStepInstall, "done");
+      setStepIcon(setupStepConfig, "active");
+      if (setupMsgText) setupMsgText.textContent = "Configuring Lark app...";
+
+      if (state === "awaiting_config" && data.configUrl) {
+        showSetupLink(
+          data.configUrl,
+          "Set up your Lark app",
+          "Open this link to create and configure your Lark app. This page will update automatically when done."
+        );
+      }
+    }
+
+    if (state === "auth" || state === "awaiting_auth") {
+      setStepIcon(setupStepInstall, "done");
+      setStepIcon(setupStepConfig, "done");
+      setStepIcon(setupStepAuth, "active");
+      if (setupMsg) setupMsg.style.display = "none";
+
+      if (data.authUrl) {
+        showSetupLink(
+          data.authUrl,
+          "Authorize your account",
+          "Open this link to log in with your Lark account. This page will update automatically when done."
+        );
+      }
+    }
+
+    if (state === "error") {
+      showSetupError(data.error || "Setup failed");
+    }
+  }
+
+  function showSetupLink(url, title, desc) {
+    if (setupLinkArea) setupLinkArea.style.display = "";
+    if (setupLink) { setupLink.href = url; setupLink.textContent = url; }
+    if (setupOpenBtn) setupOpenBtn.href = url;
+    if (setupLinkTitle) setupLinkTitle.textContent = title;
+    if (setupLinkDesc) setupLinkDesc.textContent = desc;
+  }
+
+  function showSetupError(msg) {
+    if (setupError) { setupError.textContent = msg; setupError.style.display = ""; }
+    if (setupMsg) setupMsg.style.display = "none";
+    setStepIcon(setupStepInstall, "error");
+    setupBtn.disabled = false;
+    setupBtn.innerHTML = '<i class="bi bi-rocket-takeoff me-1"></i>Retry Setup';
+    stopSetupPolling();
+  }
+
+  let _setupPollErrorCount = 0;
+  const MAX_POLL_ERRORS = 5;
+  const MAX_POLL_COUNT = 100; // ~5 minutes at 3s intervals
+  let _setupPollCount = 0;
+
+  function startSetupPolling() {
+    stopSetupPolling();
+    _setupPollErrorCount = 0;
+    _setupPollCount = 0;
+    _setupPollTimer = setInterval(pollSetupStatus, 3000);
+  }
+
+  function stopSetupPolling() {
+    if (_setupPollTimer) { clearInterval(_setupPollTimer); _setupPollTimer = null; }
+  }
+
+  async function pollSetupStatus() {
+    _setupPollCount++;
+    if (_setupPollCount > MAX_POLL_COUNT) {
+      stopSetupPolling();
+      showSetupError("Setup timed out. Please try again.");
+      return;
+    }
+    try {
+      const res = await fetch("/lark-cli/setup-poll");
+      const data = await res.json();
+      _setupPollErrorCount = 0;
+      handleSetupState(data);
+    } catch (err) {
+      console.error("[LarkIntegration] Poll error:", err);
+      _setupPollErrorCount++;
+      if (_setupPollErrorCount >= MAX_POLL_ERRORS) {
+        stopSetupPolling();
+        showSetupError("Lost connection to server. Please try again.");
+      }
+    }
+  }
+
+  // Copy URL button
+  setupCopyBtn?.addEventListener("click", () => {
+    const url = setupLink?.href;
+    if (url && navigator.clipboard) {
+      navigator.clipboard.writeText(url);
+      setupCopyBtn.innerHTML = '<i class="bi bi-check"></i>';
+      setTimeout(() => { setupCopyBtn.innerHTML = '<i class="bi bi-clipboard"></i>'; }, 1500);
+    }
+  });
+
+  // Provider toggle
+  [providerCli, providerSdk].forEach(radio => {
+    radio?.addEventListener("change", async (e) => {
+      const provider = e.target.value;
+      try {
+        await fetch("/lark-cli/provider", {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ provider }),
+        });
+        const advProvider = document.getElementById("larkAdvProvider");
+        if (advProvider) advProvider.textContent = provider;
+      } catch (err) {
+        console.error("[LarkIntegration] Failed to set provider:", err);
+      }
+    });
+  });
+
+  // Test Connection
+  testConnectionBtn?.addEventListener("click", async () => {
+    testConnectionBtn.disabled = true;
+    testConnectionBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Testing...';
+    if (testResult) {
+      testResult.style.display = "";
+      testResult.innerHTML = '<span class="small text-muted">Running connection test...</span>';
+    }
+
+    try {
+      const res = await fetch("/lark-cli/status");
+      const data = await res.json();
+
+      if (!data.installed) {
+        testResult.innerHTML = '<span class="small text-danger"><i class="bi bi-x-circle me-1"></i>lark-cli is not installed.</span>';
+      } else if (!data.configured) {
+        testResult.innerHTML = '<span class="small text-danger"><i class="bi bi-x-circle me-1"></i>No app configured.</span>';
+      } else if (!data.authenticated) {
+        testResult.innerHTML = '<span class="small text-warning"><i class="bi bi-exclamation-triangle me-1"></i>Not authenticated.</span>';
+      } else {
+        testResult.innerHTML = '<span class="small text-success"><i class="bi bi-check-circle me-1"></i>Connection OK. lark-cli is installed, configured, and authenticated.</span>';
+      }
+    } catch (err) {
+      if (testResult) testResult.innerHTML = `<span class="small text-danger"><i class="bi bi-x-circle me-1"></i>Test failed: ${err.message}</span>`;
+    }
+
+    testConnectionBtn.disabled = false;
+    testConnectionBtn.innerHTML = '<i class="bi bi-plug me-1"></i>Test Connection';
+  });
+
+  // Advanced toggle
+  advancedToggle?.addEventListener("click", () => {
+    const isHidden = advancedContent.style.display === "none";
+    advancedContent.style.display = isHidden ? "" : "none";
+    advancedChevron.classList.toggle("rotated", isHidden);
+  });
+
+  // Refresh button
+  refreshBtn?.addEventListener("click", refreshLarkStatus);
+
+  // Auto-load on settings tab activation
+  const settingsLarkTab = document.getElementById("settings-lark-integration-tab");
+  settingsLarkTab?.addEventListener("shown.bs.tab", refreshLarkStatus);
+
+  // Also load when main Settings tab is shown (first time)
+  const mainSettingsTab = document.getElementById("settings-tab");
+  mainSettingsTab?.addEventListener("shown.bs.tab", () => {
+    if (document.getElementById("settings-lark-integration-pane")?.classList.contains("show")) {
+      refreshLarkStatus();
+    }
+  });
+})();
+
+// ══════════════════════════════════════════════════════════════════════════════
+// ██ SEND TO LARK (Test Analysis page)
+// ══════════════════════════════════════════════════════════════════════════════
+
+(function initSendToLark() {
+  // We'll attach the "Send to Lark" button dynamically when analysis is loaded
+  // Look for the analysis action bar
+  const analysisActionsArea = document.querySelector(".analysis-actions") ||
+    document.getElementById("analysisActionsBar");
+
+  // Create the button (will be shown/hidden based on status)
+  const sendToLarkBtn = document.createElement("button");
+  sendToLarkBtn.className = "btn btn-sm btn-outline-primary";
+  sendToLarkBtn.id = "btnSendToLark";
+  sendToLarkBtn.innerHTML = '<i class="bi bi-send me-1"></i>Send to Lark';
+  sendToLarkBtn.style.display = "none";
+  sendToLarkBtn.title = "Create a Lark document from this analysis";
+
+  // Find where to insert it - near the generate button or edit button
+  const generateBtn = document.getElementById("btnGenerateTestCases");
+  if (generateBtn && generateBtn.parentNode) {
+    generateBtn.parentNode.insertBefore(sendToLarkBtn, generateBtn.nextSibling);
+  } else if (analysisActionsArea) {
+    analysisActionsArea.appendChild(sendToLarkBtn);
+  }
+
+  // Show/hide based on current prompt status
+  window._updateSendToLarkVisibility = function(status) {
+    if (!sendToLarkBtn) return;
+    // Show on REVIEW or COMPLETED status
+    sendToLarkBtn.style.display = (status === "REVIEW" || status === "COMPLETED") ? "" : "none";
+  };
+
+  // Handler
+  sendToLarkBtn.addEventListener("click", async () => {
+    const promptId = currentAnalysisPromptId;
+    if (!promptId) return;
+
+    sendToLarkBtn.disabled = true;
+    sendToLarkBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Sending...';
+
+    try {
+      const res = await fetch(`/lark-cli/send-analysis/${promptId}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({}),
+      });
+      const data = await res.json();
+
+      if (data.success && data.url) {
+        sendToLarkBtn.innerHTML = '<i class="bi bi-check-lg me-1"></i>Sent!';
+        sendToLarkBtn.className = "btn btn-sm btn-success";
+
+        // Show link to user
+        const link = document.createElement("a");
+        link.href = data.url;
+        link.target = "_blank";
+        link.rel = "noopener";
+        link.className = "btn btn-sm btn-outline-secondary ms-2";
+        link.innerHTML = '<i class="bi bi-box-arrow-up-right me-1"></i>Open in Lark';
+        sendToLarkBtn.parentNode.insertBefore(link, sendToLarkBtn.nextSibling);
+
+        setTimeout(() => {
+          sendToLarkBtn.innerHTML = '<i class="bi bi-send me-1"></i>Send to Lark';
+          sendToLarkBtn.className = "btn btn-sm btn-outline-primary";
+          sendToLarkBtn.disabled = false;
+        }, 5000);
+      } else {
+        alert(`Failed to send: ${data.error || "Unknown error"}\n${data.details || ""}`);
+        sendToLarkBtn.innerHTML = '<i class="bi bi-send me-1"></i>Send to Lark';
+        sendToLarkBtn.disabled = false;
+      }
+    } catch (err) {
+      alert(`Error: ${err.message}`);
+      sendToLarkBtn.innerHTML = '<i class="bi bi-send me-1"></i>Send to Lark';
+      sendToLarkBtn.disabled = false;
+    }
+  });
+})();

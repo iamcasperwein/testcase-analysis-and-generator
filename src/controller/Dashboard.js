@@ -49,15 +49,21 @@ const getDashboard = async (req, res) => {
                 prompts: prompts.map(p => ({
                     promptId:      p.promptId,
                     projectName:   p.projectName || null,
+                    feature:       p.feature || null,
                     status:        p.status || null,
                     agent:         p.agent || null,
                     model:         resolveModelName(p),
+                    platforms:     p.platforms || [],
+                    documents:     p.documents || [],
                     testCaseCount: p.testCaseCount ?? null,
                     turnaroundMs:  (p.startAt && p.endAt)
                         ? Math.max(0, new Date(p.endAt) - new Date(p.startAt))
                         : null,
-                    createdAt: p.startAt || null,
-                    failureNote: p.failureNote || p.errorMessage || null,
+                    createdAt:     p.createdAt || p.startAt || null,
+                    startAt:       p.startAt || null,
+                    endAt:         p.endAt || null,
+                    autoGenerateTestCases: p.autoGenerateTestCases ?? false,
+                    failureNote:   p.failureNote || p.errorMessage || null,
                 })),
             },
         });

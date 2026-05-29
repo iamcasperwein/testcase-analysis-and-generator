@@ -7,6 +7,7 @@ const testCaseRouter = require("./src/routes/testcaseRouter")
 const dashboardRouter = require("./src/routes/dashboardRouter")
 const testraiRouter = require("./src/routes/testrailRouter")
 const settingsRouter = require("./src/routes/settingsRouter")
+const larkCliRouter = require("./src/routes/larkCliRouter")
 
 const ConfigLoader = require("./src/utils/ConfigLoader")
 
@@ -40,6 +41,7 @@ app.use("/testcase", testCaseRouter)
 app.use("/dashboard", dashboardRouter)
 app.use("/testrail", testraiRouter)
 app.use("/settings", settingsRouter)
+app.use("/lark-cli", larkCliRouter)
 
 app.listen(port, () => {
 	console.log(`generated-ai:${port}`)
