@@ -39,6 +39,9 @@ class LarkCliServiceError extends Error {
  */
 const execLarkCli = (args, options = {}) => {
     const timeout = options.timeout || EXEC_TIMEOUT_MS;
+    const cmdStr = `${LARK_CLI_BIN} ${args.join(" ")}`;
+    const startTime = Date.now();
+    console.log(`[LarkCli] exec: ${cmdStr}`);
 
     return new Promise((resolve, reject) => {
         execFile(
@@ -51,34 +54,41 @@ const execLarkCli = (args, options = {}) => {
                 env: { ...process.env },
             },
             (error, stdout, stderr) => {
+                const elapsed = ((Date.now() - startTime) / 1000).toFixed(2);
+
                 if (error) {
                     // Check for exit code 10 (confirmation required) — should not happen for read ops
                     if (error.code === 10) {
+                        console.error(`[LarkCli] failed (${elapsed}s): confirmation required`);
                         return reject(new LarkCliServiceError(
                             "CONFIRMATION_REQUIRED",
                             `lark-cli requires confirmation: ${stderr || error.message}`
                         ));
                     }
 
-                    // Parse structured error from stderr if available
+                    // Parse structured error from stderr or stdout if available
                     let errMsg = error.message;
-                    if (stderr) {
+                    const jsonSource = stderr || stdout;
+                    if (jsonSource) {
                         try {
-                            const parsed = JSON.parse(stderr);
+                            const parsed = JSON.parse(jsonSource);
                             if (parsed.error?.message) {
                                 errMsg = parsed.error.message;
                             }
                         } catch {
-                            errMsg = stderr.trim() || error.message;
+                            errMsg = (stderr || "").trim() || (stdout || "").trim() || error.message;
                         }
                     }
 
+                    console.error(`[LarkCli] failed (${elapsed}s): ${errMsg}`);
                     return reject(new LarkCliServiceError(
                         "CLI_EXEC_FAILED",
                         `lark-cli failed: ${errMsg}`
                     ));
                 }
 
+                const preview = (stdout || "").slice(0, 200).replace(/\n/g, " ");
+                console.log(`[LarkCli] done (${elapsed}s): ${preview}${stdout && stdout.length > 200 ? "..." : ""}`);
                 resolve(stdout);
             }
         );
@@ -243,10 +253,17 @@ const checkInstalled = async () => {
 const checkConfig = async () => {
     try {
         const stdout = await execLarkCli(["config", "show"], { timeout: 5000 });
-        // stdout may contain JSON followed by a footer line; parse first JSON object
-        const jsonMatch = stdout.match(/\{[\s\S]*?\n\}/);
-        if (!jsonMatch) return { configured: false, appId: "", hasUsers: false };
-        const config = JSON.parse(jsonMatch[0]);
+        // stdout is JSON followed by a footer line ("Config file path: ...")
+        // Extract the JSON object (greedy match to handle nested objects)
+        let config;
+        try {
+            // Try parsing everything up to the last closing brace
+            const jsonMatch = stdout.match(/\{[\s\S]*\}/);
+            if (!jsonMatch) return { configured: false, appId: "", hasUsers: false };
+            config = JSON.parse(jsonMatch[0]);
+        } catch {
+            return { configured: false, appId: "", hasUsers: false };
+        }
         const appId = config.appId || "";
         const hasUsers = config.users && config.users !== "(no logged-in users)";
         return { configured: !!appId, appId, hasUsers: !!hasUsers };

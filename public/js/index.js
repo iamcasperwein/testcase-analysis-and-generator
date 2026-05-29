@@ -1,7 +1,7 @@
 // --- Constants ---
 const AGENTS = Object.freeze([
   { value: "litellm", label: "LiteLLM", description: "Unified LLM proxy (any provider)" },
-  { value: "copilot", label: "GitHub Copilot", description: "GitHub Models via Copilot token" },
+  // { value: "copilot", label: "GitHub Copilot", description: "GitHub Models via Copilot token" },
   // { value: "claude", label: "Claude", description: "Anthropic Claude model" },
   // { value: "gemini", label: "Gemini", description: "Google Gemini model" },
 ]);
@@ -400,6 +400,12 @@ async function loadModelsForAgent(agent) {
     }));
 
     modelPicker.setOptions(options);
+
+    // Default to claude-sonnet-4.6 for litellm if available
+    if (normalizedAgent === "litellm") {
+      const preferred = options.find(o => o.value.includes("claude-sonnet-4.6"));
+      if (preferred) modelPicker.setSelection(preferred.value);
+    }
   } catch (err) {
     if (err.name === "AbortError") return;
     modelPicker.setOptions([{ value: "", label: "Failed to load models" }]);
@@ -6733,6 +6739,13 @@ document.querySelectorAll('[data-bs-toggle="tooltip"]').forEach(el => {
   function handleSetupState(data) {
     const state = data.state;
 
+    // Server restarted mid-flow — state reset to idle
+    if (state === "idle") {
+      stopSetupPolling();
+      showSetupError("Server restarted. Please click setup again.");
+      return;
+    }
+
     if (state === "done") {
       setStepIcon(setupStepInstall, "done");
       setStepIcon(setupStepConfig, "done");
@@ -6802,8 +6815,15 @@ document.querySelectorAll('[data-bs-toggle="tooltip"]').forEach(el => {
     stopSetupPolling();
   }
 
+  let _setupPollErrorCount = 0;
+  const MAX_POLL_ERRORS = 5;
+  const MAX_POLL_COUNT = 100; // ~5 minutes at 3s intervals
+  let _setupPollCount = 0;
+
   function startSetupPolling() {
     stopSetupPolling();
+    _setupPollErrorCount = 0;
+    _setupPollCount = 0;
     _setupPollTimer = setInterval(pollSetupStatus, 3000);
   }
 
@@ -6812,12 +6832,24 @@ document.querySelectorAll('[data-bs-toggle="tooltip"]').forEach(el => {
   }
 
   async function pollSetupStatus() {
+    _setupPollCount++;
+    if (_setupPollCount > MAX_POLL_COUNT) {
+      stopSetupPolling();
+      showSetupError("Setup timed out. Please try again.");
+      return;
+    }
     try {
       const res = await fetch("/lark-cli/setup-poll");
       const data = await res.json();
+      _setupPollErrorCount = 0;
       handleSetupState(data);
     } catch (err) {
       console.error("[LarkIntegration] Poll error:", err);
+      _setupPollErrorCount++;
+      if (_setupPollErrorCount >= MAX_POLL_ERRORS) {
+        stopSetupPolling();
+        showSetupError("Lost connection to server. Please try again.");
+      }
     }
   }
 

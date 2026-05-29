@@ -26,6 +26,25 @@ let _setupError = null;
 let _setupConfigUrl = null;
 let _setupAuthUrl = null;
 let _setupDeviceCode = null;
+let _setupInFlight = false; // mutex guard for concurrent setup calls
+
+/** Transition to terminal state and release mutex */
+function setSetupTerminal(state, error) {
+    _setupState = state;
+    if (error) _setupError = error;
+    _setupInFlight = false;
+}
+
+// Cleanup spawned processes on server shutdown
+function cleanupSetupProcess() {
+    if (_setupProcess) {
+        try { _setupProcess.kill(); } catch {}
+        _setupProcess = null;
+    }
+}
+process.on("exit", cleanupSetupProcess);
+process.on("SIGTERM", cleanupSetupProcess);
+process.on("SIGINT", cleanupSetupProcess);
 
 // --- Helpers ---
 
@@ -130,10 +149,10 @@ const install = async (req, res) => {
  */
 const authLogin = async (req, res) => {
     try {
-        const defaultScopes = "docx:document:readonly wiki:wiki:readonly docx:document";
-        const scopes = req.body?.scopes || defaultScopes;
+        const defaultDomain = "docs,wiki";
+        const domain = req.body?.domain || defaultDomain;
 
-        const args = ["auth", "login", "--scope", scopes, "--no-wait", "--json"];
+        const args = ["auth", "login", "--domain", domain, "--no-wait", "--json"];
 
         const stdout = await LarkCliService.execLarkCli(args, { timeout: 30000 });
         let result;
@@ -239,8 +258,18 @@ const sendAnalysis = async (req, res) => {
         return res.status(400).json({ success: false, error: "promptId is required" });
     }
 
+    // Validate promptId to prevent path traversal
+    if (/[\/\\]|\.\./.test(promptId)) {
+        return res.status(400).json({ success: false, error: "Invalid promptId" });
+    }
+
     // Read analysis file
     const analysisFile = path.join(ANALYSIS_DIR, `${promptId}.md`);
+
+    // Double-check resolved path is within ANALYSIS_DIR
+    if (!path.resolve(analysisFile).startsWith(path.resolve(ANALYSIS_DIR))) {
+        return res.status(400).json({ success: false, error: "Invalid promptId" });
+    }
 
     if (!fs.existsSync(analysisFile)) {
         return res.status(404).json({
@@ -314,6 +343,16 @@ const setProvider = (req, res) => {
  */
 const setup = async (req, res) => {
     try {
+        // Mutex: reject concurrent setup calls
+        if (_setupInFlight) {
+            return res.status(409).json({
+                success: false,
+                state: _setupState,
+                error: "Setup already in progress",
+            });
+        }
+        _setupInFlight = true;
+
         // Reset state
         _setupError = null;
         _setupConfigUrl = null;
@@ -325,7 +364,7 @@ const setup = async (req, res) => {
         if (installStatus.installed) {
             const configStatus = await LarkCliService.checkConfig();
             if (configStatus.configured && configStatus.hasUsers) {
-                _setupState = "done";
+                setSetupTerminal("done");
                 return res.json({ success: true, state: "done", message: "Already connected" });
             }
             // If configured but not authenticated, skip to auth
@@ -348,15 +387,13 @@ const setup = async (req, res) => {
                 "npm", ["install", "-g", "@larksuite/cli"], { timeout: 120000 }
             );
             if (error && error.code !== 0) {
-                _setupState = "error";
-                _setupError = `Installation failed: ${stderr || error.message}`;
+                setSetupTerminal("error", `Installation failed: ${stderr || error.message}`);
                 return res.status(500).json({ success: false, state: "error", error: _setupError });
             }
             // Verify
             const verify = await LarkCliService.checkInstalled();
             if (!verify.installed) {
-                _setupState = "error";
-                _setupError = "Installation completed but lark-cli not found in PATH";
+                setSetupTerminal("error", "Installation completed but lark-cli not found in PATH");
                 return res.status(500).json({ success: false, state: "error", error: _setupError });
             }
         }
@@ -386,8 +423,7 @@ const setup = async (req, res) => {
         });
 
     } catch (err) {
-        _setupState = "error";
-        _setupError = err.message;
+        setSetupTerminal("error", err.message);
         res.status(500).json({ success: false, state: "error", error: err.message });
     }
 };
@@ -437,12 +473,10 @@ function startConfigInit() {
             try {
                 await startAuthLogin();
             } catch (err) {
-                _setupState = "error";
-                _setupError = `Auth login failed: ${err.message}`;
+                setSetupTerminal("error", `Auth login failed: ${err.message}`);
             }
         } else {
-            _setupState = "error";
-            _setupError = `Config init exited with code ${code}`;
+            setSetupTerminal("error", `Config init exited with code ${code}`);
         }
     });
 }
@@ -501,18 +535,16 @@ const setupPoll = async (req, res) => {
                     });
                 }
                 if (errMsg.includes("expired") || errMsg.includes("invalid")) {
-                    _setupState = "error";
-                    _setupError = "Authorization expired or invalid. Please restart setup.";
+                    setSetupTerminal("error", "Authorization expired or invalid. Please restart setup.");
                     return res.json({ success: false, state: "error", error: _setupError });
                 }
                 // Other structured error
-                _setupState = "error";
-                _setupError = result.error?.message || "Auth failed";
+                setSetupTerminal("error", result.error?.message || "Auth failed");
                 return res.json({ success: false, state: "error", error: _setupError });
             }
 
             // Success — auth complete
-            _setupState = "done";
+            setSetupTerminal("done");
             return res.json({
                 success: true,
                 state: "done",
@@ -530,14 +562,12 @@ const setupPoll = async (req, res) => {
                 });
             }
             if (msg.includes("expired") || msg.includes("expire") || msg.includes("invalid")) {
-                _setupState = "error";
-                _setupError = "Authorization expired or invalid. Please restart setup.";
+                setSetupTerminal("error", "Authorization expired or invalid. Please restart setup.");
                 return res.json({ success: false, state: "error", error: _setupError });
             }
             // Unknown error — report as error so user knows to retry
             console.error("[LarkCli setupPoll] device-code poll error:", err.message);
-            _setupState = "error";
-            _setupError = err.message || "Unknown auth error";
+            setSetupTerminal("error", err.message || "Unknown auth error");
             return res.json({
                 success: false,
                 state: "error",
