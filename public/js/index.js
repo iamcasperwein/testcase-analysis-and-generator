@@ -6809,7 +6809,16 @@ document.querySelectorAll('[data-bs-toggle="tooltip"]').forEach(el => {
   function showSetupError(msg) {
     if (setupError) { setupError.textContent = msg; setupError.style.display = ""; }
     if (setupMsg) setupMsg.style.display = "none";
-    setStepIcon(setupStepInstall, "error");
+    // Mark the currently-active step as error (not always install)
+    const installDone = setupStepInstall?.querySelector(".lark-setup-step-icon .bi-check-circle-fill");
+    const configDone = setupStepConfig?.querySelector(".lark-setup-step-icon .bi-check-circle-fill");
+    if (configDone) {
+      setStepIcon(setupStepAuth, "error");
+    } else if (installDone) {
+      setStepIcon(setupStepConfig, "error");
+    } else {
+      setStepIcon(setupStepInstall, "error");
+    }
     setupBtn.disabled = false;
     setupBtn.innerHTML = '<i class="bi bi-rocket-takeoff me-1"></i>Retry Setup';
     stopSetupPolling();

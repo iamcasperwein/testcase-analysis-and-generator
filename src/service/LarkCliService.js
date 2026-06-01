@@ -57,6 +57,15 @@ const execLarkCli = (args, options = {}) => {
                 const elapsed = ((Date.now() - startTime) / 1000).toFixed(2);
 
                 if (error) {
+                    // Check for timeout/killed process (e.g., blocking device-code poll)
+                    if (error.killed || error.signal === "SIGTERM") {
+                        console.log(`[LarkCli] timeout (${elapsed}s): process killed (still waiting)`);
+                        return reject(new LarkCliServiceError(
+                            "CLI_TIMEOUT",
+                            `lark-cli timeout: process killed after ${elapsed}s`
+                        ));
+                    }
+
                     // Check for exit code 10 (confirmation required) — should not happen for read ops
                     if (error.code === 10) {
                         console.error(`[LarkCli] failed (${elapsed}s): confirmation required`);

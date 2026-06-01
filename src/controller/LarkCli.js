@@ -552,8 +552,9 @@ const setupPoll = async (req, res) => {
             });
         } catch (err) {
             const msg = (err.message || "").toLowerCase();
-            if (msg.includes("pending") || msg.includes("authorization_pending") || msg.includes("slow_down") || msg.includes("waiting")) {
-                // Still waiting
+            const code = err.code || "";
+            if (code === "CLI_TIMEOUT" || msg.includes("timeout") || msg.includes("pending") || msg.includes("authorization_pending") || msg.includes("slow_down") || msg.includes("waiting")) {
+                // Still waiting — CLI blocks until authorized, timeout = still pending
                 return res.json({
                     success: true,
                     state: "awaiting_auth",
