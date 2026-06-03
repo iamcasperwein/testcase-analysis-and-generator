@@ -184,7 +184,7 @@ const generateFromPrompt = async (prompt, options = {}) => {
 			},
 			{
 				headers,
-				// timeout: DEFAULTS.TIMEOUT_MS,
+				timeout: DEFAULTS.TIMEOUT_MS,
 			},
 		)
 	} catch (err) {
