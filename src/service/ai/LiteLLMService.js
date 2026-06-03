@@ -7,6 +7,11 @@ const { ENDPOINTS, DEFAULTS, HEADERS, ERROR_CODES } = require("../../constants/a
 
 // --- Defaults ---
 const DEFAULT_MODEL = "claude-sonnet-4-6"
+const MAX_RETRIES = 3
+const RETRY_BASE_DELAY_MS = 3000
+const RETRYABLE_STATUS_CODES = new Set([429, 500, 502, 503, 504])
+
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
 
 const getBaseUrl = () => ConfigLoader.get("LITELLM_BASE_URL", ENDPOINTS.LITELLM_DEFAULT_BASE_URL)
 const getApiUrl = () => `${getBaseUrl()}${ENDPOINTS.CHAT_COMPLETIONS}`
@@ -161,63 +166,105 @@ const generateFromPrompt = async (prompt, options = {}) => {
 		headers["Authorization"] = `Bearer ${apiKey}`
 	}
 
-	let response
-	try {
-		const isNoTempModel = /\b(opus|o[1-9]|o3|o4)\b/i.test(model)
-
-		response = await axios.post(
-			apiUrl,
-			{
-				model,
-				...(isNoTempModel ? {} : { temperature: DEFAULTS.TEMPERATURE }),
-				max_tokens: DEFAULTS.MAX_TOKENS,
-				messages: [
-					{
-						role: "system",
-						content: SYSTEM_PROMPT,
-					},
-					{
-						role: "user",
-						content: messageContent,
-					},
-				],
-			},
-			{
-				headers,
-				// timeout: DEFAULTS.TIMEOUT_MS,
-			},
-		)
-	} catch (err) {
-		const status = err.response?.status || "unknown"
-		const detail =
-			err.response?.data?.error?.message ||
-			err.response?.data?.message ||
-			JSON.stringify(err.response?.data || err.message)
-		console.error(`[LiteLLMService] API error (${status}): model=${model}, detail=${detail}`)
-
-		const error = new Error(`LiteLLM API error (${status}): ${detail}`)
-		error.statusCode = err.response?.status || ERROR_CODES.SERVICE_UNAVAILABLE
-		throw error
-	}
-
-	// Extract text from OpenAI-compatible response
-	const choices = Array.isArray(response?.data?.choices) ? response.data.choices : []
-	const content = choices[0]?.message?.content
-
 	let text = ""
-	if (typeof content === "string") {
-		text = content.trim()
-	} else if (Array.isArray(content)) {
-		text = content
-			.map((item) => {
-				if (!item) return ""
-				if (typeof item === "string") return item
-				if (typeof item?.text === "string") return item.text
-				return ""
+	for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+		try {
+			const isNoTempModel = /\b(opus|o[1-9]|o3|o4)\b/i.test(model)
+
+			const response = await axios.post(
+				apiUrl,
+				{
+					model,
+					stream: true,
+					...(isNoTempModel ? {} : { temperature: DEFAULTS.TEMPERATURE }),
+					max_tokens: DEFAULTS.MAX_TOKENS,
+					messages: [
+						{
+							role: "system",
+							content: SYSTEM_PROMPT,
+						},
+						{
+							role: "user",
+							content: messageContent,
+						},
+					],
+				},
+				{
+					headers,
+					responseType: "stream",
+					timeout: 300000, // 5 min socket timeout
+				},
+			)
+
+			// Collect streamed SSE chunks
+			text = await new Promise((resolve, reject) => {
+				const chunks = []
+				let buffer = ""
+				response.data.on("data", (chunk) => {
+					buffer += chunk.toString()
+					const lines = buffer.split("\n")
+					// Keep the last incomplete line in the buffer
+					buffer = lines.pop() || ""
+					for (const line of lines) {
+						const trimmed = line.trim()
+						if (!trimmed.startsWith("data: ")) continue
+						const payload = trimmed.slice(6)
+						if (payload === "[DONE]") continue
+						try {
+							const parsed = JSON.parse(payload)
+							const delta = parsed.choices?.[0]?.delta?.content
+							if (delta) chunks.push(delta)
+						} catch {
+							// skip malformed chunks
+						}
+					}
+				})
+				response.data.on("end", () => {
+					// Process any remaining buffer
+					if (buffer.trim().startsWith("data: ")) {
+						const payload = buffer.trim().slice(6)
+						if (payload !== "[DONE]") {
+							try {
+								const parsed = JSON.parse(payload)
+								const delta = parsed.choices?.[0]?.delta?.content
+								if (delta) chunks.push(delta)
+							} catch { /* skip */ }
+						}
+					}
+					resolve(chunks.join(""))
+				})
+				response.data.on("error", (err) => reject(err))
 			})
-			.join("\n")
-			.trim()
+
+			console.log(`[LiteLLMService] stream completed :: collected ${text.length} chars`)
+
+			break // success
+		} catch (err) {
+			const status = err.response?.status || 0
+			const isRetryable = RETRYABLE_STATUS_CODES.has(status) ||
+				err.code === "ECONNRESET" || err.code === "ETIMEDOUT" || err.code === "ECONNABORTED"
+			const isLastAttempt = attempt >= MAX_RETRIES
+
+			if (!isRetryable || isLastAttempt) {
+				const detail =
+					err.response?.data?.error?.message ||
+					err.response?.data?.message ||
+					(typeof err.response?.data === "string" ? err.response.data : null) ||
+					JSON.stringify(err.response?.data || err.message)
+				console.error(`[LiteLLMService] API error (${status || "unknown"}): model=${model}, detail=${detail}`)
+
+				const error = new Error(`LiteLLM API error (${status || "unknown"}): ${detail}`)
+				error.statusCode = err.response?.status || ERROR_CODES.SERVICE_UNAVAILABLE
+				throw error
+			}
+
+			const delay = RETRY_BASE_DELAY_MS * Math.pow(2, attempt)
+			console.warn(`[LiteLLMService] Retryable error (${status}), attempt ${attempt + 1}/${MAX_RETRIES + 1}, retrying in ${delay}ms`)
+			await sleep(delay)
+		}
 	}
+
+	text = text.trim()
 
 	if (!text) {
 		const error = new Error("LiteLLM returned an empty response")

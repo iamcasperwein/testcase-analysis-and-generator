@@ -5784,7 +5784,18 @@ async function loadAllPrompts() {
 const _initialPromptsLoaded = loadAllPrompts();
 loadSyncConfig(); // Pre-load sync config for Move Section auto-suite selection
 document.getElementById("test-analysis-tab").addEventListener("shown.bs.tab", loadAllPrompts);
-document.getElementById("test-scope-tab").addEventListener("shown.bs.tab", loadAllPrompts);
+document.getElementById("test-scope-tab").addEventListener("shown.bs.tab", async () => {
+  await loadAllPrompts();
+  // Auto-load latest completed prompt if nothing is selected
+  if (!currentScopePromptId) {
+    const latestCompleted = allPrompts
+      .filter(p => /COMPLETED|DONE/i.test(p.status || "") && p.testCaseCount > 0)
+      .slice(-1)[0];
+    if (latestCompleted) {
+      scopeDropdown.selectPromptById(latestCompleted.promptId);
+    }
+  }
+});
 
 // --- DASHBOARD ---
 const dashRefreshBtn    = document.getElementById("dashRefreshBtn");

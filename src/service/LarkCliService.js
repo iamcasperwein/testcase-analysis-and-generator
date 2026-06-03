@@ -17,6 +17,21 @@ const { URL_PATTERNS } = require("../constants/api/LarkApi");
 const LARK_CLI_BIN = "lark-cli";
 const EXEC_TIMEOUT_MS = 60000; // 60s timeout for CLI commands
 const MAX_BUFFER = 10 * 1024 * 1024; // 10MB buffer for large docs
+const MAX_RETRIES = 3; // Retry count for transient failures
+const RETRY_BASE_DELAY_MS = 2000; // Base delay between retries (exponential backoff)
+
+// Patterns indicating transient/network errors worth retrying
+const RETRYABLE_PATTERNS = [
+    /TLS handshake timeout/i,
+    /connection reset/i,
+    /ETIMEDOUT/i,
+    /ECONNRESET/i,
+    /ECONNREFUSED/i,
+    /socket hang up/i,
+    /network timeout/i,
+    /DNS lookup failed/i,
+    /getaddrinfo/i,
+];
 
 // --- Error Class ---
 
@@ -31,13 +46,53 @@ class LarkCliServiceError extends Error {
 // --- Helpers ---
 
 /**
- * Execute a lark-cli command and return stdout.
+ * Check if an error message matches retryable patterns.
+ */
+const isRetryableError = (errMsg) =>
+    RETRYABLE_PATTERNS.some((pattern) => pattern.test(errMsg));
+
+/**
+ * Sleep for a given number of milliseconds.
+ */
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+/**
+ * Execute a lark-cli command with automatic retry on transient network errors.
+ * @param {string[]} args - Command arguments
+ * @param {object} [options] - Options
+ * @param {number} [options.timeout] - Timeout in ms
+ * @param {number} [options.maxRetries] - Max retry attempts (default: MAX_RETRIES)
+ * @returns {Promise<string>} stdout
+ */
+const execLarkCli = async (args, options = {}) => {
+    const maxRetries = options.maxRetries ?? MAX_RETRIES;
+
+    for (let attempt = 0; attempt <= maxRetries; attempt++) {
+        try {
+            return await execLarkCliOnce(args, options);
+        } catch (err) {
+            const isRetryable = isRetryableError(err.message);
+            const isLastAttempt = attempt >= maxRetries;
+
+            if (!isRetryable || isLastAttempt) {
+                throw err;
+            }
+
+            const delay = RETRY_BASE_DELAY_MS * Math.pow(2, attempt);
+            console.log(`[LarkCli] retryable error (attempt ${attempt + 1}/${maxRetries + 1}), retrying in ${delay}ms: ${err.message}`);
+            await sleep(delay);
+        }
+    }
+};
+
+/**
+ * Execute a single lark-cli command attempt.
  * @param {string[]} args - Command arguments
  * @param {object} [options] - Options
  * @param {number} [options.timeout] - Timeout in ms
  * @returns {Promise<string>} stdout
  */
-const execLarkCli = (args, options = {}) => {
+const execLarkCliOnce = (args, options = {}) => {
     const timeout = options.timeout || EXEC_TIMEOUT_MS;
     const cmdStr = `${LARK_CLI_BIN} ${args.join(" ")}`;
     const startTime = Date.now();
