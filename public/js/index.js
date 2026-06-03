@@ -5784,7 +5784,18 @@ async function loadAllPrompts() {
 const _initialPromptsLoaded = loadAllPrompts();
 loadSyncConfig(); // Pre-load sync config for Move Section auto-suite selection
 document.getElementById("test-analysis-tab").addEventListener("shown.bs.tab", loadAllPrompts);
-document.getElementById("test-scope-tab").addEventListener("shown.bs.tab", loadAllPrompts);
+document.getElementById("test-scope-tab").addEventListener("shown.bs.tab", async () => {
+  await loadAllPrompts();
+  // Auto-load latest completed prompt if nothing is selected
+  if (!currentScopePromptId) {
+    const latestCompleted = allPrompts
+      .filter(p => /COMPLETED|DONE/i.test(p.status || "") && p.testCaseCount > 0)
+      .slice(-1)[0];
+    if (latestCompleted) {
+      scopeDropdown.selectPromptById(latestCompleted.promptId);
+    }
+  }
+});
 
 // --- DASHBOARD ---
 const dashRefreshBtn    = document.getElementById("dashRefreshBtn");
@@ -6809,7 +6820,16 @@ document.querySelectorAll('[data-bs-toggle="tooltip"]').forEach(el => {
   function showSetupError(msg) {
     if (setupError) { setupError.textContent = msg; setupError.style.display = ""; }
     if (setupMsg) setupMsg.style.display = "none";
-    setStepIcon(setupStepInstall, "error");
+    // Mark the currently-active step as error (not always install)
+    const installDone = setupStepInstall?.querySelector(".lark-setup-step-icon .bi-check-circle-fill");
+    const configDone = setupStepConfig?.querySelector(".lark-setup-step-icon .bi-check-circle-fill");
+    if (configDone) {
+      setStepIcon(setupStepAuth, "error");
+    } else if (installDone) {
+      setStepIcon(setupStepConfig, "error");
+    } else {
+      setStepIcon(setupStepInstall, "error");
+    }
     setupBtn.disabled = false;
     setupBtn.innerHTML = '<i class="bi bi-rocket-takeoff me-1"></i>Retry Setup';
     stopSetupPolling();
