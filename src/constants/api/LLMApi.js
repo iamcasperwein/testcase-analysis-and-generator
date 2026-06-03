@@ -18,7 +18,7 @@ const MODELS_QUERY_PARAMS = Object.freeze({
 
 // --- Default request parameters ---
 const DEFAULTS = Object.freeze({
-	TIMEOUT_MS: 300000,
+	TIMEOUT_MS: 1800000,
 	TEMPERATURE: 0.2,
 	MAX_TOKENS: 128000,
 	// TOP_P: 0.95,
