@@ -21,11 +21,11 @@ const normalizeOptionalNumber = (value) => {
 	return Number.isFinite(asNumber) ? asNumber : null
 }
 
-const pickCredentials = ({ requireSuiteId = true } = {}) => {
+const pickCredentials = () => {
 	const username = ConfigLoader.get("TESTRAIL_USERNAME")
 	const password = ConfigLoader.get("TESTRAIL_PASSWORD")
 	const projectId = ConfigLoader.get("TESTRAIL_PROJECT_ID")
-	const suiteId = ConfigLoader.get("TESTRAIL_SUITE_ID")
+	const suiteId = ConfigLoader.get("TESTRAIL_SUITE_ID") || null
 	const baseUrl = normalizeBaseUrl(ConfigLoader.get("TESTRAIL_URL"))
 
 	if (!baseUrl) {
@@ -42,10 +42,6 @@ const pickCredentials = ({ requireSuiteId = true } = {}) => {
 
 	if (!projectId) {
 		throw createValidationError("TESTRAIL_PROJECT_ID is required", 400)
-	}
-
-	if (requireSuiteId && !suiteId) {
-		throw createValidationError("TESTRAIL_SUITE_ID is required", 400)
 	}
 
 	return { username, password, projectId, suiteId, baseUrl }
@@ -120,7 +116,7 @@ const getSuites = async () => {
 	})
 	logger.start("Fetching test suites from TestRail")
 
-	const creds = pickCredentials({ requireSuiteId: false })
+	const creds = pickCredentials()
 	const url = buildApiUrl(creds, `get_suites/${encodeURIComponent(creds.projectId)}`)
 
 	try {
