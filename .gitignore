@@ -10,6 +10,7 @@ data/runtime/
 data/analyze/
 data/testcases/
 data/figma/
+data/temps/
 data/promptdata.lock
 data/promptdata.json
 data/testrail-sync-config.json
