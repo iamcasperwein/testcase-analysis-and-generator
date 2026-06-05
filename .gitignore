@@ -9,6 +9,7 @@ data/uploads/
 data/runtime/
 data/analyze/
 data/testcases/
+data/temps/
 data/figma/
 data/temps/
 data/promptdata.lock

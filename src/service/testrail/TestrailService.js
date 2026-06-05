@@ -156,8 +156,9 @@ const getSections = async (overrideSuiteId) => {
 	})
 	logger.start("Fetching sections from TestRail")
 
-	const creds = pickCredentials()
-	const effectiveSuiteId = overrideSuiteId != null && String(overrideSuiteId).trim()
+	const hasOverride = overrideSuiteId != null && String(overrideSuiteId).trim()
+	const creds = pickCredentials({ requireSuiteId: !hasOverride })
+	const effectiveSuiteId = hasOverride
 		? String(overrideSuiteId).trim()
 		: creds.suiteId
 	const requestUrl = buildSectionsUrl({
@@ -846,7 +847,7 @@ const postTestCasesForSingleGroup = async ({ normalizedPromptId, parsedData, tes
 		}
 	}
 
-	const creds = pickCredentials()
+	const creds = pickCredentials({ requireSuiteId: false })
 
 	// Determine the effective suite: sync config > section group > env default
 	const configSuiteId = syncMapping ? String(syncMapping.suiteId) : null
@@ -862,6 +863,16 @@ const postTestCasesForSingleGroup = async ({ normalizedPromptId, parsedData, tes
 			suiteIdsInUse.add(groupSuiteId != null ? String(groupSuiteId) : creds.suiteId)
 		}
 	})
+
+	// Validate that all resolved suite IDs are valid
+	for (const sid of suiteIdsInUse) {
+		if (!sid) {
+			throw createValidationError(
+				"Could not determine TestRail Suite ID. Please configure platform-to-suite mapping in the TestRail Sync tab, or set TESTRAIL_SUITE_ID in Settings.",
+				400
+			)
+		}
+	}
 
 	// Fetch remote sections for each suite in use
 	const remoteSectionsBySuite = new Map()
