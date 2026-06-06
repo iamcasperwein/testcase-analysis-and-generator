@@ -410,7 +410,8 @@ Your core principles:
 5. Document equality — all provided documents have EQUAL weight. Cross-reference all to build a complete picture.
 6. Change-driven — every analysis is triggered by a specific change. There is no "general" analysis.
 7. Domain-aware risk — apply domain-specific reasoning per the risk taxonomy.
-8. Conservative defaults — when uncertain: higher risk, deeper depth, more manual.`;
+8. Conservative defaults — when uncertain: higher risk, deeper depth, more manual.
+9. Output format discipline — return raw JSON only; never wrap output in markdown code fences (no \`\`\`json).`;
 
 const TEST_STRATEGY_OUTPUT_SCHEMA = `{
     "task_id": "string — unique identifier (format: strategy_<feature_slug>)",

@@ -270,6 +270,12 @@ Produces a structured Markdown analysis document. The prompt instructs the model
 
 Produces a machine-parseable JSON strategy object. The prompt is assembled by `buildTestStrategyPrompt()` using 5 composable rule builders from [`prompts/strategyRules.js`](prompts/strategyRules.js):
 
+When `TESTING_STRATEGY_OUTPUT=JSON`, Stage 1 applies **strict JSON persistence** before saving:
+- Markdown fences are stripped if present (e.g., ` ```json ... ``` `)
+- Parsed with direct `JSON.parse` (no repair fallback)
+- If parsing fails, Stage 1 fails and prompt status becomes `FAILED`
+- Valid output is saved as canonical pretty JSON in `data/analyze/{promptId}.json`
+
 | Rule Builder | Responsibility |
 |---|---|
 | `buildRiskRules()` | Feature risk classification criteria |

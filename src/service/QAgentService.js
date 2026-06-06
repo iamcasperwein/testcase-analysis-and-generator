@@ -182,6 +182,16 @@ const stripMarkdownFences = (value = "") => {
     return text.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/i, "").trim();
 };
 
+const normalizeStrictJsonText = (value = "", label = "JSON output") => {
+    const content = stripMarkdownFences(value);
+    try {
+        const parsed = JSON.parse(content);
+        return JSON.stringify(parsed, null, 2);
+    } catch (error) {
+        throw new Error(`${label} is not valid JSON in strict mode. Ensure the model returns raw JSON only (no markdown/code fences). Parse error: ${error.message}`);
+    }
+};
+
 const extractJsonPayload = (text = "") => {
     const content = stripMarkdownFences(text);
 
@@ -610,6 +620,10 @@ const processSubmission = async (payload = {}, { isRetry = false } = {}) => {
         // --- STEP 1: Analysis ---
         let analysisText = "";
 
+        const strategyMode = ConfigLoader.get("TESTING_STRATEGY_OUTPUT", "MARKDOWN").toUpperCase();
+        const isStrategyJsonMode = strategyMode === "JSON";
+        let analysisGenerated = false;
+
         // On retry, try to reuse existing analysis
         if (isRetry) {
             const extensions = ["json", "md", "txt"];
@@ -627,6 +641,7 @@ const processSubmission = async (payload = {}, { isRetry = false } = {}) => {
         }
 
         if (!analysisText.trim()) {
+            analysisGenerated = true;
             logger.step("Step 1/3 - Building analysis prompt");
             const analysisPrompt = await TestCaseService.getTestAnalysisPrompt({
                 ...validatedPayload,
@@ -641,9 +656,16 @@ const processSubmission = async (payload = {}, { isRetry = false } = {}) => {
             logger.step("Step 1/3 - Sending analysis prompt", { agent });
             analysisText = await runSelectedAgent({ prompt: analysisPrompt, payload: validatedPayload, mode: "analysis" });
             logger.success("Step 1/3 - Analysis received", { chars: analysisText.length });
+        }
 
-            const strategyMode = ConfigLoader.get("TESTING_STRATEGY_OUTPUT", "MARKDOWN").toUpperCase();
-            const analyzeExt = strategyMode === "JSON" ? "json" : "md";
+        if (isStrategyJsonMode) {
+            logger.step("Step 1/3 - Validating strategy JSON (strict mode)");
+            analysisText = normalizeStrictJsonText(analysisText, "Strategy analysis output");
+            logger.success("Step 1/3 - Strategy JSON validated", { chars: analysisText.length });
+        }
+
+        if (analysisGenerated) {
+            const analyzeExt = isStrategyJsonMode ? "json" : "md";
             FileReader.writeDataFile(`analyze/${promptId}.${analyzeExt}`, analysisText);
             logger.success("Step 1/3 - Analysis saved", { path: `analyze/${promptId}.${analyzeExt}` });
         }

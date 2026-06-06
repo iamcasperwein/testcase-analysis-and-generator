@@ -6897,7 +6897,18 @@ async function loadAllPrompts() {
 // Load prompts on startup and refresh dropdowns when tabs are shown
 const _initialPromptsLoaded = loadAllPrompts();
 loadSyncConfig(); // Pre-load sync config for Move Section auto-suite selection
-document.getElementById("test-analysis-tab").addEventListener("shown.bs.tab", loadAllPrompts);
+document.getElementById("test-analysis-tab").addEventListener("shown.bs.tab", async () => {
+  await loadAllPrompts();
+  // Auto-load latest prompt with strategy/analysis result if nothing is selected
+  if (!currentAnalysisPromptId) {
+    const latestWithAnalysis = allPrompts
+      .filter(p => /REVIEW|GENERATING|COMPLETED|DONE/i.test(p.status || ""))
+      .slice(-1)[0];
+    if (latestWithAnalysis) {
+      analysisDropdown.selectPromptById(latestWithAnalysis.promptId);
+    }
+  }
+});
 document.getElementById("test-scope-tab").addEventListener("shown.bs.tab", async () => {
   await loadAllPrompts();
   // Auto-load latest completed prompt if nothing is selected
