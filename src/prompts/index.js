@@ -1,9 +1,11 @@
 const {
     SYSTEM_PROMPT,
+    STRATEGY_SYSTEM_PROMPT,
     VALID_PLATFORMS,
     DEFAULT_PLATFORMS,
     buildTestAnalysisPrompt,
     buildTestCaseGenerationPrompt,
+    buildTestStrategyPrompt,
     formatDocumentSection,
     normalizePromptInput,
     normalizePlatforms,
@@ -11,10 +13,12 @@ const {
 
 module.exports = {
     SYSTEM_PROMPT,
+    STRATEGY_SYSTEM_PROMPT,
     VALID_PLATFORMS,
     DEFAULT_PLATFORMS,
     buildTestAnalysisPrompt,
     buildTestCaseGenerationPrompt,
+    buildTestStrategyPrompt,
     formatDocumentSection,
     normalizePromptInput,
     normalizePlatforms,

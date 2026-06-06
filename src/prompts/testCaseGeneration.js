@@ -1,4 +1,11 @@
 const { DOC_TYPES, DOC_TYPE_MAP, resolveDocType } = require("../constants/docTypes");
+const {
+    buildRiskRulesGuidance,
+    buildDepthRulesGuidance,
+    buildAutomationRulesGuidance,
+    buildCompletenessRulesGuidance,
+    buildConfidenceGuidance,
+} = require("./strategyRules");
 
 const SYSTEM_PROMPT = `You are a Senior QE Engineer with 10+ years of experience in test planning, test case design, and quality assessment. You specialize in deriving comprehensive, actionable test cases from product specifications.
 
@@ -393,12 +400,222 @@ const buildTestAnalysisPrompt = (input = {}) => {
     ].join("\n");
 };
 
+const STRATEGY_SYSTEM_PROMPT = `You are a Senior QE Strategist with 10+ years of experience in test strategy, risk assessment, and quality planning. You specialize in determining what to test, at what depth, and with what approach — based on product specifications and risk analysis.
+
+Your core principles:
+1. Minimum sufficient coverage — determine the minimum testing needed to manage risk, not maximize testing.
+2. Risk vs maturity distinction — always distinguish feature risk (severity of failure) from requirement maturity (completeness of spec).
+3. Explicit uncertainty — never assume missing information. Surface gaps explicitly.
+4. Evidence-backed reasoning — every decision MUST cite evidence from the source documents.
+5. Document equality — all provided documents have EQUAL weight. Cross-reference all to build a complete picture.
+6. Change-driven — every analysis is triggered by a specific change. There is no "general" analysis.
+7. Domain-aware risk — apply domain-specific reasoning per the risk taxonomy.
+8. Conservative defaults — when uncertain: higher risk, deeper depth, more manual.`;
+
+const TEST_STRATEGY_OUTPUT_SCHEMA = `{
+    "task_id": "string — unique identifier (format: strategy_<feature_slug>)",
+    "platforms": ["string — target platforms from input"],
+    "feature_risk_level": "high | medium | low",
+    "requirement_maturity": "high | medium | low",
+    "risk_areas": [
+        { "area": "string — risk area name", "level": "high | elevated | medium | low", "reason": "string — why this risk level" }
+    ],
+    "test_scope": {
+        "functional": [
+            {
+                "id": "string — e.g. func_001",
+                "description": "string — what this scope item covers",
+                "disposition": "reuse | update | new | retire | regression_keep",
+                "change_relation": "string — how this item relates to the change trigger",
+                "existing_case_refs": ["string — IDs of matched existing cases, or empty array"],
+                "match_basis": "trace_link | tag | semantic | none",
+                "match_confidence": "high | medium | low | none",
+                "reason": "string — why this disposition was assigned"
+            }
+        ],
+        "edge_cases": [
+            { "id": "string — e.g. edge_001", "description": "string", "disposition": "reuse | update | new | retire | regression_keep", "change_relation": "string", "existing_case_refs": [], "match_basis": "trace_link | tag | semantic | none", "match_confidence": "high | medium | low | none", "reason": "string" }
+        ],
+        "integration": [
+            { "id": "string — e.g. intg_001", "description": "string", "disposition": "reuse | update | new | retire | regression_keep", "change_relation": "string", "existing_case_refs": [], "match_basis": "trace_link | tag | semantic | none", "match_confidence": "high | medium | low | none", "reason": "string" }
+        ],
+        "non_functional": [
+            { "id": "string — e.g. nf_001", "description": "string", "disposition": "reuse | update | new | retire | regression_keep", "change_relation": "string", "existing_case_refs": [], "match_basis": "trace_link | tag | semantic | none", "match_confidence": "high | medium | low | none", "reason": "string" }
+        ]
+    },
+    "test_depth": {
+        "functional": "deep | medium | shallow",
+        "edge_cases": "deep | medium | shallow",
+        "integration": "deep | medium | shallow",
+        "non_functional": "deep | medium | shallow"
+    },
+    "test_mode": [
+        { "area": "string — scope area name", "mode": "automation-first | manual-first | hybrid", "reason": "string — why this mode" }
+    ],
+    "existing_coverage_summary": { "reuse": "number", "update": "number", "new": "number", "retire": "number", "coverage_gap": ["string — identified gaps"] },
+    "asset_hygiene_report": { "trace_link_pct": "number 0.0-1.0", "tag_pct": "number 0.0-1.0", "semantic_pct": "number 0.0-1.0" },
+    "requirement_gaps": [
+        { "gap": "string — what is missing", "impact": "string — how it affects testing", "ask": "string — who to clarify with" }
+    ],
+    "not_assessable": [
+        { "item": "string — what cannot be evaluated", "reason": "string — why" }
+    ],
+    "confidence": "number 0.0-1.0 — overall confidence score",
+    "confidence_breakdown": {
+        "requirement_completeness": "number 0.0-1.0",
+        "clarity": "number 0.0-1.0",
+        "uncertainty": "number 0.0-1.0",
+        "risk_identifiability": "number 0.0-1.0"
+    },
+    "coverage_assessment_confidence": "number 0.0-1.0 or null if no existing assets",
+    "workflow_mode": "blocked | strategy_only | controlled | full",
+    "test_strategy_summary": "string — human-readable strategy summary with rationale"
+}`;
+
+const TEST_STRATEGY_FEW_SHOT = `
+--- FEW-SHOT EXAMPLE (Greenfield Feature — No Existing Assets) ---
+
+Scenario: New user notification preferences feature — first-time build, no existing test coverage.
+
+{
+  "task_id": "strategy_notif_prefs_001",
+  "platforms": ["iOS", "Android", "Desktop-Web"],
+  "feature_risk_level": "medium",
+  "requirement_maturity": "high",
+  "risk_areas": [
+    { "area": "User preference persistence", "level": "medium", "reason": "Data persistence — user settings must survive across sessions" },
+    { "area": "Cross-platform consistency", "level": "medium", "reason": "Preferences set on one platform must reflect on all" }
+  ],
+  "test_scope": {
+    "functional": [
+      { "id": "func_001", "description": "User can toggle individual notification channels (email, push, SMS)", "disposition": "new", "change_relation": "Greenfield feature", "existing_case_refs": [], "match_basis": "none", "match_confidence": "none", "reason": "No existing coverage" }
+    ],
+    "edge_cases": [
+      { "id": "edge_001", "description": "User disables all notification channels simultaneously", "disposition": "new", "change_relation": "Boundary condition", "existing_case_refs": [], "match_basis": "none", "match_confidence": "none", "reason": "No existing coverage" }
+    ],
+    "integration": [
+      { "id": "intg_001", "description": "Preference changes propagate to notification delivery service", "disposition": "new", "change_relation": "New integration point", "existing_case_refs": [], "match_basis": "none", "match_confidence": "none", "reason": "No existing coverage" }
+    ],
+    "non_functional": [
+      { "id": "nf_001", "description": "Preference page load time within SLA", "disposition": "new", "change_relation": "New page", "existing_case_refs": [], "match_basis": "none", "match_confidence": "none", "reason": "No existing coverage" }
+    ]
+  },
+  "test_depth": { "functional": "medium", "edge_cases": "medium", "integration": "medium", "non_functional": "shallow" },
+  "test_mode": [
+    { "area": "Preference API CRUD", "mode": "automation-first", "reason": "Deterministic backend, high regression value" },
+    { "area": "Preference UI toggles", "mode": "automation-first", "reason": "Stable UI, repeatable interactions" }
+  ],
+  "existing_coverage_summary": null,
+  "asset_hygiene_report": null,
+  "requirement_gaps": [],
+  "not_assessable": [],
+  "confidence": 0.85,
+  "confidence_breakdown": { "requirement_completeness": 0.9, "clarity": 0.85, "uncertainty": 0.15, "risk_identifiability": 0.9 },
+  "coverage_assessment_confidence": null,
+  "workflow_mode": "full",
+  "test_strategy_summary": "Medium-risk greenfield feature with clear requirements. All scope items are new (no existing assets). High confidence (0.85) — requirements are well-specified with acceptance criteria. Recommend proceeding directly to test case generation."
+}`;
+
+const buildTestStrategyPrompt = (input = {}) => {
+    const { feature, platforms, additionalContext, documents } = normalizePromptInput(input);
+    const attachedLabels = getAttachedDocumentLabels(documents);
+    const documentInventory = buildDocumentInventory(documents);
+    const platformList = platforms.join(", ");
+
+    const lines = [
+        "Generate a structured test strategy in valid JSON only.",
+        "Cross-reference ALL provided documents equally to derive a comprehensive testing strategy.",
+        "The strategy must determine: what to test, at what depth, and with what approach (automation vs manual).",
+        "",
+        "Product Context:",
+        `- Feature: ${feature}`,
+        `- Target Platforms: ${platformList}`,
+        `- Additional Context: ${additionalContext || "N/A"}`,
+        `- Attached Documents: ${attachedLabels.join(", ") || "None"}`,
+        "- Some attached files may be binary (PDF/image). Use attached file context in addition to extracted text sections.",
+        documentInventory,
+        "",
+        buildDocumentGuidance(),
+        "",
+        "Source Documents:",
+        formatAllDocuments(documents),
+        "",
+        "--- STRATEGY RULES ---",
+        "",
+        buildRiskRulesGuidance(),
+        "",
+        buildDepthRulesGuidance(),
+        "",
+        buildAutomationRulesGuidance(),
+        "",
+        buildCompletenessRulesGuidance(),
+        "",
+        buildConfidenceGuidance(),
+        "",
+        "--- OUTPUT CONTRACT ---",
+        "",
+        "Output JSON schema (return ONLY this structure, no other text):",
+        TEST_STRATEGY_OUTPUT_SCHEMA,
+        "",
+        TEST_STRATEGY_FEW_SHOT,
+        "",
+        "Rules:",
+        "- Return valid JSON only. No markdown, no commentary, no wrapping.",
+        "- Every field in the schema MUST be present in the output.",
+        "- `platforms` MUST echo the target platforms provided in the input.",
+        "- Each scope item MUST have a unique `id` within its category (use prefixes: func_, edge_, intg_, nf_).",
+        "- Each `test_mode` entry MUST map to a scope area identified in `test_scope`.",
+        "- The `test_strategy_summary` MUST be a concise human-readable paragraph explaining the overall strategy.",
+        "- Do NOT invent features or behaviors not stated in the source documents.",
+        "- If information is missing, add it to `requirement_gaps` — do NOT assume.",
+        "- If a scope area cannot be assessed, add it to `not_assessable`.",
+        `- Use the task_id format: strategy_<feature_slug> (derive from feature name).`,
+        "",
+        "Disposition & Coverage Rules:",
+        "- If NO existing test assets/coverage data is provided in context: set `disposition` to `new` for all scope items, `existing_case_refs` to [], `match_basis` to `none`, `match_confidence` to `none`.",
+        "- If existing test assets ARE provided: assign disposition (reuse/update/new/retire/regression_keep) based on match analysis.",
+        "- `existing_coverage_summary` and `asset_hygiene_report` MUST be `null` when no existing test data is available.",
+        "- `coverage_assessment_confidence` MUST be `null` when no existing test data is available.",
+        "",
+        "Confidence Rules:",
+        "- `confidence` MUST be a decimal number between 0.0 and 1.0.",
+        "- `confidence_breakdown` factors MUST each be a decimal number between 0.0 and 1.0.",
+        "- Derive `workflow_mode` from confidence: <0.4 = blocked, 0.4-0.6 = strategy_only, 0.6-0.8 = controlled, >=0.8 = full.",
+        "",
+        "Scope Decomposition:",
+        "- Decompose ALL testable areas into the 4 categories: functional, edge_cases, integration, non_functional.",
+        "- functional: core feature behavior, happy paths, business logic.",
+        "- edge_cases: boundary conditions, unusual inputs, error states.",
+        "- integration: cross-system interactions, API contracts, data flow between services.",
+        "- non_functional: performance, security, accessibility, reliability.",
+        "- `change_relation` MUST describe how the scope item relates to the feature/change being tested.",
+        "",
+        "Platform Consideration:",
+        `- Target platforms: ${platformList}.`,
+        "- Consider platform-specific differences when assessing risk and scope.",
+        "- Platform-specific test items should note the relevant platform in their description.",
+        "",
+        "Before returning your response, verify:",
+        "- Every risk_area has a reason citing evidence from source documents.",
+        "- Every scope item has a valid disposition and change_relation.",
+        "- Every test_mode entry has a reason explaining the mode choice.",
+        "- requirement_gaps lists ALL missing information (never empty unless spec is complete).",
+        "- confidence (numeric) and workflow_mode are consistent with confidence rules.",
+        "- test_strategy_summary accurately reflects the overall strategy.",
+        "If any check fails, revise before responding.",
+    ];
+
+    return lines.join("\n");
+};
+
 module.exports = {
     SYSTEM_PROMPT,
+    STRATEGY_SYSTEM_PROMPT,
     VALID_PLATFORMS,
     DEFAULT_PLATFORMS,
     buildTestAnalysisPrompt,
     buildTestCaseGenerationPrompt,
+    buildTestStrategyPrompt,
     formatDocumentSection,
     normalizePromptInput,
     normalizePlatforms,

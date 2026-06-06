@@ -282,10 +282,16 @@ const generateTestCases = async (req, res) => {
 			return res.status(409).json({ success: false, error: "Generation already in progress." });
 		}
 
-		// Validate analysis file exists
+		// Validate analysis file exists (try JSON strategy first, then Markdown)
 		try {
 			const FileReader = require("../utils/FileReader");
-			const analysis = FileReader.readDataFile(`analyze/${promptId}.md`);
+			let analysis = "";
+			for (const ext of ["json", "md", "txt"]) {
+				try {
+					analysis = FileReader.readDataFile(`analyze/${promptId}.${ext}`);
+					if (String(analysis || "").trim()) break;
+				} catch (_) { /* try next */ }
+			}
 			if (!String(analysis || "").trim()) {
 				return res.status(400).json({ success: false, error: "Analysis not found or empty. Please retry submission." });
 			}

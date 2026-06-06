@@ -72,6 +72,7 @@ const generateFromPrompt = async (prompt, options = {}) => {
 	const apiUrl = getApiUrl()
 	const messagePrompt = String(prompt || "").trim()
 	const model = String(options.model || getDefaultModel()).trim()
+	const systemPrompt = options.systemPrompt || SYSTEM_PROMPT
 
 	if (!messagePrompt) {
 		const error = new Error("Prompt is required")
@@ -80,7 +81,7 @@ const generateFromPrompt = async (prompt, options = {}) => {
 	}
 
 	// Token guard: estimate input size and reject if it exceeds model limit
-	const fullInput = SYSTEM_PROMPT + "\n" + messagePrompt
+	const fullInput = systemPrompt + "\n" + messagePrompt
 	const estimatedInputTokens = estimateTokens(fullInput)
 	const modelInputLimit = getModelInputLimit(model)
 
@@ -110,7 +111,7 @@ const generateFromPrompt = async (prompt, options = {}) => {
 				messages: [
 					{
 						role: "system",
-						content: SYSTEM_PROMPT,
+						content: systemPrompt,
 					},
 					{
 						role: "user",

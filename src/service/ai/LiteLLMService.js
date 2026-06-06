@@ -145,6 +145,7 @@ const generateFromPrompt = async (prompt, options = {}) => {
 	const apiUrl = getApiUrl()
 	const apiKey = getApiKey()
 	const model = String(options.model || getDefaultModel()).trim()
+	const systemPrompt = options.systemPrompt || SYSTEM_PROMPT
 
 	if (!getBaseUrl()) {
 		const error = new Error(
@@ -179,7 +180,7 @@ const generateFromPrompt = async (prompt, options = {}) => {
 				messages: [
 					{
 						role: "system",
-						content: SYSTEM_PROMPT,
+						content: systemPrompt,
 					},
 					{
 						role: "user",
@@ -224,7 +225,7 @@ const generateFromPrompt = async (prompt, options = {}) => {
 					messages: [
 						{
 							role: "system",
-							content: SYSTEM_PROMPT,
+							content: systemPrompt,
 						},
 						{
 							role: "user",

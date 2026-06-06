@@ -1,9 +1,11 @@
 const { ulid } = require("ulid");
 const FileReader = require("../utils/FileReader");
+const ConfigLoader = require("../utils/ConfigLoader");
 const {
     VALID_PLATFORMS,
     buildTestAnalysisPrompt,
     buildTestCaseGenerationPrompt,
+    buildTestStrategyPrompt,
     normalizePromptInput,
 } = require("../prompts");
 const { getSectionMeta, setSectionMeta, getSectionName } = require("./testrail/TestrailService");
@@ -14,21 +16,16 @@ const getTestCases = async (promptId) => {
 }
 
 const getAnalyzeData = async (promptId) => {
-    try {
-        return FileReader.readDataFile(`analyze/${promptId}.md`);
-    } catch (error) {
-        if (error.code === "ENOENT") {
-            try {
-                return FileReader.readDataFile(`analyze/${promptId}.txt`);
-            } catch (innerError) {
-                if (innerError.code === "ENOENT") {
-                    return "";
-                }
-                throw innerError;
-            }
+    // Try JSON strategy format first, then Markdown, then legacy .txt
+    const extensions = ["json", "md", "txt"];
+    for (const ext of extensions) {
+        try {
+            return FileReader.readDataFile(`analyze/${promptId}.${ext}`);
+        } catch (error) {
+            if (error.code !== "ENOENT") throw error;
         }
-        throw error;
     }
+    return "";
 }
 
 const resolvePromptInput = async (input = {}) => {
@@ -68,9 +65,11 @@ const getTestCaseGenerationPrompt = async (input = {}) => {
 
 const getTestAnalysisPrompt = async (input = {}) => {
     const promptInput = await resolvePromptInput(input);
-    return buildTestAnalysisPrompt({
-        ...promptInput,
-    });
+    const strategyMode = ConfigLoader.get("TESTING_STRATEGY_OUTPUT", "MARKDOWN").toUpperCase();
+    if (strategyMode === "JSON") {
+        return buildTestStrategyPrompt({ ...promptInput });
+    }
+    return buildTestAnalysisPrompt({ ...promptInput });
 };
 
 const normalizeMultilineField = (value) => {
@@ -576,7 +575,16 @@ const bulkMoveSection = async (promptId, testcaseIds, target, platformGroup = nu
 };
 
 const updateAnalysis = async (promptId, content) => {
-    FileReader.writeDataFile(`analyze/${promptId}.md`, content);
+    // Detect format: if content is valid JSON, save as .json; otherwise .md
+    const trimmed = String(content || "").trim();
+    let ext = "md";
+    if (trimmed.startsWith("{")) {
+        try {
+            JSON.parse(trimmed);
+            ext = "json";
+        } catch (_) { /* not valid JSON, save as md */ }
+    }
+    FileReader.writeDataFile(`analyze/${promptId}.${ext}`, content);
     return { promptId };
 }
 
