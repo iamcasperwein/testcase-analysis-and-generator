@@ -3,7 +3,7 @@ const AGENTS = Object.freeze([
   { value: "litellm", label: "LiteLLM", description: "Unified LLM proxy (any provider)" },
   { value: "copilot", label: "GitHub Copilot", description: "GitHub Models via Copilot token" },
   // { value: "claude", label: "Claude", description: "Anthropic Claude model" },
-  // { value: "gemini", label: "Gemini", description: "Google Gemini model" },
+  { value: "gemini", label: "Gemini", description: "Google Gemini model" },
 ]);
 
 const DOC_TYPES = Object.freeze([]); // Deprecated — doc types are now per-document row
@@ -1303,6 +1303,18 @@ function setActiveAnalysisTocItem(sectionId) {
 }
 
 function renderAnalysisDocument(rawText) {
+  // Detect JSON strategy output
+  const trimmed = String(rawText || "").trim();
+  if (trimmed.startsWith("{")) {
+    try {
+      const strategy = JSON.parse(trimmed);
+      if (strategy.feature_risk_level || strategy.test_scope || strategy.test_mode) {
+        renderStrategyJson(strategy);
+        return;
+      }
+    } catch (_) { /* fall through to Markdown rendering */ }
+  }
+
   const sections = parseAnalysisSections(rawText);
 
   analysisToc.innerHTML = '<div class="analysis-toc-title">Contents</div>';
@@ -1346,6 +1358,1093 @@ function renderAnalysisDocument(rawText) {
   });
 }
 
+// --- JSON Strategy Renderer (Document-Style) ---
+
+// State for strategy editing
+let strategyEditState = null; // { strategy, originalJson, dirty: boolean }
+
+function renderStrategyJson(strategy) {
+  analysisToc.innerHTML = '<div class="analysis-toc-title">Test Strategy</div>';
+  analysisDoc.innerHTML = "";
+
+  // Initialize edit state
+  strategyEditState = {
+    strategy: JSON.parse(JSON.stringify(strategy)),
+    originalJson: JSON.stringify(strategy),
+    dirty: false,
+  };
+
+  const isReviewMode = (() => {
+    const prompt = allPrompts.find(p => p.promptId === currentAnalysisPromptId);
+    return prompt && /^REVIEW$/i.test(prompt.status || "");
+  })();
+
+  // Build document container
+  const doc = document.createElement("div");
+  doc.className = "strategy-doc";
+
+  // Title
+  const title = document.createElement("h1");
+  title.className = "strategy-doc__title";
+  title.textContent = "Test Strategy Report";
+  doc.appendChild(title);
+
+  // Meta header
+  doc.appendChild(renderStrategyMeta(strategy));
+
+  // Summary callout
+  doc.appendChild(renderStrategySummaryCallout(strategy, isReviewMode));
+
+  // Confidence bar
+  doc.appendChild(renderStrategyConfidenceBar(strategy));
+
+  // Divider
+  const divider = document.createElement("hr");
+  divider.className = "strategy-doc__divider";
+  doc.appendChild(divider);
+
+  // Section definitions (7 numbered sections)
+  const sections = [
+    { id: "strat-risk", num: 1, title: "Risk Areas", render: renderDocRiskAreas, field: "risk_areas" },
+    { id: "strat-scope", num: 2, title: "Test Scope", render: renderDocScope, field: "test_scope" },
+    { id: "strat-depth", num: 3, title: "Test Depth", render: renderDocDepth, field: "test_depth" },
+    { id: "strat-mode", num: 4, title: "Automation Strategy", render: renderDocMode, field: "test_mode" },
+    { id: "strat-gaps", num: 5, title: "Requirement Gaps", render: renderDocGaps, field: "requirement_gaps" },
+    { id: "strat-na", num: 6, title: "Not Assessable", render: renderDocNotAssessable, field: "not_assessable" },
+    { id: "strat-conf", num: 7, title: "Confidence Breakdown", render: renderDocConfFactors, field: "confidence_breakdown" },
+  ];
+
+  // Build TOC (with sub-headings for scope categories)
+  const scopeCategories = ["functional", "edge_cases", "integration", "non_functional"];
+
+  sections.forEach(section => {
+    const tocBtn = document.createElement("button");
+    tocBtn.className = "analysis-toc-item";
+    tocBtn.textContent = `${section.num}. ${section.title}`;
+    tocBtn.dataset.sectionId = section.id;
+    tocBtn.addEventListener("click", () => {
+      const el = document.getElementById(section.id);
+      if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+      setActiveAnalysisTocItem(section.id);
+    });
+    analysisToc.appendChild(tocBtn);
+
+    // Add sub-headings for Test Scope
+    if (section.id === "strat-scope") {
+      const scope = strategy.test_scope || {};
+      scopeCategories.forEach(cat => {
+        const items = Array.isArray(scope[cat]) ? scope[cat] : [];
+        if (!items.length) return;
+        const subBtn = document.createElement("button");
+        subBtn.className = "analysis-toc-item analysis-toc-item--sub";
+        subBtn.textContent = formatLabel(cat);
+        subBtn.dataset.sectionId = `strat-scope-${cat}`;
+        subBtn.addEventListener("click", () => {
+          const el = document.getElementById(`strat-scope-${cat}`);
+          if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+        });
+        analysisToc.appendChild(subBtn);
+      });
+    }
+  });
+
+  // Render sections
+  sections.forEach(section => {
+    const sectionEl = document.createElement("div");
+    sectionEl.className = "strategy-doc__section";
+    sectionEl.id = section.id;
+
+    // Section header
+    const head = document.createElement("div");
+    head.className = "strategy-doc__section-head";
+    const sectionTitle = document.createElement("span");
+    sectionTitle.className = "strategy-doc__section-title";
+    sectionTitle.textContent = `${section.num}. ${section.title}`;
+    head.appendChild(sectionTitle);
+
+    if (isReviewMode) {
+      const addBtn = document.createElement("button");
+      addBtn.className = "strategy-doc__add-btn";
+      addBtn.innerHTML = '<i class="bi bi-plus-lg"></i> ADD';
+      addBtn.addEventListener("click", () => handleStrategyAdd(section, sectionEl));
+      head.appendChild(addBtn);
+    }
+
+    sectionEl.appendChild(head);
+
+    // Section body (table)
+    const body = document.createElement("div");
+    body.className = "strategy-doc__section-body";
+    section.render(body, strategy, isReviewMode);
+    sectionEl.appendChild(body);
+
+    doc.appendChild(sectionEl);
+  });
+
+  analysisDoc.appendChild(doc);
+
+  // Setup scroll spy
+  setupDocStrategyScrollSpy();
+
+  // Set first TOC item active
+  if (sections.length) setActiveAnalysisTocItem(sections[0].id);
+}
+
+// --- Meta Header ---
+
+function renderStrategyMeta(strategy) {
+  const meta = document.createElement("div");
+  meta.className = "strategy-doc__meta";
+
+  const rows = [
+    { label: "Task ID", value: strategy.task_id || "N/A" },
+    { label: "Platforms", value: null, pills: true },
+    { label: "Feature Risk", value: strategy.feature_risk_level || "unknown", badge: true, level: strategy.feature_risk_level },
+    { label: "Requirement Maturity", value: strategy.requirement_maturity || "unknown", badge: true, level: strategy.requirement_maturity },
+    { label: "Workflow Mode", value: (strategy.workflow_mode || "unknown").replace(/_/g, " ") },
+  ];
+
+  rows.forEach(r => {
+    const row = document.createElement("div");
+    row.className = "strategy-doc__meta-row";
+    row.innerHTML = `<span class="strategy-doc__meta-label">${r.label}:</span>`;
+    const val = document.createElement("span");
+    val.className = "strategy-doc__meta-value";
+    if (r.pills) {
+      const platforms = Array.isArray(strategy.platforms) ? strategy.platforms : [];
+      if (platforms.length) {
+        val.style.display = "inline-flex";
+        val.style.flexWrap = "wrap";
+        val.style.alignItems = "center";
+        val.style.gap = "4px";
+        val.innerHTML = platforms.map(p => {
+          const norm = p.toLowerCase().replace(/[\s_]+/g, "-");
+          const opt = EDIT_PLATFORM_OPTIONS.find(o => o.value === norm);
+          const icon = opt ? opt.icon : "bi-question-circle";
+          const label = opt ? opt.label : p;
+          return `<span class="platform-chip platform-chip-selected" style="pointer-events:none;font-size:0.72rem;padding:2px 8px;"><i class="bi ${icon}"></i> ${escapeHtml(label)}</span>`;
+        }).join("");
+      } else {
+        val.textContent = "N/A";
+      }
+    } else if (r.badge) {
+      val.appendChild(createStrategyBadge(r.value, r.level));
+    } else {
+      val.textContent = r.value;
+    }
+    row.appendChild(val);
+    meta.appendChild(row);
+  });
+
+  return meta;
+}
+
+// --- Summary Callout ---
+
+function renderStrategySummaryCallout(strategy, isReviewMode) {
+  const wrapper = document.createElement("div");
+  wrapper.className = "strategy-doc__callout-wrap";
+
+  const callout = document.createElement("div");
+  callout.className = "strategy-doc__callout";
+  const summaryText = strategy.test_strategy_summary || "No strategy summary available.";
+
+  const textSpan = document.createElement("span");
+  textSpan.className = "strategy-doc__callout-text";
+  textSpan.textContent = summaryText;
+  callout.appendChild(textSpan);
+
+  if (isReviewMode) {
+    const editIcon = document.createElement("button");
+    editIcon.className = "strategy-doc__callout-edit-btn";
+    editIcon.innerHTML = '<i class="bi bi-pencil"></i>';
+    editIcon.title = "Edit summary";
+    callout.appendChild(editIcon);
+
+    editIcon.addEventListener("click", (e) => {
+      e.stopPropagation();
+      if (callout.classList.contains("strategy-doc__callout--editing")) return;
+      callout.classList.add("strategy-doc__callout--editing");
+      textSpan.style.display = "none";
+      editIcon.style.display = "none";
+
+      const textarea = document.createElement("textarea");
+      textarea.className = "strategy-doc__callout-textarea";
+      textarea.value = strategyEditState.strategy.test_strategy_summary || "";
+      textarea.placeholder = "Enter strategy summary...";
+      callout.appendChild(textarea);
+      textarea.focus();
+
+      // Save on blur or Ctrl+Enter
+      const saveAndClose = () => {
+        const newVal = textarea.value.trim();
+        strategyEditState.strategy.test_strategy_summary = newVal;
+        callout.classList.remove("strategy-doc__callout--editing");
+        textSpan.textContent = newVal || "No strategy summary available.";
+        textSpan.style.display = "";
+        editIcon.style.display = "";
+        textarea.remove();
+        saveStrategyToServer();
+      };
+
+      textarea.addEventListener("blur", saveAndClose);
+      textarea.addEventListener("keydown", (ev) => {
+        if (ev.key === "Enter" && (ev.ctrlKey || ev.metaKey)) {
+          ev.preventDefault();
+          textarea.blur();
+        }
+        if (ev.key === "Escape") {
+          ev.preventDefault();
+          textarea.value = strategyEditState.strategy.test_strategy_summary || "";
+          textarea.blur();
+        }
+      });
+    });
+  }
+
+  wrapper.appendChild(callout);
+  return wrapper;
+}
+
+// --- Confidence Bar ---
+
+function renderStrategyConfidenceBar(strategy) {
+  const bar = document.createElement("div");
+  bar.className = "strategy-doc__confidence";
+
+  const icon = document.createElement("span");
+  icon.className = "strategy-doc__confidence-icon";
+
+  // Handle numeric confidence (0.0-1.0)
+  const rawConf = strategy.confidence;
+  let confLevel, confDisplay;
+  if (typeof rawConf === "number") {
+    confLevel = rawConf >= 0.8 ? "high" : rawConf >= 0.5 ? "medium" : "low";
+    confDisplay = `${(rawConf * 100).toFixed(0)}%`;
+  } else {
+    confLevel = rawConf || "medium";
+    confDisplay = confLevel;
+  }
+
+  icon.innerHTML = confLevel === "high" ? '<i class="bi bi-shield-fill-check"></i>'
+    : confLevel === "low" ? '<i class="bi bi-shield-fill-exclamation"></i>'
+    : '<i class="bi bi-shield-fill"></i>';
+  bar.appendChild(icon);
+
+  const label = document.createElement("span");
+  label.className = "strategy-doc__confidence-label";
+  label.innerHTML = `Confidence: <span class="strategy-doc__confidence-level strategy-doc__confidence-level--${confLevel}">${confDisplay}</span>`;
+  bar.appendChild(label);
+
+  // Factor badges — support both confidence_breakdown (numeric) and confidence_factors (legacy string)
+  const factors = strategy.confidence_breakdown || strategy.confidence_factors || {};
+  const factorWrap = document.createElement("span");
+  factorWrap.className = "strategy-doc__confidence-factors";
+  Object.entries(factors).forEach(([k, v]) => {
+    const badge = document.createElement("span");
+    badge.className = "strategy-doc__factor-badge";
+    const display = typeof v === "number" ? `${(v * 100).toFixed(0)}%` : v;
+    badge.textContent = `${formatLabel(k)}: ${display}`;
+    factorWrap.appendChild(badge);
+  });
+  bar.appendChild(factorWrap);
+
+  return bar;
+}
+
+// --- Section Renderers ---
+
+function renderDocRiskAreas(container, strategy, isReviewMode) {
+  const areas = Array.isArray(strategy.risk_areas) ? strategy.risk_areas : [];
+  if (!areas.length) {
+    container.innerHTML = '<div class="strategy-doc__empty">No risk areas identified.</div>';
+    return;
+  }
+  const table = buildDocTable(
+    ["Area", "Level", "Reason", ""],
+    areas.map((a, i) => [
+      a.area || "—",
+      { badge: true, text: a.level || "unknown", level: a.level },
+      a.reason || "—",
+      { actions: true, index: i },
+    ]),
+    isReviewMode,
+    { sectionField: "risk_areas", rowFields: ["area", "level", "reason"] }
+  );
+  container.appendChild(table);
+}
+
+function renderDocScope(container, strategy, isReviewMode) {
+  const scope = strategy.test_scope || {};
+  const categories = ["functional", "edge_cases", "integration", "non_functional"];
+  const dispositionSortWeight = { "new": 0, "update": 1, "reuse": 2, "regression_keep": 3, "retire": 4 };
+
+  let hasContent = false;
+  categories.forEach(cat => {
+    const items = Array.isArray(scope[cat]) ? scope[cat] : [];
+    if (!items.length) return;
+    hasContent = true;
+
+    // Sort by disposition: new first, then update, reuse, regression_keep, retire
+    const sorted = [...items].sort((a, b) =>
+      (dispositionSortWeight[a.disposition] ?? 2) - (dispositionSortWeight[b.disposition] ?? 2)
+    );
+
+    const subHead = document.createElement("div");
+    subHead.id = `strat-scope-${cat}`;
+    subHead.style.cssText = "font-size:0.78rem;font-weight:650;color:#2563eb;margin:1rem 0 0.4rem;text-transform:uppercase;letter-spacing:0.03em;";
+    subHead.textContent = formatLabel(cat);
+    container.appendChild(subHead);
+
+    const table = buildDocTable(
+      ["Description", "Disposition", "Change Relation", "Reason", ""],
+      sorted.map((item, i) => {
+        // Find original index for edit operations
+        const origIndex = items.indexOf(item);
+        return [
+          item.description || item.id || "—",
+          { badge: true, text: item.disposition || "new", level: `disposition-${item.disposition || "new"}` },
+          item.change_relation || "—",
+          item.reason || "—",
+          { actions: true, index: origIndex, category: cat, viewable: true, viewItem: item },
+        ];
+      }),
+      isReviewMode,
+      { sectionField: "test_scope", subCategory: cat, rowFields: ["description", "disposition", "change_relation", "reason"] }
+    );
+
+    // Attach row click → detail modal
+    const rows = table.querySelectorAll("tbody tr");
+    sorted.forEach((item, i) => {
+      if (rows[i]) {
+        rows[i].style.cursor = "pointer";
+        rows[i].addEventListener("click", (e) => {
+          if (e.target.closest(".strategy-doc__row-actions")) return;
+          if (rows[i].classList.contains("strategy-doc__row--editing")) return;
+          openScopeDetailModal(item, cat);
+        });
+      }
+    });
+
+    container.appendChild(table);
+  });
+
+  if (!hasContent) {
+    container.innerHTML = '<div class="strategy-doc__empty">No test scope items defined.</div>';
+  }
+}
+
+// --- Scope Detail Modal ---
+
+function openScopeDetailModal(item, category) {
+  const modalEl = document.getElementById("scopeDetailModal");
+  if (!modalEl) return;
+
+  const sub = document.getElementById("scopeDetailModalSub");
+  if (sub) sub.textContent = formatLabel(category);
+
+  const body = document.getElementById("scopeDetailModalBody");
+  if (!body) return;
+
+  const dispositionLevel = `disposition-${item.disposition || "new"}`;
+  const matchBasisLevel = item.match_basis === "trace_link" ? "high"
+    : item.match_basis === "tag" ? "medium"
+    : item.match_basis === "semantic" ? "low" : "unknown";
+  const matchConfLevel = item.match_confidence || "none";
+
+  const refs = Array.isArray(item.existing_case_refs) ? item.existing_case_refs : [];
+
+  body.innerHTML = `
+    <div class="scope-detail">
+      <div class="scope-detail__meta">
+        <span class="scope-detail__id">${escapeHtml(item.id || "—")}</span>
+        <span class="scope-detail__category">${escapeHtml(formatLabel(category))}</span>
+      </div>
+
+      <div class="scope-detail__field">
+        <div class="scope-detail__label">Description</div>
+        <div class="scope-detail__value scope-detail__value--prominent">${escapeHtml(item.description || "—")}</div>
+      </div>
+
+      <div class="scope-detail__badges">
+        <div class="scope-detail__badge-card">
+          <span class="scope-detail__badge-label">Disposition</span>
+          <span class="strategy-badge strategy-badge-${dispositionLevel}">${escapeHtml(item.disposition || "new")}</span>
+        </div>
+        <div class="scope-detail__badge-card">
+          <span class="scope-detail__badge-label">Match Basis</span>
+          <span class="strategy-badge strategy-badge-${matchBasisLevel}">${escapeHtml(item.match_basis || "none")}</span>
+        </div>
+        <div class="scope-detail__badge-card">
+          <span class="scope-detail__badge-label">Match Confidence</span>
+          <span class="strategy-badge strategy-badge-${matchConfLevel}">${escapeHtml(item.match_confidence || "none")}</span>
+        </div>
+      </div>
+
+      <div class="scope-detail__field">
+        <div class="scope-detail__label">Change Relation</div>
+        <div class="scope-detail__value">${escapeHtml(item.change_relation || "—")}</div>
+      </div>
+
+      <div class="scope-detail__field">
+        <div class="scope-detail__label">Related Test Cases</div>
+        <div class="scope-detail__value">
+          ${refs.length
+            ? refs.map(r => `<span class="scope-detail__ref-pill">${escapeHtml(r)}</span>`).join(" ")
+            : '<span class="text-muted">None</span>'
+          }
+        </div>
+      </div>
+
+      <div class="scope-detail__reason">
+        <div class="scope-detail__label">Reason</div>
+        <div class="scope-detail__reason-text">${escapeHtml(item.reason || "—")}</div>
+      </div>
+    </div>
+  `;
+
+  const modal = new bootstrap.Modal(modalEl);
+  modal.show();
+}
+
+function renderDocDepth(container, strategy, isReviewMode) {
+  const depth = strategy.test_depth || {};
+  const entries = Object.entries(depth);
+  if (!entries.length) {
+    container.innerHTML = '<div class="strategy-doc__empty">No depth settings defined.</div>';
+    return;
+  }
+  const table = buildDocTable(
+    ["Category", "Level", ""],
+    entries.map(([cat, level], i) => [
+      formatLabel(cat),
+      { badge: true, text: level, level: level },
+      { actions: true, index: i },
+    ]),
+    isReviewMode,
+    { sectionField: "test_depth", rowFields: ["key", "level"] }
+  );
+  container.appendChild(table);
+}
+
+function renderDocMode(container, strategy, isReviewMode) {
+  const modes = Array.isArray(strategy.test_mode) ? strategy.test_mode : [];
+  if (!modes.length) {
+    container.innerHTML = '<div class="strategy-doc__empty">No automation strategy defined.</div>';
+    return;
+  }
+  const table = buildDocTable(
+    ["Scope Area", "Mode", "Reason", ""],
+    modes.map((m, i) => [
+      m.area || "—",
+      { badge: true, text: m.mode || "hybrid", level: modeToLevel(m.mode) },
+      m.reason || "—",
+      { actions: true, index: i },
+    ]),
+    isReviewMode,
+    { sectionField: "test_mode", rowFields: ["area", "mode", "reason"] }
+  );
+  container.appendChild(table);
+}
+
+function renderDocGaps(container, strategy, isReviewMode) {
+  const gaps = Array.isArray(strategy.requirement_gaps) ? strategy.requirement_gaps : [];
+  if (!gaps.length) {
+    container.innerHTML = '<div class="strategy-doc__empty">No requirement gaps identified.</div>';
+    return;
+  }
+  const table = buildDocTable(
+    ["Gap", "Impact", "Ask", ""],
+    gaps.map((g, i) => [
+      g.gap || "—",
+      g.impact || "—",
+      g.ask || "—",
+      { actions: true, index: i },
+    ]),
+    isReviewMode,
+    { sectionField: "requirement_gaps", rowFields: ["gap", "impact", "ask"] }
+  );
+  container.appendChild(table);
+}
+
+function renderDocNotAssessable(container, strategy, isReviewMode) {
+  const items = Array.isArray(strategy.not_assessable) ? strategy.not_assessable : [];
+  if (!items.length) {
+    container.innerHTML = '<div class="strategy-doc__empty">All areas are assessable.</div>';
+    return;
+  }
+  const table = buildDocTable(
+    ["Item", "Reason", ""],
+    items.map((item, i) => [
+      item.item || "—",
+      item.reason || "—",
+      { actions: true, index: i },
+    ]),
+    isReviewMode,
+    { sectionField: "not_assessable", rowFields: ["item", "reason"] }
+  );
+  container.appendChild(table);
+}
+
+function renderDocConfFactors(container, strategy, isReviewMode) {
+  const factors = strategy.confidence_breakdown || strategy.confidence_factors || {};
+  const entries = Object.entries(factors);
+  if (!entries.length) {
+    container.innerHTML = '<div class="strategy-doc__empty">No confidence breakdown defined.</div>';
+    return;
+  }
+  const table = buildDocTable(
+    ["Factor", "Score", ""],
+    entries.map(([k, v], i) => {
+      const display = typeof v === "number" ? `${(v * 100).toFixed(0)}%` : v;
+      const level = typeof v === "number" ? (v >= 0.8 ? "high" : v >= 0.5 ? "medium" : "low") : v;
+      return [
+        formatLabel(k),
+        { badge: true, text: display, level: level },
+        { actions: true, index: i },
+      ];
+    }),
+    isReviewMode,
+    { sectionField: "confidence_breakdown", rowFields: ["key", "level"] }
+  );
+  container.appendChild(table);
+}
+
+// --- Table Builder ---
+
+function buildDocTable(headers, rows, isReviewMode, editMeta) {
+  const table = document.createElement("table");
+  table.className = "strategy-doc__table";
+  table.dataset.sectionField = editMeta.sectionField || "";
+  if (editMeta.subCategory) table.dataset.subCategory = editMeta.subCategory;
+
+  // Header
+  const thead = document.createElement("thead");
+  const headerRow = document.createElement("tr");
+  // Check if rows have viewable actions (scope tables show view icon even in non-review mode)
+  const hasViewable = rows.length > 0 && rows[0][rows[0].length - 1]?.viewable;
+
+  headers.forEach((h, i) => {
+    const th = document.createElement("th");
+    // Last column (actions) - no header text, small width
+    if (i === headers.length - 1 && (isReviewMode || hasViewable)) {
+      th.style.width = isReviewMode ? "80px" : "40px";
+    } else if (i === headers.length - 1 && !isReviewMode) {
+      th.style.display = "none";
+    }
+    th.textContent = h;
+    headerRow.appendChild(th);
+  });
+  thead.appendChild(headerRow);
+  table.appendChild(thead);
+
+  // Body
+  const tbody = document.createElement("tbody");
+  rows.forEach((row, rowIdx) => {
+    const tr = document.createElement("tr");
+    row.forEach((cell, colIdx) => {
+      const td = document.createElement("td");
+
+      if (cell && typeof cell === "object") {
+        if (cell.badge) {
+          td.appendChild(createStrategyBadge(cell.text, cell.level));
+        } else if (cell.priority) {
+          const pBadge = document.createElement("span");
+          pBadge.className = `strategy-doc__priority strategy-doc__priority--${cell.level.toLowerCase()}`;
+          pBadge.textContent = cell.level;
+          pBadge.title = `Depth: ${cell.depth}`;
+          td.appendChild(pBadge);
+        } else if (cell.actions) {
+          if (!isReviewMode && !cell.viewable) {
+            td.style.display = "none";
+          } else if (!isReviewMode && cell.viewable) {
+            // Non-review mode but viewable: show only view icon
+            td.innerHTML = `
+              <div class="strategy-doc__row-actions" style="opacity:1;">
+                <button class="strategy-doc__row-action strategy-doc__row-action--view" title="View details"><i class="bi bi-eye"></i></button>
+              </div>`;
+            if (cell.viewItem) {
+              td.querySelector(".strategy-doc__row-action--view").addEventListener("click", () => {
+                openScopeDetailModal(cell.viewItem, cell.category);
+              });
+            }
+          } else {
+            const hasView = cell.viewable;
+            td.innerHTML = `
+              <div class="strategy-doc__row-actions">
+                ${hasView ? '<button class="strategy-doc__row-action strategy-doc__row-action--view" title="View details"><i class="bi bi-eye"></i></button>' : ''}
+                <button class="strategy-doc__row-action strategy-doc__row-action--edit" title="Edit row"><i class="bi bi-pencil"></i></button>
+                <button class="strategy-doc__row-action strategy-doc__row-action--delete" title="Delete row"><i class="bi bi-trash3"></i></button>
+              </div>`;
+            // View handler (scope detail modal)
+            if (hasView && cell.viewItem) {
+              td.querySelector(".strategy-doc__row-action--view").addEventListener("click", () => {
+                openScopeDetailModal(cell.viewItem, cell.category);
+              });
+            }
+            // Edit handler
+            td.querySelector(".strategy-doc__row-action--edit").addEventListener("click", () => {
+              enterRowEdit(tr, editMeta, cell.index, cell.category);
+            });
+            // Delete handler
+            td.querySelector(".strategy-doc__row-action--delete").addEventListener("click", () => {
+              deleteStrategyRow(editMeta, cell.index, cell.category);
+            });
+          }
+        }
+      } else {
+        td.textContent = String(cell ?? "—");
+      }
+      tr.appendChild(td);
+    });
+    tbody.appendChild(tr);
+  });
+  table.appendChild(tbody);
+  return table;
+}
+
+// --- Badge Helpers ---
+
+function createStrategyBadge(text, level) {
+  const badge = document.createElement("span");
+  badge.className = `strategy-badge strategy-badge-${level || "unknown"}`;
+  badge.textContent = text || "—";
+  return badge;
+}
+
+function modeToLevel(mode) {
+  if (mode === "automation-first") return "low";
+  if (mode === "manual-first") return "elevated";
+  return "standard";
+}
+
+function formatLabel(key) {
+  return key.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase());
+}
+
+// --- Inline Row Editing ---
+
+function enterRowEdit(tr, editMeta, index, category) {
+  if (tr.classList.contains("strategy-doc__row--editing")) return;
+  tr.classList.add("strategy-doc__row--editing");
+
+  const data = getStrategyRowData(editMeta, index, category);
+  if (!data) return;
+
+  // Save original cells for cancel
+  const originalHTML = tr.innerHTML;
+
+  // Build edit row
+  tr.innerHTML = "";
+  const fields = editMeta.rowFields || [];
+  const enumOptions = getFieldEnumOptions(editMeta.sectionField);
+  const mandatoryFields = getMandatoryFields(editMeta.sectionField);
+  let firstInput = null;
+
+  fields.forEach(field => {
+    const td = document.createElement("td");
+    const value = data[field] || "";
+
+    if (enumOptions[field]) {
+      // Dropdown for enum fields
+      td.appendChild(createInlineSelect(field, value, enumOptions[field]));
+    } else {
+      // Text input
+      const input = document.createElement("input");
+      input.type = "text";
+      input.className = "strategy-doc__edit-input";
+      input.value = value;
+      input.dataset.field = field;
+      input.placeholder = formatLabel(field) + (mandatoryFields.includes(field) ? " *" : "");
+      if (mandatoryFields.includes(field)) input.dataset.required = "true";
+      td.appendChild(input);
+      if (!firstInput) firstInput = input;
+    }
+    tr.appendChild(td);
+  });
+
+  // Actions cell (save/cancel)
+  const actionTd = document.createElement("td");
+  actionTd.innerHTML = `
+    <div class="strategy-doc__row-actions" style="opacity:1;">
+      <button class="strategy-doc__row-action" title="Save (Enter)" style="color:#16a34a;"><i class="bi bi-check-lg"></i></button>
+      <button class="strategy-doc__row-action" title="Cancel (Esc)" style="color:#dc2626;"><i class="bi bi-x-lg"></i></button>
+    </div>`;
+
+  const [saveBtn, cancelBtn] = actionTd.querySelectorAll(".strategy-doc__row-action");
+
+  const doSave = () => {
+    const newData = {};
+    let hasError = false;
+    fields.forEach(field => {
+      const el = tr.querySelector(`[data-field="${field}"]`);
+      const val = el ? el.value.trim() : "";
+      newData[field] = val;
+      // Validate mandatory
+      if (mandatoryFields.includes(field) && !val) {
+        hasError = true;
+        if (el && el.classList) el.classList.add("strategy-doc__edit-input--error");
+      } else {
+        if (el && el.classList) el.classList.remove("strategy-doc__edit-input--error");
+      }
+    });
+    if (hasError) return;
+    updateStrategyRow(editMeta, index, category, newData);
+  };
+
+  const doCancel = () => {
+    tr.classList.remove("strategy-doc__row--editing");
+    tr.innerHTML = originalHTML;
+    rebindRowActions(tr, editMeta, index, category);
+  };
+
+  saveBtn.addEventListener("click", doSave);
+  cancelBtn.addEventListener("click", doCancel);
+
+  // Enter to save, Escape to cancel (on all inputs in row)
+  tr.addEventListener("keydown", (ev) => {
+    if (ev.key === "Enter") { ev.preventDefault(); doSave(); }
+    if (ev.key === "Escape") { ev.preventDefault(); doCancel(); }
+  });
+
+  tr.appendChild(actionTd);
+
+  // Autofocus first text input
+  if (firstInput) firstInput.focus();
+}
+
+function rebindRowActions(tr, editMeta, index, category) {
+  const editBtn = tr.querySelector(".strategy-doc__row-action--edit");
+  const deleteBtn = tr.querySelector(".strategy-doc__row-action--delete");
+  if (editBtn) {
+    editBtn.addEventListener("click", () => enterRowEdit(tr, editMeta, index, category));
+  }
+  if (deleteBtn) {
+    deleteBtn.addEventListener("click", () => deleteStrategyRow(editMeta, index, category));
+  }
+}
+
+// --- Inline Dropdown ---
+
+function createInlineSelect(field, currentValue, options) {
+  const wrap = document.createElement("div");
+  wrap.className = "strategy-doc__select-wrap";
+
+  const trigger = document.createElement("div");
+  trigger.className = "strategy-doc__select-trigger";
+  const triggerText = document.createElement("span");
+  triggerText.className = "strategy-doc__select-trigger-text";
+  triggerText.textContent = currentValue || options[0] || "";
+  trigger.appendChild(triggerText);
+  const arrow = document.createElement("i");
+  arrow.className = "bi bi-chevron-down";
+  arrow.style.fontSize = "0.65rem";
+  trigger.appendChild(arrow);
+  wrap.appendChild(trigger);
+
+  // Hidden input for value collection
+  const hidden = document.createElement("input");
+  hidden.type = "hidden";
+  hidden.dataset.field = field;
+  hidden.value = currentValue || options[0] || "";
+  wrap.appendChild(hidden);
+
+  // Dropdown
+  const dropdown = document.createElement("div");
+  dropdown.className = "strategy-doc__select-dropdown";
+
+  options.forEach(opt => {
+    const optEl = document.createElement("div");
+    optEl.className = "strategy-doc__select-option" + (opt === currentValue ? " selected" : "");
+    optEl.textContent = opt;
+    optEl.addEventListener("mousedown", (e) => {
+      e.preventDefault();
+      hidden.value = opt;
+      triggerText.textContent = opt;
+      dropdown.querySelectorAll(".strategy-doc__select-option").forEach(o => o.classList.remove("selected"));
+      optEl.classList.add("selected");
+      dropdown.classList.remove("open");
+      trigger.classList.remove("open");
+    });
+    dropdown.appendChild(optEl);
+  });
+
+  wrap.appendChild(dropdown);
+
+  trigger.addEventListener("click", () => {
+    const isOpen = dropdown.classList.contains("open");
+    // Close any other open dropdowns
+    document.querySelectorAll(".strategy-doc__select-dropdown.open").forEach(d => {
+      d.classList.remove("open");
+      d.previousElementSibling?.previousElementSibling?.classList.remove("open");
+    });
+    if (!isOpen) {
+      dropdown.classList.add("open");
+      trigger.classList.add("open");
+    }
+  });
+
+  // Close on outside click
+  document.addEventListener("click", (e) => {
+    if (!wrap.contains(e.target)) {
+      dropdown.classList.remove("open");
+      trigger.classList.remove("open");
+    }
+  });
+
+  return wrap;
+}
+
+function getFieldEnumOptions(sectionField) {
+  const enums = {
+    risk_areas: { level: ["high", "elevated", "medium", "low"] },
+    test_scope: { disposition: ["new", "update", "reuse", "retire", "regression_keep"] },
+    test_depth: { level: ["deep", "standard", "shallow"] },
+    test_mode: { mode: ["automation-first", "manual-first", "hybrid"] },
+    confidence_breakdown: { level: ["high", "medium", "low"] },
+  };
+  return enums[sectionField] || {};
+}
+
+function getMandatoryFields(sectionField) {
+  const mandatory = {
+    risk_areas: ["area"],
+    test_scope: ["description"],
+    test_depth: ["key"],
+    test_mode: ["area"],
+    requirement_gaps: ["gap"],
+    not_assessable: ["item"],
+    confidence_breakdown: ["key"],
+  };
+  return mandatory[sectionField] || [];
+}
+
+// --- Data Accessors ---
+
+function getStrategyRowData(editMeta, index, category) {
+  const s = strategyEditState.strategy;
+  const field = editMeta.sectionField;
+
+  if (field === "test_scope" && category) {
+    const arr = s.test_scope?.[category];
+    return Array.isArray(arr) ? arr[index] : null;
+  }
+  if (field === "test_depth") {
+    const entries = Object.entries(s.test_depth || {});
+    if (entries[index]) return { key: entries[index][0], level: entries[index][1] };
+    return null;
+  }
+  if (field === "confidence_breakdown") {
+    const entries = Object.entries(s.confidence_breakdown || s.confidence_factors || {});
+    if (entries[index]) return { key: entries[index][0], level: entries[index][1] };
+    return null;
+  }
+  const arr = s[field];
+  return Array.isArray(arr) ? arr[index] : null;
+}
+
+function updateStrategyRow(editMeta, index, category, newData) {
+  const s = strategyEditState.strategy;
+  const field = editMeta.sectionField;
+
+  if (field === "test_scope" && category) {
+    if (!s.test_scope) s.test_scope = {};
+    if (!Array.isArray(s.test_scope[category])) s.test_scope[category] = [];
+    const existing = s.test_scope[category][index] || {};
+    s.test_scope[category][index] = { ...existing, ...newData };
+  } else if (field === "test_depth") {
+    const entries = Object.entries(s.test_depth || {});
+    // Rebuild object with updated key/level
+    const newDepth = {};
+    entries.forEach(([k, v], i) => {
+      if (i === index) {
+        newDepth[newData.key || k] = newData.level || v;
+      } else {
+        newDepth[k] = v;
+      }
+    });
+    s.test_depth = newDepth;
+  } else if (field === "confidence_breakdown") {
+    const entries = Object.entries(s.confidence_breakdown || s.confidence_factors || {});
+    const newFactors = {};
+    entries.forEach(([k, v], i) => {
+      if (i === index) {
+        newFactors[newData.key || k] = newData.level || v;
+      } else {
+        newFactors[k] = v;
+      }
+    });
+    s.confidence_breakdown = newFactors;
+  } else {
+    if (!Array.isArray(s[field])) s[field] = [];
+    const existing = s[field][index] || {};
+    s[field][index] = { ...existing, ...newData };
+  }
+
+  saveStrategyToServer();
+}
+
+function deleteStrategyRow(editMeta, index, category) {
+  const s = strategyEditState.strategy;
+  const field = editMeta.sectionField;
+
+  if (field === "test_scope" && category) {
+    if (Array.isArray(s.test_scope?.[category])) {
+      s.test_scope[category].splice(index, 1);
+    }
+  } else if (field === "test_depth") {
+    const entries = Object.entries(s.test_depth || {});
+    const newDepth = {};
+    entries.forEach(([k, v], i) => { if (i !== index) newDepth[k] = v; });
+    s.test_depth = newDepth;
+  } else if (field === "confidence_breakdown") {
+    const entries = Object.entries(s.confidence_breakdown || s.confidence_factors || {});
+    const newFactors = {};
+    entries.forEach(([k, v], i) => { if (i !== index) newFactors[k] = v; });
+    s.confidence_breakdown = newFactors;
+  } else {
+    if (Array.isArray(s[field])) s[field].splice(index, 1);
+  }
+
+  saveStrategyToServer();
+}
+
+// --- Add Row ---
+
+function handleStrategyAdd(section, sectionEl) {
+  const field = section.field;
+  const s = strategyEditState.strategy;
+  const isReviewMode = true; // Only called in review mode
+
+  const defaults = {
+    risk_areas: { area: "", level: "medium", reason: "" },
+    test_scope: { description: "", disposition: "new", change_relation: "", reason: "" },
+    test_depth: { key: "", level: "standard" },
+    test_mode: { area: "", mode: "hybrid", reason: "" },
+    requirement_gaps: { gap: "", impact: "", ask: "" },
+    not_assessable: { item: "", reason: "" },
+    confidence_breakdown: { key: "", level: "medium" },
+  };
+
+  // Determine new index and category
+  let newIndex;
+  let category = null;
+
+  if (field === "test_scope") {
+    // Add to first non-empty category, or functional
+    const scope = s.test_scope || {};
+    category = ["functional", "edge_cases", "integration", "non_functional"]
+      .find(c => Array.isArray(scope[c]) && scope[c].length > 0) || "functional";
+    if (!s.test_scope) s.test_scope = {};
+    if (!Array.isArray(s.test_scope[category])) s.test_scope[category] = [];
+    s.test_scope[category].push({ id: `${category}_${s.test_scope[category].length + 1}`, ...defaults.test_scope });
+    newIndex = s.test_scope[category].length - 1;
+  } else if (field === "test_depth") {
+    if (!s.test_depth) s.test_depth = {};
+    const tempKey = `new_${Object.keys(s.test_depth).length + 1}`;
+    s.test_depth[tempKey] = "standard";
+    newIndex = Object.keys(s.test_depth).length - 1;
+  } else if (field === "confidence_breakdown") {
+    const confData = s.confidence_breakdown || s.confidence_factors || {};
+    if (!s.confidence_breakdown) s.confidence_breakdown = { ...confData };
+    const tempKey = `new_${Object.keys(s.confidence_breakdown).length + 1}`;
+    s.confidence_breakdown[tempKey] = 0.5;
+    newIndex = Object.keys(s.confidence_breakdown).length - 1;
+  } else {
+    if (!Array.isArray(s[field])) s[field] = [];
+    s[field].push({ ...defaults[field] });
+    newIndex = s[field].length - 1;
+  }
+
+  // Re-render the section body to include the new empty row
+  const body = sectionEl.querySelector(".strategy-doc__section-body");
+  if (body) {
+    body.innerHTML = "";
+    section.render(body, s, isReviewMode);
+  }
+
+  // Find the last row in the table and enter edit mode on it
+  const tables = body ? body.querySelectorAll(".strategy-doc__table") : [];
+  let targetTable = tables[tables.length - 1];
+  // For scope, find the correct category table
+  if (field === "test_scope" && category) {
+    const catAnchor = body.querySelector(`#strat-scope-${category}`);
+    if (catAnchor && catAnchor.nextElementSibling) {
+      targetTable = catAnchor.nextElementSibling;
+    }
+  }
+
+  if (targetTable) {
+    const rows = targetTable.querySelectorAll("tbody tr");
+    const lastRow = rows[rows.length - 1];
+    if (lastRow) {
+      lastRow.classList.add("strategy-doc__row--new");
+      // Get editMeta from the table
+      const editMeta = {
+        sectionField: field,
+        subCategory: category || undefined,
+        rowFields: getRowFieldsForSection(field),
+      };
+      enterRowEdit(lastRow, editMeta, newIndex, category);
+    }
+  }
+}
+
+function getRowFieldsForSection(sectionField) {
+  const map = {
+    risk_areas: ["area", "level", "reason"],
+    test_scope: ["description", "disposition", "change_relation", "reason"],
+    test_depth: ["key", "level"],
+    test_mode: ["area", "mode", "reason"],
+    requirement_gaps: ["gap", "impact", "ask"],
+    not_assessable: ["item", "reason"],
+    confidence_breakdown: ["key", "level"],
+  };
+  return map[sectionField] || [];
+}
+
+// --- Save to Server ---
+
+let _strategySaveTimeout = null;
+
+async function saveStrategyToServer() {
+  // Debounce rapid edits
+  if (_strategySaveTimeout) clearTimeout(_strategySaveTimeout);
+  _strategySaveTimeout = setTimeout(async () => {
+    const newJson = JSON.stringify(strategyEditState.strategy, null, 2);
+    try {
+      await apiRequest(`/testcase/updateAnalysis/${encodeURIComponent(currentAnalysisPromptId)}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ content: newJson }),
+      });
+      currentAnalysisText = newJson;
+      strategyEditState.originalJson = newJson;
+      // Re-render the whole document to reflect changes
+      renderStrategyJson(strategyEditState.strategy);
+      showBanner("Strategy saved.", "success");
+    } catch (err) {
+      showBanner("Save failed: " + (err.message || "Unknown error"), "danger");
+    }
+  }, 300);
+}
+
+// --- Scroll Spy ---
+
+function setupDocStrategyScrollSpy() {
+  const observer = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+      if (entry.isIntersecting) {
+        setActiveAnalysisTocItem(entry.target.id);
+      }
+    });
+  }, { rootMargin: "-20% 0px -70% 0px" });
+
+  document.querySelectorAll(".strategy-doc__section").forEach(el => {
+    observer.observe(el);
+  });
+}
+
 downloadAnalysisBtn.addEventListener("click", async () => {
   if (!currentAnalysisPromptId || !currentAnalysisText.trim()) return;
 
@@ -1353,17 +2452,22 @@ downloadAnalysisBtn.addEventListener("click", async () => {
   downloadAnalysisBtn.textContent = "Downloading...";
 
   try {
-    const blob = new Blob([currentAnalysisText], { type: "text/markdown;charset=utf-8" });
+    // Detect format: JSON strategy vs Markdown
+    const isJson = String(currentAnalysisText).trim().startsWith("{");
+    const mimeType = isJson ? "application/json;charset=utf-8" : "text/markdown;charset=utf-8";
+    const ext = isJson ? "json" : "md";
+
+    const blob = new Blob([currentAnalysisText], { type: mimeType });
     const url = URL.createObjectURL(blob);
     const anchor = document.createElement("a");
     anchor.href = url;
-    anchor.download = `${currentAnalysisPromptId}-analysis.md`;
+    anchor.download = `${currentAnalysisPromptId}-analysis.${ext}`;
     document.body.appendChild(anchor);
     anchor.click();
     anchor.remove();
     URL.revokeObjectURL(url);
 
-    analysisStatus.textContent = "Analysis downloaded.";
+    analysisStatus.textContent = isJson ? "Strategy JSON downloaded." : "Analysis downloaded.";
   } catch (err) {
     analysisStatus.textContent = "Download failed: " + err.message;
   } finally {
@@ -1477,7 +2581,17 @@ function updateEditButtonVisibility() {
 function enterEditMode() {
   analysisEditActive = true;
   analysisEditOriginalText = currentAnalysisText;
-  analysisEditor.value = currentAnalysisText;
+  // Pretty-print JSON for editing, pass Markdown as-is
+  const trimmed = String(currentAnalysisText || "").trim();
+  if (trimmed.startsWith("{")) {
+    try {
+      analysisEditor.value = JSON.stringify(JSON.parse(trimmed), null, 2);
+    } catch (_) {
+      analysisEditor.value = currentAnalysisText;
+    }
+  } else {
+    analysisEditor.value = currentAnalysisText;
+  }
   lastRenderedPreview = "";
 
   analysisViewMode.style.display = "none";
@@ -5783,7 +6897,18 @@ async function loadAllPrompts() {
 // Load prompts on startup and refresh dropdowns when tabs are shown
 const _initialPromptsLoaded = loadAllPrompts();
 loadSyncConfig(); // Pre-load sync config for Move Section auto-suite selection
-document.getElementById("test-analysis-tab").addEventListener("shown.bs.tab", loadAllPrompts);
+document.getElementById("test-analysis-tab").addEventListener("shown.bs.tab", async () => {
+  await loadAllPrompts();
+  // Auto-load latest prompt with strategy/analysis result if nothing is selected
+  if (!currentAnalysisPromptId) {
+    const latestWithAnalysis = allPrompts
+      .filter(p => /REVIEW|GENERATING|COMPLETED|DONE/i.test(p.status || ""))
+      .slice(-1)[0];
+    if (latestWithAnalysis) {
+      analysisDropdown.selectPromptById(latestWithAnalysis.promptId);
+    }
+  }
+});
 document.getElementById("test-scope-tab").addEventListener("shown.bs.tab", async () => {
   await loadAllPrompts();
   // Auto-load latest completed prompt if nothing is selected

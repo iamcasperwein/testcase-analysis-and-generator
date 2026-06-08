@@ -29,11 +29,11 @@ const getGenAI = () => {
     return { genAI: _genAI, fileManager: _fileManager };
 };
 
-const getModel = (modelName) => {
+const getModel = (modelName, systemPrompt) => {
     const { genAI } = getGenAI();
     return genAI.getGenerativeModel({
         model: modelName || getDefaultModel(),
-        systemInstruction: SYSTEM_PROMPT,
+        systemInstruction: systemPrompt || SYSTEM_PROMPT,
         generationConfig: {
             temperature: DEFAULTS.TEMPERATURE,
             topP: DEFAULTS.TOP_P,
@@ -142,7 +142,7 @@ const generateFromPrompt = async (prompt, options = {}) => {
     const modelInput = await buildGeminiInput(prompt, options);
     const modelName = String(options.model || getDefaultModel()).trim();
     console.log("[GeminiService] generateFromPrompt :: calling Gemini API...");
-    const model = getModel(modelName);
+    const model = getModel(modelName, options.systemPrompt);
     const result = await model.generateContent(modelInput);
     const text = result.response.text();
     console.log(`[GeminiService] generateFromPrompt :: response received (${text.length} chars)`);

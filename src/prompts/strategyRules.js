@@ -1,0 +1,128 @@
+/**
+ * strategyRules.js — Modular rule builders for Test Strategy JSON output.
+ *
+ * Each function returns a plain string fragment that gets composed into
+ * the strategy prompt. Aligned with TechDoc §5–§8.
+ */
+
+const buildRiskRulesGuidance = () => [
+    "Risk Assessment Rules:",
+    "Identify risk areas based on domain signals. Apply the following risk taxonomy:",
+    "",
+    "| Signal | Risk Level | Notes |",
+    "|--------|-----------|-------|",
+    "| Payment / financial transactions | HIGH | Non-negotiable |",
+    "| Auth / permission / access control | HIGH | Non-negotiable |",
+    "| State transition / UI + state coupling | ELEVATED | Elevate by one level from baseline |",
+    "| Cross-system integration / multi-entity data | ELEVATED | Elevate integration risk specifically |",
+    "| User data persistence / data migration | ELEVATED | Data loss = high severity |",
+    "| Third-party dependency (external API) | ELEVATED | Uncontrolled failure modes |",
+    "| Feature flag / A/B test branching | MEDIUM | Combinatorial state space |",
+    "| Read-only / display-only changes | LOW | Unless in high-risk domain |",
+    "",
+    "Application:",
+    "- Produce a `feature_risk_level` (high/medium/low) based on the highest signal present.",
+    "- Populate `risk_areas[]` with each identified risk: { area, level, reason }.",
+    "- Multiple signals combine — highest wins for overall level.",
+    "- If no clear risk signals are present, default to MEDIUM (not LOW) to avoid under-assessment.",
+].join("\n");
+
+const buildDepthRulesGuidance = () => [
+    "Test Depth Rules:",
+    "Assign depth per scope area based on risk level and requirement clarity:",
+    "",
+    "| Condition | Depth | Rationale |",
+    "|-----------|-------|-----------|",
+    "| High risk area | deep | Full scenario coverage including edge cases |",
+    "| Medium risk + high uncertainty | deep | Uncertainty demands broader exploration |",
+    "| Medium risk + clear requirements | medium | Standard coverage sufficient |",
+    "| Low risk + clear requirements | medium | Avoid under-testing even low risk |",
+    "| Low risk + low uncertainty | shallow | Smoke-level verification |",
+    "| Incomplete requirements (any risk) | shallow | Cannot design what isn't specified — do NOT over-design |",
+    "",
+    "Application:",
+    "- Assign depth per `test_scope` category and per individual scope item.",
+    "- Never assign `deep` to areas with incomplete requirements.",
+    "- Depth values: deep | medium | shallow.",
+].join("\n");
+
+const buildAutomationRulesGuidance = () => [
+    "Automation vs Manual Rules (Mode Decision):",
+    "For EACH scope area, recommend the test execution mode:",
+    "",
+    "| Condition | Mode | Rationale |",
+    "|-----------|------|-----------|",
+    "| UI visual / UX / animation / subjective assessment | manual-first | Requires human judgment |",
+    "| Deterministic backend logic / API contracts | automation-first | Stable, repeatable, high regression value |",
+    "| Cross-service integration | hybrid | Core path automated, failure scenarios manual |",
+    "| Exploratory / one-time verification | manual-first | ROI of automation too low |",
+    "| Feature still in flux / unstable requirements | manual-first | Automation would churn |",
+    "| Core happy path + stable feature + executed frequently | automation-first | High regression risk justifies investment |",
+    "| Edge cases on stable core path | hybrid | Core automated, edges manual |",
+    "",
+    "Platform framework context (for suggested tooling):",
+    "- Backend API: Karate",
+    "- Web UI: Playwright",
+    "- Mobile: Maestro (iOS/Android)",
+    "",
+    "Application:",
+    "- Produce `test_mode[]` with one entry per scope area: { area, mode, reason }.",
+    "- Mode values: automation-first | manual-first | hybrid.",
+    "- Each entry MUST include a reason explaining the decision.",
+].join("\n");
+
+const buildCompletenessRulesGuidance = () => [
+    "Requirement Completeness Rules:",
+    "- Missing information MUST be listed in `requirement_gaps` — never silently assume.",
+    "- Critical behavior undefined → lower confidence, lower depth.",
+    "- Never assume missing business logic — if the spec doesn't say it, don't design tests for it.",
+    "- If information is missing or ambiguous, surface it in `requirement_gaps` rather than assuming coverage.",
+    "- Conflicting requirements between documents → flag in `requirement_gaps`, cite both sources, note which interpretation was used.",
+    "- Each gap entry must specify: { gap (what's missing), impact (how it affects testing), ask (who to clarify with) }.",
+    "",
+    "Application:",
+    "- Populate `requirement_gaps[]` for any missing or ambiguous information.",
+    "- Populate `not_assessable[]` for items that cannot be evaluated with current info.",
+    "- Set `requirement_maturity` based on overall completeness: high (>90% clear), medium (60-90%), low (<60%).",
+].join("\n");
+
+const buildConfidenceGuidance = () => [
+    "Confidence Assessment Rules:",
+    "Assess overall confidence in the strategy based on these factors:",
+    "",
+    "| Factor | Weight | Description |",
+    "|--------|--------|-------------|",
+    "| requirement_completeness | High | Are all requirements clearly specified? |",
+    "| clarity | Medium | Are requirements unambiguous? |",
+    "| uncertainty | High | How many unknowns remain? |",
+    "| risk_identifiability | Medium | Can risks be clearly identified from available info? |",
+    "",
+    "Confidence level:",
+    "- high — Requirements are complete, clear, risks identifiable. Strategy is reliable.",
+    "- medium — Some gaps or ambiguity exist but strategy is actionable with stated assumptions.",
+    "- low — Significant gaps, high uncertainty. Strategy needs more input before execution.",
+    "",
+    "Workflow mode (derived from confidence):",
+    "- blocked — Confidence too low to proceed. Critical information missing.",
+    "- strategy_only — Can define strategy but NOT safe to generate test cases yet.",
+    "- controlled — Strategy reliable enough for test case generation with human review.",
+    "- full — High confidence. Safe for automated test case generation.",
+    "",
+    "Penalty rules (non-negotiable):",
+    "- If ANY high-risk area has incomplete requirements → cap confidence at medium.",
+    "- If >30% of scope items have unclear requirements → cap confidence at medium.",
+    "- If critical business logic is undefined → force workflow_mode to strategy_only or blocked.",
+    "",
+    "Application:",
+    "- Produce `confidence` (high/medium/low).",
+    "- Produce `confidence_factors` with per-factor assessment: { requirement_completeness, clarity, uncertainty, risk_identifiability }.",
+    "- Produce `workflow_mode` derived from confidence level.",
+].join("\n");
+
+module.exports = {
+    buildRiskRulesGuidance,
+    buildDepthRulesGuidance,
+    buildAutomationRulesGuidance,
+    buildCompletenessRulesGuidance,
+    buildConfidenceGuidance,
+};

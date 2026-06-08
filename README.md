@@ -26,7 +26,7 @@
 
 The **QE Test Case Generator** is a Node.js / Express backend that ingests product artifacts (PRD, RFC, Figma references), forwards them to a Generative AI agent (Claude, Gemini, or GitHub Copilot), and produces:
 
-1. A **structured analysis** (Markdown) of the feature.
+1. A **structured analysis** (Markdown) or a **structured test strategy** (JSON) of the feature — configurable via `TESTING_STRATEGY_OUTPUT`.
 2. A **machine-readable list of test cases** (JSON) grouped by section, including title, type, priority, preconditions, steps, and expected results.
 
 ### Problems It Solves
@@ -146,11 +146,20 @@ The app supports two providers for fetching Lark document content:
 
 This section documents the AI prompting strategy, model configuration, and quality controls used across all providers.
 
-### System Prompt (Shared)
+### System Prompts
 
-All three providers (Claude, Gemini, Copilot) receive a dedicated **system prompt** that establishes the AI's persona and core constraints. This is separated from the user content to leverage each model's higher attention weight on system instructions.
+All providers (Claude, Gemini, Copilot, LiteLLM) receive a dedicated **system prompt** that establishes the AI's persona and core constraints. This is separated from the user content to leverage each model's higher attention weight on system instructions.
 
-**Defined in:** [`prompts/testCaseGeneration.js`](prompts/testCaseGeneration.js) as `SYSTEM_PROMPT`
+Which system prompt is used depends on the `TESTING_STRATEGY_OUTPUT` config value:
+
+| Config Value | System Prompt | Persona |
+|---|---|---|
+| `MARKDOWN` (default) | `SYSTEM_PROMPT` | Senior QE Engineer — test case design focus |
+| `JSON` | `STRATEGY_SYSTEM_PROMPT` | Senior QE Strategist — risk-driven strategy focus |
+
+Both are defined in [`prompts/testCaseGeneration.js`](prompts/testCaseGeneration.js). The routing logic lives in `QAgentService.runAnalysis()`.
+
+**`SYSTEM_PROMPT` (MARKDOWN mode):**
 
 ```
 You are a Senior QE Engineer with 10+ years of experience in test planning,
@@ -167,13 +176,30 @@ Your core principles:
 5. Never invent features or behaviors not stated in the source documents.
 ```
 
-**How it's delivered to each provider:**
+**`STRATEGY_SYSTEM_PROMPT` (JSON mode):**
+
+```
+You are a Senior QE Strategist with 10+ years of experience in test strategy,
+risk assessment, and quality planning. You specialize in analyzing product
+specifications to produce structured, risk-driven test strategies.
+
+Your core principles:
+1. Assess risk before deciding depth — high-risk areas get deep coverage,
+   low-risk areas get smoke-level checks.
+2. Every recommendation must be traceable to a requirement or identified gap.
+3. Be explicit about what you cannot assess due to missing information.
+4. Output must be machine-parseable JSON conforming exactly to the provided schema.
+5. Never invent features or behaviors not stated in the source documents.
+```
+
+**How system prompts are delivered to each provider:**
 
 | Provider | Mechanism | File |
 |---|---|---|
 | **Claude** | `system` field in the API request body | [`service/ClaudeService.js`](service/ClaudeService.js) |
 | **Copilot/GPT** | `role: "system"` message prepended to the messages array | [`service/CopilotService.js`](service/CopilotService.js) |
 | **Gemini** | `systemInstruction` parameter in `getGenerativeModel()` | [`service/GeminiService.js`](service/GeminiService.js) |
+| **LiteLLM** | `role: "system"` message prepended to the messages array | [`service/LiteLLMService.js`](service/LiteLLMService.js) |
 
 ### Model Configuration
 
@@ -201,7 +227,16 @@ Documents → [Stage 1: Analysis] → [Stage 2: Test Case Generation] → Parse 
 
 #### Stage 1: Test Analysis Prompt
 
-**Builder:** `buildTestAnalysisPrompt()` in [`prompts/testCaseGeneration.js`](prompts/testCaseGeneration.js)
+Stage 1 behavior depends on the `TESTING_STRATEGY_OUTPUT` config value:
+
+| Config Value | Builder Function | Output Format |
+|---|---|---|
+| `MARKDOWN` (default) | `buildTestAnalysisPrompt()` | Structured Markdown document |
+| `JSON` | `buildTestStrategyPrompt()` | JSON strategy object (schema-constrained) |
+
+Both builders are in [`prompts/testCaseGeneration.js`](prompts/testCaseGeneration.js). The routing logic lives in `TestCaseService.getTestAnalysisPrompt()`.
+
+##### MARKDOWN Mode (default)
 
 Produces a structured Markdown analysis document. The prompt instructs the model to produce these sections:
 
@@ -230,6 +265,54 @@ Produces a structured Markdown analysis document. The prompt instructs the model
 6. Required output structure (exact Markdown headings)
 7. Formatting rules and constraints
 ```
+
+##### JSON Mode (Strategy)
+
+Produces a machine-parseable JSON strategy object. The prompt is assembled by `buildTestStrategyPrompt()` using 5 composable rule builders from [`prompts/strategyRules.js`](prompts/strategyRules.js):
+
+When `TESTING_STRATEGY_OUTPUT=JSON`, Stage 1 applies **strict JSON persistence** before saving:
+- Markdown fences are stripped if present (e.g., ` ```json ... ``` `)
+- Parsed with direct `JSON.parse` (no repair fallback)
+- If parsing fails, Stage 1 fails and prompt status becomes `FAILED`
+- Valid output is saved as canonical pretty JSON in `data/analyze/{promptId}.json`
+
+| Rule Builder | Responsibility |
+|---|---|
+| `buildRiskRules()` | Feature risk classification criteria |
+| `buildDepthRules()` | Test depth decisions (deep/standard/shallow) |
+| `buildAutomationRules()` | Per-scope automation mode (automation-first/manual-first/hybrid) |
+| `buildCompletenessRules()` | Gap detection and not-assessable markers |
+| `buildConfidenceRules()` | Confidence scoring and factor enumeration |
+
+**Output schema fields:**
+
+| Group | Fields |
+|---|---|
+| Risk & Maturity | `task_id`, `platforms[]`, `feature_risk_level`, `requirement_maturity`, `risk_areas[]` |
+| Test Design | `test_scope` (4 categories: functional, edge_cases, integration, non_functional), `test_depth`, `test_mode[]` |
+| Coverage | `existing_coverage_summary` (reuse/update/new/retire counts + gaps), `asset_hygiene_report` |
+| Uncertainty | `requirement_gaps[]`, `not_assessable[]` |
+| Confidence | `confidence` (0.0–1.0), `confidence_breakdown` (per-factor scores), `coverage_assessment_confidence`, `workflow_mode` |
+| Summary | `test_strategy_summary` |
+
+Each scope item contains: `id`, `description`, `disposition` (new/reuse/update/retire/regression_keep), `change_relation`, `existing_case_refs[]`, `match_basis`, `match_confidence`, `reason`.
+
+**Prompt structure:**
+
+```
+[STRATEGY_SYSTEM_PROMPT — delivered separately via provider API]
+
+1. Task instruction (produce JSON strategy)
+2. Product context (feature, platform, attached documents)
+3. Document inventory
+4. Source documents (PRD, RFC, Figma content)
+5. Strategy rules (risk → depth → automation → completeness → confidence)
+6. JSON schema definition with field descriptions
+7. Few-shot example (greenfield scenario)
+8. Output constraints (strict JSON, disposition/confidence rules)
+```
+
+The frontend auto-detects JSON strategy output and renders it as a document-style numbered-section report with inline editing. Scope items are displayed in a table (Description, Disposition, Change Relation) with click-to-open detail modal showing all fields including existing case refs, match basis/confidence, and reason.
 
 #### Stage 2: Test Case Generation Prompt
 

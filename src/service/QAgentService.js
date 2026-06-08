@@ -3,9 +3,10 @@ const fs = require("fs");
 const pdfParse = require("pdf-parse");
 const { jsonrepair } = require("jsonrepair");
 const FileReader = require("../utils/FileReader");
+const ConfigLoader = require("../utils/ConfigLoader");
 const { createActionLogger } = require("../utils/AppLogger");
 const { validateContextFits } = require("../utils/TokenEstimator");
-const { normalizePlatforms, VALID_PLATFORMS } = require("../prompts");
+const { normalizePlatforms, VALID_PLATFORMS, STRATEGY_SYSTEM_PROMPT } = require("../prompts");
 const TestCaseService = require("./TestCaseService");
 const GeminiService = require("./ai/GeminiService");
 const ClaudeService = require("./ai/ClaudeService");
@@ -14,25 +15,28 @@ const LiteLLMService = require("./ai/LiteLLMService");
 const LarkService = require("./LarkService");
 const { getProvider: getLarkProvider } = require("./LarkProviderFactory");
 const FigmaService = require("./FigmaService");
-const ConfigLoader = require("../utils/ConfigLoader");
 const path = require("path");
 
 const AGENTS = Object.freeze({
-    claude: async ({ prompt, payload, model }) => ClaudeService.generateFromPrompt(prompt, {
+    claude: async ({ prompt, payload, model, systemPrompt }) => ClaudeService.generateFromPrompt(prompt, {
         documents: payload?.documents,
         model,
+        systemPrompt,
     }),
-    gemini: async ({ prompt, payload, model }) => GeminiService.generateFromPrompt(prompt, {
+    gemini: async ({ prompt, payload, model, systemPrompt }) => GeminiService.generateFromPrompt(prompt, {
         documents: payload?.documents,
         model,
+        systemPrompt,
     }),
-    copilot: async ({ prompt, payload, model }) => CopilotService.generateFromPrompt(prompt, {
+    copilot: async ({ prompt, payload, model, systemPrompt }) => CopilotService.generateFromPrompt(prompt, {
         documents: payload?.documents,
         model,
+        systemPrompt,
     }),
-    litellm: async ({ prompt, payload, model }) => LiteLLMService.generateFromPrompt(prompt, {
+    litellm: async ({ prompt, payload, model, systemPrompt }) => LiteLLMService.generateFromPrompt(prompt, {
         documents: payload?.documents,
         model,
+        systemPrompt,
     }),
 });
 
@@ -178,6 +182,16 @@ const stripMarkdownFences = (value = "") => {
     return text.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/i, "").trim();
 };
 
+const normalizeStrictJsonText = (value = "", label = "JSON output") => {
+    const content = stripMarkdownFences(value);
+    try {
+        const parsed = JSON.parse(content);
+        return JSON.stringify(parsed, null, 2);
+    } catch (error) {
+        throw new Error(`${label} is not valid JSON in strict mode. Ensure the model returns raw JSON only (no markdown/code fences). Parse error: ${error.message}`);
+    }
+};
+
 const extractJsonPayload = (text = "") => {
     const content = stripMarkdownFences(text);
 
@@ -284,7 +298,7 @@ const createInitialRecord = ({ promptId, payload, agent, model }) => ({
     autoGenerateTestCases: payload.autoGenerateTestCases === true,
     endAt: null,
     testCaseCount: null,
-    resultAnalysis: `analyze/${promptId}.md`,
+    resultAnalysis: `analyze/${promptId}`,
     resultTestCases: `testcases/${promptId}.json`,
     failureNote: null,
     errorMessage: null,
@@ -525,7 +539,12 @@ const processSubmission = async (payload = {}, { isRetry = false } = {}) => {
         }
 
         try {
-            return await handler({ prompt, payload, promptId, mode, model: selectedModel });
+            // Determine system prompt: use STRATEGY_SYSTEM_PROMPT for JSON analysis mode
+            const strategyMode = ConfigLoader.get("TESTING_STRATEGY_OUTPUT", "MARKDOWN").toUpperCase();
+            const useStrategyPrompt = mode === "analysis" && strategyMode === "JSON";
+            const systemPrompt = useStrategyPrompt ? STRATEGY_SYSTEM_PROMPT : undefined;
+
+            return await handler({ prompt, payload, promptId, mode, model: selectedModel, systemPrompt });
         } catch (error) {
             const errorMsg = String(error.message || "");
 
@@ -601,17 +620,28 @@ const processSubmission = async (payload = {}, { isRetry = false } = {}) => {
         // --- STEP 1: Analysis ---
         let analysisText = "";
 
+        const strategyMode = ConfigLoader.get("TESTING_STRATEGY_OUTPUT", "MARKDOWN").toUpperCase();
+        const isStrategyJsonMode = strategyMode === "JSON";
+        let analysisGenerated = false;
+
         // On retry, try to reuse existing analysis
         if (isRetry) {
-            try {
-                analysisText = FileReader.readDataFile(`analyze/${promptId}.md`);
-                logger.success("Step 1/3 - Reusing existing analysis (retry)", { chars: analysisText.length });
-            } catch (_) {
-                analysisText = "";
+            const extensions = ["json", "md", "txt"];
+            for (const ext of extensions) {
+                try {
+                    analysisText = FileReader.readDataFile(`analyze/${promptId}.${ext}`);
+                    if (analysisText && analysisText.trim()) {
+                        logger.success("Step 1/3 - Reusing existing analysis (retry)", { chars: analysisText.length, ext });
+                        break;
+                    }
+                } catch (_) {
+                    analysisText = "";
+                }
             }
         }
 
         if (!analysisText.trim()) {
+            analysisGenerated = true;
             logger.step("Step 1/3 - Building analysis prompt");
             const analysisPrompt = await TestCaseService.getTestAnalysisPrompt({
                 ...validatedPayload,
@@ -626,9 +656,18 @@ const processSubmission = async (payload = {}, { isRetry = false } = {}) => {
             logger.step("Step 1/3 - Sending analysis prompt", { agent });
             analysisText = await runSelectedAgent({ prompt: analysisPrompt, payload: validatedPayload, mode: "analysis" });
             logger.success("Step 1/3 - Analysis received", { chars: analysisText.length });
+        }
 
-            FileReader.writeDataFile(`analyze/${promptId}.md`, analysisText);
-            logger.success("Step 1/3 - Analysis saved", { path: `analyze/${promptId}.md` });
+        if (isStrategyJsonMode) {
+            logger.step("Step 1/3 - Validating strategy JSON (strict mode)");
+            analysisText = normalizeStrictJsonText(analysisText, "Strategy analysis output");
+            logger.success("Step 1/3 - Strategy JSON validated", { chars: analysisText.length });
+        }
+
+        if (analysisGenerated) {
+            const analyzeExt = isStrategyJsonMode ? "json" : "md";
+            FileReader.writeDataFile(`analyze/${promptId}.${analyzeExt}`, analysisText);
+            logger.success("Step 1/3 - Analysis saved", { path: `analyze/${promptId}.${analyzeExt}` });
         }
 
         // --- Check if we should stop for review ---

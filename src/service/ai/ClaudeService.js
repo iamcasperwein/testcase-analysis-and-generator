@@ -22,6 +22,7 @@ const generateFromPrompt = async (prompt, options = {}) => {
 	const apiKey = getApiKey()
 	const messagePrompt = String(prompt || "").trim()
 	const model = String(options.model || getDefaultModel()).trim()
+	const systemPrompt = options.systemPrompt || SYSTEM_PROMPT
 
 	if (!messagePrompt) {
 		const error = new Error("Prompt is required")
@@ -35,7 +36,7 @@ const generateFromPrompt = async (prompt, options = {}) => {
 			model,
 			max_tokens: DEFAULTS.MAX_TOKENS,
 			temperature: DEFAULTS.TEMPERATURE,
-			system: SYSTEM_PROMPT,
+			system: systemPrompt,
 			messages: [
 				{
 					role: "user",
