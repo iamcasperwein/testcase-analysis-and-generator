@@ -166,54 +166,11 @@ const generateFromPrompt = async (prompt, options = {}) => {
 		headers["Authorization"] = `Bearer ${apiKey}`
 	}
 
-	let response
-	try {
-		const isNoTempModel = /\b(opus|o[1-9]|o3|o4)\b/i.test(model)
-
-		response = await axios.post(
-			apiUrl,
-			{
-				model,
-				...(isNoTempModel ? {} : { temperature: DEFAULTS.TEMPERATURE }),
-				max_tokens: DEFAULTS.MAX_TOKENS,
-				messages: [
-					{
-						role: "system",
-						content: SYSTEM_PROMPT,
-					},
-					{
-						role: "user",
-						content: messageContent,
-					},
-				],
-			},
-			{
-				headers,
-				timeout: DEFAULTS.TIMEOUT_MS,
-			},
-		)
-	} catch (err) {
-		const status = err.response?.status || "unknown"
-		const detail =
-			err.response?.data?.error?.message ||
-			err.response?.data?.message ||
-			JSON.stringify(err.response?.data || err.message)
-		console.error(`[LiteLLMService] API error (${status}): model=${model}, detail=${detail}`)
-
-		const error = new Error(`LiteLLM API error (${status}): ${detail}`)
-		error.statusCode = err.response?.status || ERROR_CODES.SERVICE_UNAVAILABLE
-		throw error
-	}
-
-	// Extract text from OpenAI-compatible response
-	const choices = Array.isArray(response?.data?.choices) ? response.data.choices : []
-	const content = choices[0]?.message?.content
+	const isNoTempModel = /\b(opus|o[1-9]|o3|o4)\b/i.test(model)
 
 	let text = ""
 	for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
 		try {
-			const isNoTempModel = /\b(opus|o[1-9]|o3|o4)\b/i.test(model)
-
 			const response = await axios.post(
 				apiUrl,
 				{
@@ -235,7 +192,7 @@ const generateFromPrompt = async (prompt, options = {}) => {
 				{
 					headers,
 					responseType: "stream",
-					timeout: 300000, // 5 min socket timeout
+					timeout: DEFAULTS.STREAM_TIMEOUT_MS, // 10 min — exceeds gateway proxy timeout (~5 min)
 				},
 			)
 
