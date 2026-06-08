@@ -15,7 +15,8 @@ const DEFAULT_SETTING_KEYS = [
 	// { key: "CLAUDE_MODEL", confidential: false },
 	// { key: "GEMINI_API_KEY", confidential: true },
 	// { key: "GEMINI_MODEL", confidential: false },
-	// { key: "GITHUB_TOKEN", confidential: true },
+	{ key: "GITHUB_TOKEN", confidential: true },
+	{ key: "GITHUB_MODEL", confidential: false },
 	{ key: "LITELLM_API_KEY", confidential: true },
 	{ key: "LITELLM_BASE_URL", confidential: false },
 	{ key: "TESTRAIL_PASSWORD", confidential: true },
@@ -32,6 +33,15 @@ const GITHUB_MODELS_CATALOG_URL = "https://models.github.ai/catalog/models"
 
 const GEMINI_STATIC_MODELS = Object.freeze([
 	{ id: "models/gemini-2.5-flash", name: "gemini-2.5-flash" },
+])
+
+const COPILOT_STATIC_MODELS = Object.freeze([
+	{ id: "openai/gpt-4o-mini", name: "gpt-4o-mini" },
+	{ id: "openai/gpt-4o", name: "gpt-4o" },
+	{ id: "openai/gpt-4.1-nano", name: "gpt-4.1-nano" },
+	{ id: "openai/gpt-4.1-mini", name: "gpt-4.1-mini" },
+	{ id: "openai/gpt-4.1", name: "gpt-4.1" },
+	{ id: "openai/o4-mini", name: "o4-mini" },
 ])
 
 const MODEL_CATALOGS = Object.freeze({
@@ -225,21 +235,54 @@ const getModelCatalog = async (agent) => {
 
 	// --- Copilot: GitHub Models catalog ---
 	if (normalizedAgent === "copilot") {
-		const response = await axios.get(GITHUB_MODELS_CATALOG_URL, {
-			headers: { Accept: "application/json" },
-			timeout: 20000,
-		})
+		try {
+			const githubToken = ConfigLoader.get("GITHUB_TOKEN", "")
+			const headers = { Accept: "application/json" }
+			if (githubToken) {
+				headers.Authorization = `Bearer ${githubToken}`
+			}
 
-		const models = Array.isArray(response?.data)
-			? response.data.map(normalizeGithubCatalogItem).filter((item) => item.id)
-			: []
+			const response = await axios.get(GITHUB_MODELS_CATALOG_URL, {
+				headers,
+				timeout: 20000,
+			})
 
+			const models = Array.isArray(response?.data)
+				? response.data.map(normalizeGithubCatalogItem).filter((item) => item.id)
+				: []
+
+			if (models.length) {
+				return {
+					agent: catalogConfig.agent,
+					label: catalogConfig.label,
+					supported: true,
+					message: `${models.length} model(s) available from ${catalogConfig.label}.`,
+					models,
+				}
+			}
+		} catch (_) {
+			// Fall through to static list on any error (429, network, timeout)
+		}
+
+		// Static fallback
 		return {
 			agent: catalogConfig.agent,
 			label: catalogConfig.label,
 			supported: true,
-			message: `${models.length} model(s) available from ${catalogConfig.label}.`,
-			models,
+			message: `Showing ${COPILOT_STATIC_MODELS.length} common model(s). Configure GITHUB_TOKEN for full catalog.`,
+			models: COPILOT_STATIC_MODELS.map((m) => ({
+				id: m.id,
+				name: m.name,
+				publisher: "openai",
+				summary: "",
+				registry: "",
+				rateLimitTier: "",
+				capabilities: [],
+				tags: [],
+				htmlUrl: "",
+				maxInputTokens: null,
+				maxOutputTokens: null,
+			})),
 		}
 	}
 

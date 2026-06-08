@@ -4,21 +4,25 @@ const { estimateTokens } = require("../../utils/TokenEstimator")
 const ConfigLoader = require("../../utils/ConfigLoader")
 const { ENDPOINTS, DEFAULTS, HEADERS, ERROR_CODES } = require("../../constants/api/LLMApi")
 
-const DEFAULT_MODEL = "openai/gpt-4.1"
+const DEFAULT_MODEL = "openai/gpt-4o-mini"
 
+// GitHub Models platform limits (free-tier per-request caps, NOT theoretical model context windows)
 const MODEL_INPUT_LIMITS = Object.freeze({
 	"openai/gpt-5": 4000,
 	"openai/gpt-5-chat": 4000,
 	"openai/o3": 4000,
 	"openai/o4-mini": 16000,
-	"openai/gpt-4.1": 1000000,
-	"openai/gpt-4.1-mini": 1000000,
-	"openai/gpt-4.1-nano": 1000000,
-	"openai/gpt-4o": 128000,
-	"openai/gpt-4o-mini": 128000,
+	"openai/gpt-4.1": 8000,
+	"openai/gpt-4.1-mini": 8000,
+	"openai/gpt-4.1-nano": 8000,
+	"openai/gpt-4o": 8000,
+	"openai/gpt-4o-mini": 8000,
 })
 
-const DEFAULT_INPUT_LIMIT = 128000
+const DEFAULT_INPUT_LIMIT = 8000
+
+// Reserve tokens for output generation
+const OUTPUT_RESERVE_TOKENS = 2000
 
 const getModelInputLimit = (model) => {
 	const key = String(model || "").trim().toLowerCase()
@@ -79,25 +83,29 @@ const generateFromPrompt = async (prompt, options = {}) => {
 		throw error
 	}
 
-	// Token guard: estimate input size and reject if it exceeds model limit
-	const fullInput = SYSTEM_PROMPT + "\n" + messagePrompt
-	const estimatedInputTokens = estimateTokens(fullInput)
+	// Token budget: auto-truncate user prompt to fit within platform limits
+	const systemTokens = estimateTokens(SYSTEM_PROMPT)
 	const modelInputLimit = getModelInputLimit(model)
+	const userTokenBudget = modelInputLimit - systemTokens - OUTPUT_RESERVE_TOKENS
 
-	if (estimatedInputTokens > modelInputLimit) {
-		const error = new Error(
-			`Input too large for model "${model}": ~${estimatedInputTokens} tokens estimated, limit is ${modelInputLimit}. ` +
-			`Try a model with a higher context window (e.g. openai/gpt-4.1) or reduce the input size.`
+	let finalPrompt = messagePrompt
+	if (estimateTokens(messagePrompt) > userTokenBudget) {
+		// Truncate by characters (approx 3.5 chars per token)
+		const maxChars = Math.floor(userTokenBudget * 3.5)
+		finalPrompt = messagePrompt.slice(0, maxChars) +
+			"\n\n[NOTE: Content was truncated to fit GitHub Models platform token limit. " +
+			"Some document content may be missing. Focus on the information provided above.]"
+		console.warn(
+			`[CopilotService] Prompt truncated: ~${estimateTokens(messagePrompt)} tokens -> ~${estimateTokens(finalPrompt)} tokens ` +
+			`(platform limit: ${modelInputLimit}, model: ${model})`
 		)
-		error.statusCode = ERROR_CODES.PAYLOAD_TOO_LARGE
-		throw error
 	}
 
 	let response
 	try {
 		const isReasoningModel = /\b(gpt-5|o[1-9]|o3|o4)\b/i.test(model)
 
-		const COPILOT_MAX_TOKENS = Math.min(DEFAULTS.MAX_TOKENS, 32768);
+		const COPILOT_MAX_TOKENS = Math.min(DEFAULTS.MAX_TOKENS, 4096);
 
 		response = await axios.post(
 			apiUrl,
@@ -114,7 +122,7 @@ const generateFromPrompt = async (prompt, options = {}) => {
 					},
 					{
 						role: "user",
-						content: messagePrompt,
+						content: finalPrompt,
 					},
 				],
 			},
