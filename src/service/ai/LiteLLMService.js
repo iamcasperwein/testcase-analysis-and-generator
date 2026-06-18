@@ -246,11 +246,37 @@ const generateFromPrompt = async (prompt, options = {}) => {
 			const isLastAttempt = attempt >= MAX_RETRIES
 
 			if (!isRetryable || isLastAttempt) {
-				const detail =
-					err.response?.data?.error?.message ||
-					err.response?.data?.message ||
-					(typeof err.response?.data === "string" ? err.response.data : null) ||
-					JSON.stringify(err.response?.data || err.message)
+				// err.response.data may be a Node.js stream (because responseType:"stream")
+				// For non-2xx responses, drain the stream to extract the actual error body
+				let detail = null
+				try {
+					const d = err.response?.data
+					if (typeof d === "string") {
+						detail = d
+					} else if (d && typeof d === "object" && typeof d.pipe === "function") {
+						// Stream — drain it to get the real error body
+						const rawBody = await new Promise((resolve) => {
+							const chunks = []
+							d.on("data", (chunk) => chunks.push(chunk.toString()))
+							d.on("end", () => resolve(chunks.join("")))
+							d.on("error", () => resolve(""))
+							// Timeout safety — if stream hangs, resolve empty after 2s
+							setTimeout(() => resolve(chunks.join("")), 2000)
+						})
+						try {
+							const parsed = JSON.parse(rawBody)
+							detail = parsed?.error?.message || parsed?.message || parsed?.detail || rawBody
+						} catch {
+							detail = rawBody || null
+						}
+					} else if (d && typeof d === "object") {
+						// Plain object — safe to read
+						detail = d.error?.message || d.message || d.detail || JSON.stringify(d)
+					}
+				} catch {
+					// Unserializable — ignore
+				}
+				detail = detail || err.message || "Unknown error"
 				console.error(`[LiteLLMService] API error (${status || "unknown"}): model=${model}, detail=${detail}`)
 
 				const error = new Error(`LiteLLM API error (${status || "unknown"}): ${detail}`)

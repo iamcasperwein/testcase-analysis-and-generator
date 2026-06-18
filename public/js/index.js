@@ -699,6 +699,171 @@ renderSelectedPlatformChips();
 renderPlatformTriggerText();
 syncPlatformHiddenInput();
 
+// --- Product Multi-select ---
+let PRODUCT_OPTIONS = []; // populated from /dashboard/products
+let selectedProducts = new Set(); // stores "domain:product" composite keys
+
+const productSelectWrap    = document.getElementById("productSelectWrap");
+const productTrigger       = document.getElementById("productTrigger");
+const productTriggerText   = document.getElementById("productTriggerText");
+const productDropdownPanel = document.getElementById("productDropdownPanel");
+const productSearchInput   = document.getElementById("productSearch");
+const productOptionsPanel  = document.getElementById("productOptionsPanel");
+const productChipsSelected = document.getElementById("productChipsSelected");
+const productValueInput    = document.getElementById("productValueInput");
+
+function productKey(p) {
+  return `${p.domain}:${p.product}`;
+}
+
+function syncProductHiddenInput() {
+  const selected = PRODUCT_OPTIONS.filter(p => selectedProducts.has(productKey(p)));
+  productValueInput.value = JSON.stringify(selected.map(p => ({
+    domain: p.domain,
+    product: p.product,
+    label: p.label,
+  })));
+}
+
+function closeProductDropdown() {
+  if (productDropdownPanel) productDropdownPanel.classList.remove("open");
+  if (productTrigger) productTrigger.classList.remove("open");
+}
+
+function renderProductTriggerText() {
+  if (!productTriggerText) return;
+  const count = selectedProducts.size;
+  if (count === 0) {
+    productTriggerText.textContent = "Select products...";
+    productTriggerText.classList.add("is-placeholder");
+  } else {
+    productTriggerText.textContent = `${count} product${count > 1 ? "s" : ""} selected`;
+    productTriggerText.classList.remove("is-placeholder");
+  }
+}
+
+function renderProductOptions(filter = "") {
+  if (!productOptionsPanel) return;
+  const q = String(filter || "").trim().toLowerCase();
+  const available = PRODUCT_OPTIONS.filter(p =>
+    !selectedProducts.has(productKey(p)) &&
+    (p.label.toLowerCase().includes(q) || p.domainLabel.toLowerCase().includes(q))
+  );
+
+  productOptionsPanel.innerHTML = "";
+
+  if (!available.length) {
+    productOptionsPanel.innerHTML = '<div class="prompt-select-no-results">No products found.</div>';
+    return;
+  }
+
+  // Group by domainLabel
+  const groups = {};
+  const groupOrder = [];
+  available.forEach(p => {
+    if (!groups[p.domainLabel]) {
+      groups[p.domainLabel] = [];
+      groupOrder.push(p.domainLabel);
+    }
+    groups[p.domainLabel].push(p);
+  });
+
+  groupOrder.forEach((domainLabel, idx) => {
+    const header = document.createElement("div");
+    header.className = "prompt-select-group-header";
+    if (idx === 0) header.style.borderTop = "none";
+    header.textContent = domainLabel;
+    productOptionsPanel.appendChild(header);
+
+    groups[domainLabel].forEach(p => {
+      const el = document.createElement("div");
+      el.className = "prompt-select-option";
+      el.innerHTML = `<span class="prompt-select-option-id">${escapeHtml(p.label)}</span>`;
+      el.addEventListener("mousedown", (e) => {
+        e.preventDefault();
+        selectedProducts.add(productKey(p));
+        renderSelectedProductChips();
+        renderProductTriggerText();
+        syncProductHiddenInput();
+        closeProductDropdown();
+      });
+      productOptionsPanel.appendChild(el);
+    });
+  });
+}
+
+function renderSelectedProductChips() {
+  if (!productChipsSelected) return;
+  productChipsSelected.innerHTML = "";
+  PRODUCT_OPTIONS.forEach(p => {
+    if (!selectedProducts.has(productKey(p))) return;
+    const chip = document.createElement("span");
+    chip.className = "platform-chip-selected";
+    chip.innerHTML = `<i class="bi bi-grid-3x3-gap-fill"></i> ${escapeHtml(p.label)} <button type="button" class="platform-chip-remove" aria-label="Remove ${escapeHtml(p.label)}">&times;</button>`;
+    chip.querySelector(".platform-chip-remove").addEventListener("click", () => {
+      selectedProducts.delete(productKey(p));
+      renderSelectedProductChips();
+      renderProductTriggerText();
+      syncProductHiddenInput();
+    });
+    productChipsSelected.appendChild(chip);
+  });
+}
+
+async function loadProducts() {
+  try {
+    if (productTriggerText) {
+      productTriggerText.textContent = "Loading products...";
+      productTriggerText.classList.add("is-placeholder");
+    }
+    const resp = await apiRequest("/dashboard/products");
+    const groups = Array.isArray(resp?.data) ? resp.data : [];
+    // Flatten grouped format: [{ domain, domainLabel, products: [{product, label}] }]
+    // → [{ domain, domainLabel, product, label }]
+    PRODUCT_OPTIONS = groups.flatMap(g =>
+      Array.isArray(g.products)
+        ? g.products.map(p => ({
+            domain: g.domain,
+            domainLabel: g.domainLabel,
+            product: p.product,
+            label: p.label,
+          }))
+        : []
+    );
+  } catch (e) {
+    PRODUCT_OPTIONS = [];
+  }
+  renderProductOptions();
+  renderProductTriggerText();
+}
+
+if (productTrigger) {
+  productTrigger.addEventListener("click", () => {
+    const isOpen = productDropdownPanel.classList.contains("open");
+    if (isOpen) { closeProductDropdown(); return; }
+    productDropdownPanel.classList.add("open");
+    productTrigger.classList.add("open");
+    productSearchInput.value = "";
+    renderProductOptions("");
+    productSearchInput.focus();
+  });
+  productTrigger.addEventListener("keydown", (e) => {
+    if (e.key === "Enter" || e.key === " ") { e.preventDefault(); productTrigger.click(); }
+  });
+}
+if (productSearchInput) {
+  productSearchInput.addEventListener("input", () => renderProductOptions(productSearchInput.value));
+  productSearchInput.addEventListener("keydown", (e) => { if (e.key === "Escape") closeProductDropdown(); });
+}
+if (productSelectWrap) {
+  document.addEventListener("click", (e) => {
+    if (!productSelectWrap.contains(e.target)) closeProductDropdown();
+  });
+}
+
+// Load products on init
+loadProducts();
+
 // --- Context Toggle ---
 const contextToggleBtn = document.getElementById("contextToggleBtn");
 const contextCollapsible = document.getElementById("contextCollapsible");
@@ -1004,6 +1169,7 @@ qaForm.addEventListener("submit", async (e) => {
   formData.append("projectName", document.getElementById("projectNameInput").value.trim());
   formData.append("feature", document.getElementById("projectNameInput").value.trim());
   formData.append("platforms", Array.from(selectedPlatforms).join(","));
+  formData.append("products", document.getElementById("productValueInput")?.value || "[]");
   formData.append("context", document.getElementById("contextInput")?.value?.trim() || "");
   formData.append("autoGenerateTestCases", document.getElementById("autoGenerateToggle").checked ? "true" : "false");
 
@@ -1029,8 +1195,8 @@ qaForm.addEventListener("submit", async (e) => {
     const generatedPromptId = response?.data?.promptId || "";
 
     const bannerMsg = generatedPromptId
-      ? `Submitted successfully. Prompt ID: ${generatedPromptId}`
-      : "Submitted successfully.";
+      ? `Submitted successfully. Prompt ID: ${generatedPromptId}. Go to Dashboard to view the progress and status!`
+      : "Submitted successfully. Go to Dashboard to view the progress and status!";
     formStatus.textContent = bannerMsg;
     formStatus.classList.remove("text-danger");
     formStatus.classList.add("text-success");
@@ -1053,6 +1219,7 @@ qaForm.addEventListener("submit", async (e) => {
 
 // --- TEST ANALYSIS: /testcase/getAnalyzeResult/{promptID} ---
 const downloadAnalysisBtn = document.getElementById("downloadAnalysisBtn");
+const viewAnalysisPromptBtn = document.getElementById("viewAnalysisPromptBtn");
 const analysisPromptIdInput = document.getElementById("analysisPromptIdInput");
 const analysisStatus = document.getElementById("analysisStatus");
 const analysisToc = document.getElementById("analysisToc");
@@ -1069,6 +1236,7 @@ async function doLoadAnalysis(promptId) {
 
   analysisStatus.textContent = "Loading analysis...";
   downloadAnalysisBtn.disabled = true;
+  if (viewAnalysisPromptBtn) viewAnalysisPromptBtn.disabled = true;
   currentAnalysisPromptId = promptId;
   currentAnalysisText = "";
 
@@ -1081,6 +1249,7 @@ async function doLoadAnalysis(promptId) {
 
     analysisStatus.textContent = "Analysis loaded.";
     downloadAnalysisBtn.disabled = !currentAnalysisText.trim();
+    if (viewAnalysisPromptBtn) viewAnalysisPromptBtn.disabled = false;
     updateGenerateButtonVisibility();
     updateEditButtonVisibility();
   } catch (err) {
@@ -1088,6 +1257,7 @@ async function doLoadAnalysis(promptId) {
     analysisDoc.innerHTML = '<div class="analysis-doc-empty text-danger">Failed to load analysis.</div>';
     analysisStatus.textContent = err.message;
     downloadAnalysisBtn.disabled = true;
+    if (viewAnalysisPromptBtn) viewAnalysisPromptBtn.disabled = true;
     updateGenerateButtonVisibility();
     updateEditButtonVisibility();
   }
@@ -1343,6 +1513,13 @@ function renderAnalysisDocument(rawText) {
     if (index === 0) {
       setActiveAnalysisTocItem(section.id);
     }
+  });
+}
+
+if (viewAnalysisPromptBtn) {
+  viewAnalysisPromptBtn.addEventListener("click", () => {
+    if (!currentAnalysisPromptId) return;
+    openPromptLogModal(currentAnalysisPromptId, "analysis");
   });
 }
 
@@ -2084,6 +2261,7 @@ document.addEventListener("keydown", (e) => {
 // --- TEST SCOPE: /testcase/{promptID} ---
 const scopePromptIdInput = document.getElementById("scopePromptIdInput");
 const scopeStatus = document.getElementById("scopeStatus");
+const viewScopePromptBtn = document.getElementById("viewScopePromptBtn");
 const sectionListEl = document.getElementById("sectionList");
 const testCaseTableBody = document.getElementById("testCaseTableBody");
 const scopeTable = document.querySelector(".scope-table");
@@ -2099,6 +2277,13 @@ let selectedSection = "all";
 let selectedPlatformFilters = new Set(); // empty = show all platforms
 let currentScopePromptId = null;
 let currentPromptPlatformGroups = []; // PLATFORM_OPTIONS filtered by prompt's platforms
+
+if (viewScopePromptBtn) {
+  viewScopePromptBtn.addEventListener("click", () => {
+    if (!currentScopePromptId) return;
+    openPromptLogModal(currentScopePromptId, "testcases");
+  });
+}
 let focusSelectedSectionOnly = true;
 let isSelectMode = false;
 let selectedTcIds = new Set();
@@ -2166,6 +2351,7 @@ function applyAllViewColumnVisibility() {
 async function loadTestScope(promptId) {
   scopeStatus.textContent = "Loading test cases...";
   currentScopePromptId = promptId;
+  if (viewScopePromptBtn) viewScopePromptBtn.disabled = true;
   // Resolve available platform groups from prompt data
   const promptEntry = allPrompts.find(p => p.promptId === promptId);
   currentPromptPlatformGroups = getAvailablePlatformGroups(promptEntry?.platforms);
@@ -2271,8 +2457,10 @@ async function loadTestScope(promptId) {
     applyAllViewColumnVisibility();
 
     scopeStatus.textContent = `Loaded ${allTestCases.length} test case(s) across ${sections.length} section(s).`;
+    if (viewScopePromptBtn) viewScopePromptBtn.disabled = false;
   } catch (err) {
     scopeStatus.textContent = "Failed to load test scope: " + err.message;
+    if (viewScopePromptBtn) viewScopePromptBtn.disabled = true;
     sectionListEl.innerHTML = '<div class="text-danger small">Error loading sections.</div>';
     testCaseTableBody.innerHTML = `
       <tr><td colspan="${getVisibleColumnsCount()}" class="text-center text-danger small">
@@ -6017,10 +6205,14 @@ const promptLogModal = new bootstrap.Modal(document.getElementById("promptLogMod
 const promptLogContent = document.getElementById("promptLogContent");
 const promptLogModalSub = document.getElementById("promptLogModalSub");
 const promptLogRefreshBtn = document.getElementById("promptLogRefreshBtn");
+const promptLogTerminalLabel = document.getElementById("promptLogTerminalLabel");
+const promptLogAutoRefreshNote = document.getElementById("promptLogAutoRefreshNote");
 
 let _logAutoRefreshTimer = null;
 let _logCurrentPromptId = null;
+let _logActiveTab = "log";
 
+// --- Fetch & render processing log ---
 async function fetchAndRenderLog(promptId) {
   try {
     const resp = await apiRequest(`/dashboard/log/${encodeURIComponent(promptId)}`);
@@ -6029,7 +6221,6 @@ async function fetchAndRenderLog(promptId) {
       promptLogContent.innerHTML = '<span style="color:#64748b;">No log entries found for this prompt.</span>';
       return;
     }
-    // Preserve scroll position if user scrolled up
     const el = promptLogContent;
     const isAtBottom = (el.scrollHeight - el.scrollTop - el.clientHeight) < 40;
     el.innerHTML = formatLogAsTerminal(log);
@@ -6039,26 +6230,72 @@ async function fetchAndRenderLog(promptId) {
   }
 }
 
-async function openPromptLogModal(promptId) {
+// --- Fetch & render prompt snapshot ---
+async function fetchAndRenderPromptSnapshot(promptId, stage) {
+  promptLogContent.innerHTML = `<span style="color:#94a3b8;">Loading ${stage} prompt...</span>`;
+  try {
+    const resp = await apiRequest(`/dashboard/prompt/${encodeURIComponent(promptId)}/${stage}`);
+    const text = resp?.data?.snapshot || "";
+    if (!text) {
+      promptLogContent.innerHTML = `<span style="color:#64748b;">No snapshot found for stage '${stage}'.</span>`;
+      return;
+    }
+    promptLogContent.innerHTML = formatPromptSnapshot(text);
+    promptLogContent.scrollTop = 0;
+  } catch (err) {
+    const is404 = String(err.message || "").includes("404") || String(err.message || "").includes("not found");
+    promptLogContent.innerHTML = is404
+      ? `<span style="color:#64748b;">Prompt snapshot not yet available — pipeline may not have reached the '${stage}' stage.</span>`
+      : `<span style="color:#f87171;">✗ Failed to load: ${escapeHtml(err.message)}</span>`;
+  }
+}
+
+// --- Tab switching ---
+function switchPromptLogTab(tab) {
+  _logActiveTab = tab;
+  document.querySelectorAll(".prompt-log-tab").forEach(btn => {
+    btn.classList.toggle("active", btn.dataset.tab === tab);
+  });
+  clearInterval(_logAutoRefreshTimer);
+
+  const labelMap = { log: "terminal", analysis: "analysis-prompt", testcases: "testcases-prompt" };
+  if (promptLogTerminalLabel) promptLogTerminalLabel.textContent = labelMap[tab] || "terminal";
+
+  if (tab === "log") {
+    if (promptLogAutoRefreshNote) promptLogAutoRefreshNote.style.display = "";
+    fetchAndRenderLog(_logCurrentPromptId);
+    _logAutoRefreshTimer = setInterval(() => {
+      if (_logCurrentPromptId && _logActiveTab === "log") fetchAndRenderLog(_logCurrentPromptId);
+    }, 1500);
+  } else {
+    if (promptLogAutoRefreshNote) promptLogAutoRefreshNote.style.display = "none";
+    fetchAndRenderPromptSnapshot(_logCurrentPromptId, tab);
+  }
+}
+
+// --- Open modal ---
+async function openPromptLogModal(promptId, defaultTab = "log") {
   _logCurrentPromptId = promptId;
+  _logActiveTab = defaultTab;
   promptLogModalSub.textContent = promptId || "—";
   promptLogContent.innerHTML = '<span style="color:#94a3b8;">Loading...</span>';
   promptLogModal.show();
-
-  await fetchAndRenderLog(promptId);
-
-  // Start auto-refresh every 3s
-  clearInterval(_logAutoRefreshTimer);
-  _logAutoRefreshTimer = setInterval(() => {
-    if (_logCurrentPromptId) fetchAndRenderLog(_logCurrentPromptId);
-  }, 1500);
+  switchPromptLogTab(defaultTab);
 }
+
+// Tab bar click handler
+document.getElementById("promptLogTabs")?.addEventListener("click", (e) => {
+  const btn = e.target.closest(".prompt-log-tab");
+  if (!btn || !_logCurrentPromptId) return;
+  switchPromptLogTab(btn.dataset.tab);
+});
 
 // Stop auto-refresh when modal closes
 document.getElementById("promptLogModal").addEventListener("hidden.bs.modal", () => {
   clearInterval(_logAutoRefreshTimer);
   _logAutoRefreshTimer = null;
   _logCurrentPromptId = null;
+  _logActiveTab = "log";
 });
 
 // Manual refresh button
@@ -6066,9 +6303,10 @@ if (promptLogRefreshBtn) {
   promptLogRefreshBtn.addEventListener("click", () => {
     if (!_logCurrentPromptId) return;
     promptLogRefreshBtn.disabled = true;
-    fetchAndRenderLog(_logCurrentPromptId).finally(() => {
-      setTimeout(() => { promptLogRefreshBtn.disabled = false; }, 300);
-    });
+    const refreshFn = _logActiveTab === "log"
+      ? fetchAndRenderLog(_logCurrentPromptId)
+      : fetchAndRenderPromptSnapshot(_logCurrentPromptId, _logActiveTab);
+    refreshFn.finally(() => { setTimeout(() => { promptLogRefreshBtn.disabled = false; }, 300); });
   });
 }
 
@@ -6083,6 +6321,30 @@ function formatLogAsTerminal(raw) {
     if (/\[STEP\]/.test(line))    return `<span style="color:#a78bfa;">${escaped}</span>`;
     if (/\[INFO\]/.test(line))    return `<span style="color:#cbd5e1;">${escaped}</span>`;
     return `<span style="color:#94a3b8;">${escaped}</span>`;
+  }).join("\n");
+}
+
+function formatPromptSnapshot(raw) {
+  const lines = String(raw).split("\n");
+  return lines.map(line => {
+    const escaped = escapeHtml(line);
+    if (/^━+$/.test(line))
+      return `<span style="color:#1e3a5f;">${escaped}</span>`;
+    if (/^SEGMENT:/.test(line))
+      return `<span style="color:#38bdf8;font-weight:600;">${escaped}</span>`;
+    if (/^PROMPT STATS$/.test(line))
+      return `<span style="color:#a78bfa;font-weight:600;">${escaped}</span>`;
+    if (/^(Total chars|Segments|Documents|Generated at):/.test(line))
+      return `<span style="color:#94a3b8;">${escaped}</span>`;
+    if (/^\[/.test(line))
+      return `<span style="color:#fbbf24;">${escaped}</span>`;
+    if (/^#{1,4}\s/.test(line))
+      return `<span style="color:#4ade80;">${escaped}</span>`;
+    if (/^>/.test(line))
+      return `<span style="color:#64748b;font-style:italic;">${escaped}</span>`;
+    if (/^---/.test(line))
+      return `<span style="color:#334155;">${escaped}</span>`;
+    return `<span style="color:#e2e8f0;">${escaped}</span>`;
   }).join("\n");
 }
 

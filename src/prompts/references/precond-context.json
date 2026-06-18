@@ -1,0 +1,80 @@
+{
+    "defaults": {
+        "server": "staging",
+        "currency": "IDR",
+        "language": "English"
+    },
+    "accounts": {
+        "_default": {
+            "desc": "Default staging test account — fallback for all products",
+            "username": "test@gmail.com",
+            "password": "Tvlk@123"
+        },
+        "platform_content_martech": {
+            "cri": {
+                "desc": "CRI - Customer Reward and Incentive",
+                "username": "",
+                "password": ""
+            },
+            "gvo": {
+                "desc": "GVO - Gift Voucher",
+                "username": "",
+                "password": ""
+            },
+            "cobrand": {
+                "desc": "Cobrand",
+                "username": "",
+                "password": ""
+            },
+            "pts": {
+                "desc": "Points — requires active points balance",
+                "username": "",
+                "password": ""
+            }
+        },
+        "accommodations": {
+            "acd": {
+                "desc": "Accommodations",
+                "username": "",
+                "password": ""
+            }
+        },
+        "platform_core": {
+            "msg": {
+                "desc": "Messaging",
+                "username": "",
+                "password": ""
+            },
+            "usr": {
+                "desc": "User",
+                "username": "",
+                "password": ""
+            },
+            "fsp": {
+                "desc": "Central Fraud Platform (CFP)",
+                "username": "",
+                "password": ""
+            }
+        }
+    },
+    "locales": [
+        {
+            "currency": "IDR",
+            "language": "English",
+            "country": "ID",
+            "notes": "Default locale"
+        },
+        {
+            "currency": "JPY",
+            "language": "Japanese",
+            "country": "JP",
+            "notes": "Required for Ponta Points test cases"
+        },
+        {
+            "currency": "THB",
+            "language": "Thai",
+            "country": "TH",
+            "notes": "Thailand locale"
+        }
+    ]
+}

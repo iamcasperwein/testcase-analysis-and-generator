@@ -33,7 +33,7 @@
   <!-- Header -->
   <header class="app-header">
     <div>
-      <h1>AI-Driven QA Analysis Tools</h1>
+      <h1>AI-Driven QE Tools</h1>
       <div class="app-subtitle">
         Centralized workspace for QA testing analysis and test case management, powered by AI insights.
       </div>
@@ -305,6 +305,26 @@
                 <input type="hidden" id="platformValueInput" name="platforms" value="" />
               </div>
 
+              <!-- Row 3: Product / Domain (multi-select, optional) -->
+              <div class="col-12">
+                <label class="form-label">
+                  Product / Domain
+                  <span class="text-muted" style="font-size:0.78rem;font-weight:400;"></span>
+                </label>
+                <div class="prompt-select-wrap platform-multiselect-wrap" id="productSelectWrap">
+                  <div class="prompt-select-trigger" id="productTrigger" tabindex="0">
+                    <span class="prompt-select-trigger-text is-placeholder" id="productTriggerText">Select products...</span>
+                    <i class="bi bi-chevron-down" style="font-size:0.75rem;flex-shrink:0;"></i>
+                  </div>
+                  <div class="prompt-select-dropdown" id="productDropdownPanel">
+                    <input type="text" class="prompt-select-search" id="productSearch" placeholder="Search product..." autocomplete="off" />
+                    <div class="prompt-select-options" id="productOptionsPanel"></div>
+                  </div>
+                </div>
+                <div class="platform-chips-selected" id="productChipsSelected"></div>
+                <input type="hidden" id="productValueInput" name="products" value="[]" />
+              </div>
+
               <!-- Auto-Generate Toggle -->
               <div class="col-12">
                 <div class="bloom-toggle-card">
@@ -398,6 +418,14 @@
                 disabled
               >
                 <i class="bi bi-download me-1"></i>Download
+              </button>
+              <button
+                class="btn btn-sm btn-outline-secondary"
+                id="viewAnalysisPromptBtn"
+                disabled
+                title="Inspect the AI prompt used to generate this analysis"
+              >
+                <i class="bi bi-braces me-1"></i>View Prompt
               </button>
               <button
                 class="btn btn-sm btn-outline-primary"
@@ -547,7 +575,17 @@
             </div>
             <input type="hidden" id="scopePromptIdInput" />
           </div>
-          <div id="scopeStatus" class="small text-muted mt-2 mt-md-0"></div>
+          <div class="d-flex align-items-center gap-2">
+            <button
+              class="btn btn-sm btn-outline-secondary"
+              id="viewScopePromptBtn"
+              disabled
+              title="Inspect the AI prompt used to generate these test cases"
+            >
+              <i class="bi bi-braces me-1"></i>View Prompt
+            </button>
+            <div id="scopeStatus" class="small text-muted mt-0"></div>
+          </div>
         </div>
 
         <div class="test-scope-layout">
@@ -1297,11 +1335,25 @@
               <i class="bi bi-terminal-fill"></i>
             </div>
             <div>
-              <div class="tc-bloom-modal-title" id="promptLogModalLabel">Processing Log</div>
+              <div class="tc-bloom-modal-title" id="promptLogModalLabel">Prompt Inspector</div>
               <div class="tc-bloom-modal-sub" id="promptLogModalSub">—</div>
             </div>
           </div>
           <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <!-- Tab bar -->
+        <div style="background:#1e293b;padding:0 1.2rem;border-bottom:1px solid #334155;">
+          <div id="promptLogTabs" style="display:flex;gap:0;">
+            <button class="prompt-log-tab active" data-tab="log">
+              <i class="bi bi-terminal me-1"></i>Processing Log
+            </button>
+            <button class="prompt-log-tab" data-tab="analysis">
+              <i class="bi bi-file-text me-1"></i>Analysis Prompt
+            </button>
+            <button class="prompt-log-tab" data-tab="testcases">
+              <i class="bi bi-list-check me-1"></i>Test Cases Prompt
+            </button>
+          </div>
         </div>
         <div class="modal-body tc-bloom-body" style="padding:1rem 1.2rem;">
           <div style="border-radius:0.6rem;overflow:hidden;border:1px solid #334155;">
@@ -1309,7 +1361,7 @@
               <span style="width:10px;height:10px;border-radius:50%;background:#f87171;"></span>
               <span style="width:10px;height:10px;border-radius:50%;background:#fbbf24;"></span>
               <span style="width:10px;height:10px;border-radius:50%;background:#4ade80;"></span>
-              <span style="margin-left:auto;font-size:0.68rem;color:#64748b;font-family:monospace;">terminal</span>
+              <span id="promptLogTerminalLabel" style="margin-left:auto;font-size:0.68rem;color:#64748b;font-family:monospace;">terminal</span>
             </div>
             <pre id="promptLogContent" style="margin:0;padding:1rem 1.2rem;font-size:0.76rem;line-height:1.75;color:#e2e8f0;background:#0f172a;white-space:pre-wrap;word-break:break-word;max-height:65vh;overflow-y:auto;font-family:'JetBrains Mono','Fira Code','Cascadia Code',monospace;border:none;">Loading...</pre>
           </div>
@@ -1319,7 +1371,7 @@
             <button type="button" class="btn btn-sm btn-outline-primary" id="promptLogRefreshBtn">
               <i class="bi bi-arrow-clockwise me-1"></i>Refresh
             </button>
-            <span style="font-size:0.7rem;color:#94a3b8;">Auto-refreshes every 1s</span>
+            <span id="promptLogAutoRefreshNote" style="font-size:0.7rem;color:#94a3b8;">Auto-refreshes every 1.5s</span>
           </div>
           <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Close</button>
         </div>

@@ -43,11 +43,13 @@ The **QE Test Case Generator** is a Node.js / Express backend that ingests produ
 
 - **Submit & Analyze** — Upload PRD/RFC/Figma documents (file upload or Doc Link) and receive an asynchronous job ID.
 - **Two-Stage AI Pipeline** — Step 1 produces an analysis; Step 2 produces test cases grounded on that analysis. Both stages use a dedicated system prompt with expert QA persona and provider-specific configuration (temperature, model routing). A **review checkpoint** between stages (default behavior) allows users to verify the analysis before committing to test case generation. Toggle `autoGenerateTestCases` to skip the review and run both stages back-to-back.
+- **Page & Navigation Reference Injection** — When a submission includes one or more **Product / Domain** selections, `PageMappingService` reads `src/prompts/references/pagesmapping.json` and builds a Markdown reference block filtered by the selected products and user's target platforms. This block is injected into the test case generation prompt, giving the AI concrete deeplinks (Android/iOS) and URL paths (mobile-web/desktop-web) for each known screen. The AI is instructed to use only these values when writing entry-point steps and navigation-state preconditions — no invented deeplinks. Multiple products are each rendered as a sub-section separated by a divider. Pages with no matching platform entries (after filtering) are silently skipped.
+- **Test Execution Context Injection** — On every submission, `TestContextService` reads `src/prompts/references/precond-context.json` and builds a Markdown reference block covering: **(1) Server environment** — default `staging`, override to `production` only when explicitly required; **(2) Locale** — default `IDR / English`, with known alternative locales (JPY/Japanese for Ponta, THB/Thai for Thailand); **(3) Test accounts** — product-specific staging accounts filtered to selected products, with a `_default` fallback. The AI is instructed that these three preconditions are **mandatory on every test case** in the order: Server → Locale → Account → Navigation state. Credentials are placeholder (`REPLACE_ME`) until filled in by the team. Update `src/prompts/references/precond-context.json` to add real staging credentials.
 - **Editable Analysis** — During the REVIEW phase, users can edit the analysis markdown directly via a split-view editor (raw markdown + live preview) with line numbers. Toolbar includes: formatting buttons (Bold, Italic, Heading, Ordered/Unordered List, Link, Code Block), fullscreen toggle, prettify, Find & Replace, section navigation dropdown, insert template snippets (table, matrix, risk, checklist), and a status bar (line/col, word count, char count). Keyboard shortcuts: `Ctrl/⌘+S` (save), `Ctrl/⌘+B` (bold), `Ctrl/⌘+I` (italic), `Ctrl/⌘+F` (find), `F11` (fullscreen), `Tab` (indent), `Escape` (cancel), native undo/redo. Save shows a diff review modal before confirming. Changes are saved via `PUT /testcase/updateAnalysis/:promptId`.
 - **URL-based Navigation** — Page state is persisted in URL query params (`?page=analysis&promptId=X`). Supports browser back/forward, page refresh restores context, and direct links to specific prompts. Legacy hash URLs (`#test-analysis`) are supported as fallback. Edit mode can be deep-linked via `&edit=true`. Settings sub-tabs are tracked via `&subpage=environment|model-catalog|testrail-sync|lark-integration`.
 - **Context-Aware Generation** — Token estimation and context limit validation prevent silent failures on large documents. Few-shot examples and self-evaluation checklists improve output quality on mid-tier models.
 - **CRUD on Test Cases** — Edit, move between sections, and delete generated test cases.
-- **Dashboard Analytics** — Aggregate counts, turnaround time, and failure notes.
+- **Prompt Inspector** — A 3-tab modal ("Processing Log", "Analysis Prompt", "Test Cases Prompt") is accessible from the Test Analysis page ("View Prompt" button) and Test Cases page ("View Prompt" button), as well as from each row in the Dashboard. The prompt snapshots are **structured segmented logs** — document content is excluded (only metadata: name, type, char count, format is shown), while context blocks (Test Execution Context, Page & Navigation Reference, Rules) are included in full for debugging. This keeps snapshot files compact (~1–3 KB vs 20–200 KB for the full prompt). Served by `GET /dashboard/prompt/:promptId/:stage` (stage: `analysis` | `testcases`).
 - **Runtime Settings** — Manage application secrets (API keys, ports) via a REST surface backed by `.env`.
 - **TestRail Integration** — Fetch test suites and sections from TestRail, select a target suite, auto-create missing sections, and post selected test cases to the correct suite. Multi-suite support allows routing test cases to different suites (e.g. App, Web, Mobile Web, Backend) based on their assigned sections. When posting AI/user-created sections, the root section in TestRail is named **`AIGen - {projectName}`** (e.g. `AIGen - User Authentication`), derived from the prompt's `projectName` in `promptdata.json`. This isolates sections per feature/project, preventing cross-project pollution. Falls back to `"AI generated"` if no project name is available. Local `sec_xxx` section IDs are resolved via name-based lookup against TestRail (not passed directly to the API), ensuring only numeric TestRail IDs are used in API calls. The API response now returns context-aware messages reflecting actual posting results (success, partial, all-failed, all-skipped) with HTTP 207 for complete failures.
 - **Platform-Aware TestRail Sync** — Platform groups (`app`, `mobile-web`, `desktop-web`, `backend`) can each be mapped to a dedicated TestRail suite via a persistent sync config (`data/testrail-sync-config.json`). When posting, the active platform filter determines which suite receives the test cases. Supports both single-platform and **all-platform posting**: when "All Platforms" is active, the system validates that every platform group available in the prompt has a sync config mapping, then iterates over each group and posts to its respective suite independently. Test cases already posted to a specific platform suite are skipped for that platform but still posted to other platforms where they haven't been posted yet (per-platform skip logic). The confirmation dialog shows a per-platform breakdown with target suite names and eligible/skipped counts. If any platform group is missing a sync config mapping, posting is aborted for all platforms with an error listing the missing mappings. The `testrailPost` field on each test case is stored per-platform-group (e.g. `testrailPost.app`, `testrailPost["desktop-web"]`), with legacy single-object format supported via fallback. The Settings page includes a "TestRail Sync" sub-tab for managing platform-to-suite mappings (add, edit, remove). The Move Section dialog auto-loads sections from the mapped suite when a platform filter is active.
@@ -820,7 +822,7 @@ sequenceDiagram
 
 ---
 
-### 7. `GET /dashboard/prompts` — Lightweight Prompt List
+ ### 7. `GET /dashboard/prompts` — Lightweight Prompt List
 
 ```mermaid
 sequenceDiagram
@@ -841,6 +843,31 @@ sequenceDiagram
     Svc-->>Ctrl: list
     Ctrl-->>Client: 200 { success, data: list }
 ```
+
+---
+
+### 7b. `GET /dashboard/products` — Product / Domain List
+
+Returns the list of available products from `src/prompts/references/productlist.json`. Used by the submission form to populate the **Product / Domain** multi-select field.
+
+```
+GET /dashboard/products
+→ 200 { success: true, data: [{ domain, domainLabel, product, label }] }
+```
+
+**Response example:**
+```json
+{
+  "success": true,
+  "data": [
+    { "domain": "pts", "domainLabel": "PTS", "product": "points", "label": "Points" },
+    { "domain": "pts", "domainLabel": "PTS", "product": "cobrand", "label": "Cobrand" },
+    { "domain": "platform_content_martech", "domainLabel": "Platform Content Martech", "product": "cri", "label": "CRI - Customer Reward and Incentive" }
+  ]
+}
+```
+
+ **Adding products:** Edit `src/prompts/references/productlist.json`. Each entry must have `domain`, `domainLabel`, `product`, `label`. The `domain` and `product` keys must match entries in `src/prompts/references/pagesmapping.json` for navigation reference enrichment to work.
 
 ---
 

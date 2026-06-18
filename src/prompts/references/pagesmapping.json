@@ -1,0 +1,317 @@
+{
+    "accommodations": {},
+    "platform_content_martech": {
+        "cri": {
+            "desc": "Customer Reward and Incentive - CRI",
+            "pages": [
+                {
+                    "pageName": "My Coupons",
+                    "loginRequired": true,
+                    "notes": [
+                        "My Coupons Required Login",
+                        "When Non Login User access Deeplink My Coupons should be dislayed Empty State"
+                    ],
+                    "aliases": [],
+                    "mobile_app": {
+                        "type": "DEEPLINK",
+                        "value": "traveloka://points/loyaltyPoints/allCoupon",
+                        "platforms": [
+                            "android",
+                            "ios"
+                        ]
+                    },
+                    "web": {
+                        "type": "URL_PATH",
+                        "value": "",
+                        "platforms": [
+                            "mobile-web",
+                            "desktop-web"
+                        ]
+                    }
+                }
+            ]
+        },
+        "gvo": {
+            "desc": "Gift Voucher",
+            "pages": [
+                {
+                    "pageName": "Gift Voucher Home Page",
+                    "loginRequired": true,
+                    "notes": [
+                        "Gift Voucher Home Page Required Login",
+                        "When Non Login User Access Deeplink Gift Voucher Home Page there is Landing Page for user do Login first"
+                    ],
+                    "aliases": [],
+                    "mobile_app": {
+                        "type": "DEEPLINK",
+                        "value": "traveloka://giftvoucher",
+                        "platforms": [
+                            "android",
+                            "ios"
+                        ]
+                    },
+                    "web": {
+                        "type": "URL_PATH",
+                        "value": "",
+                        "platforms": []
+                    }
+                },
+                {
+                    "pageName": "Discount Package Home Page",
+                    "loginRequired": true,
+                    "notes": [
+                        "Discount Package Home Page Required Login",
+                        "When Non Login User Access Deeplink Discount Package Home Page there is Landing Page for user do Login first"
+                    ],
+                    "aliases": [],
+                    "mobile_app": {
+                        "type": "DEEPLINK",
+                        "value": "traveloka://giftvoucher",
+                        "platforms": [
+                            "android",
+                            "ios"
+                        ]
+                    },
+                    "web": {
+                        "type": "URL_PATH",
+                        "value": "",
+                        "platforms": []
+                    }
+                }
+            ]
+        },
+        "pts": {
+            "desc": "Points",
+            "pages": [
+                {
+                    "pageName": "Points Homepage",
+                    "loginRequired": true,
+                    "notes": [
+                        "Non Login Page will be displayed if user is not logged in",
+                        "Mismatched Country Page will be displayed if points currency is not match with user's selected currency"
+                    ],
+                    "aliases": [],
+                    "mobile_app": {
+                        "type": "DEEPLINK",
+                        "value": "traveloka://points/loyaltyPoints",
+                        "platforms": [
+                            "android",
+                            "ios"
+                        ]
+                    },
+                    "web": {
+                        "type": "URL_PATH",
+                        "value": "",
+                        "platforms": []
+                    }
+                },
+                {
+                    "pageName": "Points History Page",
+                    "loginRequired": true,
+                    "notes": [
+                        "Non Login Page will be displayed if user is not logged in",
+                        "Mismatched Country Page will be displayed if points currency is not match with user's selected currency"
+                    ],
+                    "aliases": [],
+                    "mobile_app": {
+                        "type": "DEEPLINK",
+                        "value": "traveloka://points/history",
+                        "platforms": [
+                            "android",
+                            "ios"
+                        ]
+                    },
+                    "web": {
+                        "type": "URL_PATH",
+                        "value": "",
+                        "platforms": []
+                    }
+                },
+                {
+                    "pageName": "Points Catalog Page",
+                    "loginRequired": true,
+                    "notes": [
+                        "Non Login Page will be displayed if user is not logged in",
+                        "${categoryId} can be check in PTSOD"
+                    ],
+                    "aliases": [],
+                    "mobile_app": {
+                        "type": "DEEPLINK",
+                        "value": "traveloka://points/loyaltyPoints/voucher/[categoryId]?selectAllPromo=true",
+                        "platforms": [
+                            "android",
+                            "ios"
+                        ]
+                    },
+                    "web": {
+                        "type": "URL_PATH",
+                        "value": "",
+                        "platforms": []
+                    }
+                },
+                {
+                    "pageName": "Ponta Points",
+                    "loginRequired": true,
+                    "notes": [
+                        "Ponta required login",
+                        "Non Login Page will be displayed if user is not logged in",
+                        "${voucherId} can be check in PTSOD"
+                    ],
+                    "aliases": [],
+                    "mobile_app": {
+                        "type": "DEEPLINK",
+                        "value": "traveloka://points/program/ponta",
+                        "platforms": [
+                            "android",
+                            "ios"
+                        ]
+                    },
+                    "web": {
+                        "type": "URL_PATH",
+                        "value": "",
+                        "platforms": []
+                    }
+                }
+            ]
+        },
+        "cobrand": {
+            "desc": "Cobrand",
+            "pages": [
+                {
+                    "pageName": "Cobrand Landing Page",
+                    "loginRequired": true,
+                    "notes": [
+                        "Will be redirected to MCP Page if user is not registered in Cobrand",
+                        "Cobrand Landing Page will be displayed if user is registered in Cobrand"
+                    ],
+                    "aliases": [],
+                    "mobile_app": {
+                        "type": "DEEPLINK",
+                        "value": "traveloka://cobrand/credit_card",
+                        "platforms": [
+                            "android",
+                            "ios"
+                        ]
+                    },
+                    "web": {
+                        "type": "URL_PATH",
+                        "value": "",
+                        "platforms": []
+                    }
+                }
+            ]
+        }
+    },
+    "platform_core": {
+        "usr": {
+            "desc": "User",
+            "pages": [
+                {
+                    "pageName": "Login Register Page",
+                    "aliases": [],
+                    "loginRequired": false,
+                    "notes": [],
+                    "mobile_app": {
+                        "type": "DEEPLINK",
+                        "value": "traveloka://login",
+                        "platforms": [
+                            "android",
+                            "ios"
+                        ]
+                    },
+                    "web": {
+                        "type": "URL_PATH",
+                        "value": "",
+                        "platforms": []
+                    }
+                },
+                {
+                    "pageName": "My Account Page",
+                    "aliases": [],
+                    "loginRequired": false,
+                    "notes": [],
+                    "mobile_app": {
+                        "type": "DEEPLINK",
+                        "value": "traveloka://user/myAccount",
+                        "platforms": [
+                            "android",
+                            "ios"
+                        ]
+                    },
+                    "web": {
+                        "type": "URL_PATH",
+                        "value": "",
+                        "platforms": []
+                    }
+                },
+                {
+                    "pageName": "Account Information Page",
+                    "aliases": [],
+                    "loginRequired": true,
+                    "notes": [],
+                    "mobile_app": {
+                        "type": "DEEPLINK",
+                        "value": "traveloka://user/editProfile",
+                        "platforms": [
+                            "android",
+                            "ios"
+                        ]
+                    },
+                    "web": {
+                        "type": "URL_PATH",
+                        "value": "",
+                        "platforms": []
+                    }
+                },
+                {
+                    "pageName": "Notification Setting Page",
+                    "aliases": [],
+                    "loginRequired": true,
+                    "notes": [],
+                    "mobile_app": {
+                        "type": "DEEPLINK",
+                        "value": "traveloka://user/setting/notifications",
+                        "platforms": [
+                            "android",
+                            "ios"
+                        ]
+                    },
+                    "web": {
+                        "type": "URL_PATH",
+                        "value": "",
+                        "platforms": []
+                    }
+                }
+            ]
+        }
+    },
+    "domain_template": {
+        "product_template": {
+            "desc": "",
+            "pages": [
+                {
+                    "pageName": "",
+                    "aliases": [],
+                    "loginRequired": true,
+                    "notes": [
+                        "",
+                        ""
+                    ],
+                    "mobile_app": {
+                        "type": "DEEPLINK",
+                        "value": "",
+                        "platforms": [
+                            "android",
+                            "ios"
+                        ]
+                    },
+                    "web": {
+                        "type": "URL_PATH",
+                        "value": "",
+                        "platforms": []
+                    }
+                }
+            ]
+        }
+    }
+}

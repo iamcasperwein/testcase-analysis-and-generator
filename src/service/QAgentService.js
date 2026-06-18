@@ -14,6 +14,8 @@ const LiteLLMService = require("./ai/LiteLLMService");
 const LarkService = require("./LarkService");
 const { getProvider: getLarkProvider } = require("./LarkProviderFactory");
 const FigmaService = require("./FigmaService");
+const PageMappingService = require("./PageMappingService");
+const TestContextService = require("./TestContextService");
 const ConfigLoader = require("../utils/ConfigLoader");
 const path = require("path");
 
@@ -282,6 +284,7 @@ const createInitialRecord = ({ promptId, payload, agent, model }) => ({
     createdAt: new Date().toISOString(),
     startAt: new Date().toISOString(),
     autoGenerateTestCases: payload.autoGenerateTestCases === true,
+    products: Array.isArray(payload.products) ? payload.products : [],
     endAt: null,
     testCaseCount: null,
     resultAnalysis: `analyze/${promptId}.md`,
@@ -457,6 +460,16 @@ const sanitizeSubmissionPayload = (payload = {}) => {
         projectName,
         feature: String(payload.feature || projectName).trim(),
         platforms: normalizePlatforms(payload.platforms),
+        products: (() => {
+            try {
+                const raw = payload.products;
+                if (!raw || raw === "[]") return [];
+                const parsed = typeof raw === "string" ? JSON.parse(raw) : raw;
+                return Array.isArray(parsed) ? parsed : [];
+            } catch (_) {
+                return [];
+            }
+        })(),
         documents,
         context: String(payload.context || "").trim(),
         autoGenerateTestCases: payload.autoGenerateTestCases === true,
@@ -613,14 +626,14 @@ const processSubmission = async (payload = {}, { isRetry = false } = {}) => {
 
         if (!analysisText.trim()) {
             logger.step("Step 1/3 - Building analysis prompt");
-            const analysisPrompt = await TestCaseService.getTestAnalysisPrompt({
+            const { prompt: analysisPrompt, log: analysisLog } = await TestCaseService.getTestAnalysisPrompt({
                 ...validatedPayload,
                 promptId,
                 feature: validatedPayload.feature,
                 additionalContext: validatedPayload.additionalContext || validatedPayload.context || "",
             });
             logger.success("Step 1/3 - Analysis prompt built", { chars: analysisPrompt.length });
-            writePromptSnapshot(promptId, "analysis", analysisPrompt);
+            writePromptSnapshot(promptId, "analysis", analysisLog);
             logger.info("Step 1/3 - Analysis prompt snapshot saved", { path: `runtime/prompts/${promptId}-analysis.txt` });
 
             logger.step("Step 1/3 - Sending analysis prompt", { agent });
@@ -629,6 +642,16 @@ const processSubmission = async (payload = {}, { isRetry = false } = {}) => {
 
             FileReader.writeDataFile(`analyze/${promptId}.md`, analysisText);
             logger.success("Step 1/3 - Analysis saved", { path: `analyze/${promptId}.md` });
+        } else {
+            // Reused existing analysis — still overwrite the snapshot so it reflects the current retry context
+            const { log: analysisLog } = await TestCaseService.getTestAnalysisPrompt({
+                ...validatedPayload,
+                promptId,
+                feature: validatedPayload.feature,
+                additionalContext: validatedPayload.additionalContext || validatedPayload.context || "",
+            });
+            writePromptSnapshot(promptId, "analysis", analysisLog);
+            logger.info("Step 1/3 - Analysis prompt snapshot updated (reused analysis)", { path: `runtime/prompts/${promptId}-analysis.txt` });
         }
 
         // --- Check if we should stop for review ---
@@ -643,15 +666,40 @@ const processSubmission = async (payload = {}, { isRetry = false } = {}) => {
         updatePromptRecord(promptId, { status: "GENERATING" });
         logger.info("Status updated", { status: "GENERATING" });
         logger.step("Step 2/3 - Building test case generation prompt");
-        const testCasePrompt = await TestCaseService.getTestCaseGenerationPrompt({
+
+        // Build page mapping context filtered by selected products + platforms
+        const pageMappingContext = PageMappingService.buildPromptContext(
+            validatedPayload.products || [],
+            validatedPayload.platforms || []
+        );
+        if (pageMappingContext) {
+            logger.info("Step 2/3 - Page mapping context injected", {
+                products: (validatedPayload.products || []).map(p => `${p.domain}:${p.product}`).join(", "),
+                platforms: (validatedPayload.platforms || []).join(", "),
+                chars: pageMappingContext.length,
+            });
+        }
+
+        // Build test execution context (server, locale, accounts) — always injected
+        const testContextContext = TestContextService.buildPromptContext(
+            validatedPayload.products || []
+        );
+        logger.info("Step 2/3 - Test execution context injected", {
+            products: (validatedPayload.products || []).map(p => `${p.domain}:${p.product}`).join(", ") || "none (default account)",
+            chars: testContextContext.length,
+        });
+
+        const { prompt: testCasePrompt, log: testCaseLog } = await TestCaseService.getTestCaseGenerationPrompt({
             ...validatedPayload,
             promptId,
             feature: validatedPayload.feature,
             additionalContext: validatedPayload.additionalContext || validatedPayload.context || "",
             analysisContext: analysisText,
+            pageMappingContext,
+            testContextContext,
         });
         logger.success("Step 2/3 - Test case prompt built", { chars: testCasePrompt.length });
-        writePromptSnapshot(promptId, "testcases", testCasePrompt);
+        writePromptSnapshot(promptId, "testcases", testCaseLog);
         logger.info("Step 2/3 - Test case prompt snapshot saved", { path: `runtime/prompts/${promptId}-testcases.txt` });
 
         logger.step("Step 2/3 - Sending test case prompt", { agent });

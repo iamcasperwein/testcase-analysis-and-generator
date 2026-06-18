@@ -100,8 +100,38 @@ const getPromptLog = async (req, res) => {
     }
 };
 
+const getProducts = async (req, res) => {
+    try {
+        const products = await DashboardService.getProducts();
+        res.status(200).json({ success: true, data: products });
+    } catch (error) {
+        res.status(500).json({ success: false, error: error.message });
+    }
+};
+
+const getPromptSnapshot = async (req, res) => {
+    const { promptId, stage } = req.params;
+    if (!promptId || !stage) {
+        return res.status(400).json({ success: false, error: "promptId and stage are required" });
+    }
+    try {
+        const content = await DashboardService.getPromptSnapshot(promptId, stage);
+        if (!content) {
+            return res.status(404).json({
+                success: false,
+                error: `Prompt snapshot not found for stage '${stage}'. The pipeline may not have reached this stage yet.`,
+            });
+        }
+        res.status(200).json({ success: true, data: { promptId, stage, snapshot: content } });
+    } catch (error) {
+        res.status(500).json({ success: false, error: error.message });
+    }
+};
+
 module.exports = {
     getDashboard,
     getPrompts,
     getPromptLog,
+    getProducts,
+    getPromptSnapshot,
 };

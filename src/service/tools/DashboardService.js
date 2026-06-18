@@ -1,3 +1,5 @@
+const fs = require("fs");
+const path = require("path");
 const FileReader = require("../../utils/FileReader");
 
 const getPromptData = async () => {
@@ -36,7 +38,30 @@ const getPromptList = async () => {
     });
 };
 
+const getProducts = async () => {
+    const raw = fs.readFileSync(
+        path.join(__dirname, "../../prompts/references/productlist.json"),
+        "utf8"
+    );
+    return JSON.parse(raw);
+};
+
+const getPromptSnapshot = async (promptId, stage) => {
+    const validStages = ["analysis", "testcases"];
+    if (!validStages.includes(stage)) {
+        throw new Error(`Invalid stage: '${stage}'. Valid values: ${validStages.join(", ")}`);
+    }
+    try {
+        return FileReader.readDataFile(`runtime/prompts/${promptId}-${stage}.txt`);
+    } catch (err) {
+        if (err.code === "ENOENT") return null;
+        throw err;
+    }
+};
+
 module.exports = {
     getPromptData,
     getPromptList,
+    getProducts,
+    getPromptSnapshot,
 };

@@ -1,0 +1,52 @@
+[
+    {
+        "domain": "platform_content_martech",
+        "domainLabel": "Platform Content Martech",
+        "products": [
+            {
+                "product": "cri",
+                "label": "CRI - Customer Reward and Incentive"
+            },
+            {
+                "product": "gvo",
+                "label": "GVO - Gift Voucher"
+            },
+            {
+                "product": "cobrand",
+                "label": "Cobrand"
+            },
+            {
+                "product": "pts",
+                "label": "Points"
+            }
+        ]
+    },
+    {
+        "domain": "accommodations",
+        "domainLabel": "Accommodations",
+        "products": [
+            {
+                "product": "acd",
+                "label": "Accommodations"
+            }
+        ]
+    },
+    {
+        "domain": "platform_core",
+        "domainLabel": "Platform Infrastructure",
+        "products": [
+            {
+                "product": "msg",
+                "label": "Messaging"
+            },
+            {
+                "product": "usr",
+                "label": "User"
+            },
+            {
+                "product": "fsp",
+                "label": "Central Fraud Platform (CFP)"
+            }
+        ]
+    }
+]

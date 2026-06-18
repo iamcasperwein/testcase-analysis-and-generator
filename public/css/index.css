@@ -1720,11 +1720,32 @@
       line-height: 1.2;
     }
 
-    .tc-bloom-modal-sub {
-      font-size: 0.76rem;
-      color: #6b8bbf;
-      margin-top: 1px;
-    }
+     .tc-bloom-modal-sub {
+       font-size: 0.76rem;
+       color: #6b8bbf;
+       margin-top: 1px;
+     }
+
+     /* Prompt Inspector tab bar */
+     .prompt-log-tab {
+       background: transparent;
+       border: none;
+       border-bottom: 2px solid transparent;
+       color: #64748b;
+       font-size: 0.75rem;
+       font-family: 'JetBrains Mono','Fira Code','Cascadia Code',monospace;
+       padding: 0.55rem 0.9rem;
+       cursor: pointer;
+       white-space: nowrap;
+       transition: color 0.15s, border-color 0.15s;
+     }
+     .prompt-log-tab:hover {
+       color: #94a3b8;
+     }
+     .prompt-log-tab.active {
+       color: #e2e8f0;
+       border-bottom-color: #6366f1;
+     }
 
     .tc-bloom-body {
       padding: 1.35rem 1.4rem;
@@ -2365,12 +2386,30 @@
       color: #6b82a8;
     }
 
-    .prompt-select-no-results {
-      padding: 0.6rem 0.65rem;
-      font-size: 0.82rem;
-      color: #8a9fc2;
-      text-align: center;
-    }
+     .prompt-select-no-results {
+       padding: 0.6rem 0.65rem;
+       font-size: 0.82rem;
+       color: #8a9fc2;
+       text-align: center;
+     }
+
+     .prompt-select-group-header {
+       padding: 8px 12px 3px;
+       font-size: 0.68rem;
+       font-weight: 700;
+       text-transform: uppercase;
+       letter-spacing: 0.06em;
+       color: #8a9fc2;
+       pointer-events: none;
+       user-select: none;
+       border-top: 1px solid rgba(255,255,255,0.06);
+       margin-top: 2px;
+     }
+
+     .prompt-select-group-header:first-child {
+       border-top: none;
+       margin-top: 0;
+     }
 
     /* ---- DASHBOARD ---- */
     .dash-header-bar {
