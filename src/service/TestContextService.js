@@ -11,10 +11,15 @@ const getContext = () => {
     return _context;
 };
 
+const isFilled = (val) => {
+    const s = String(val || "").trim();
+    return s.length > 0 && s !== "REPLACE_ME";
+};
+
 /**
  * Resolve the product-specific accounts for the selected products.
- * Returns an array of { label, desc, username, password } in display order.
- * The _default account is always appended last as the fallback.
+ * Accounts with empty or REPLACE_ME credentials are skipped — the _default
+ * account acts as the fallback and is always appended last.
  *
  * @param {Array<{ domain: string, product: string, label: string }>} products
  * @returns {{ label: string, desc: string, username: string, password: string }[]}
@@ -31,6 +36,8 @@ const resolveAccounts = (products = []) => {
         if (!domainAccounts || typeof domainAccounts !== "object") continue;
         const acc = domainAccounts[product];
         if (!acc) continue;
+        // Skip accounts with missing or placeholder credentials
+        if (!isFilled(acc.username) || !isFilled(acc.password)) continue;
         const key = `${domain}:${product}`;
         if (seen.has(key)) continue;
         seen.add(key);
@@ -42,9 +49,9 @@ const resolveAccounts = (products = []) => {
         });
     }
 
-    // Always append _default as fallback
+    // Always append _default as fallback — only if credentials are filled
     const def = accounts._default;
-    if (def) {
+    if (def && isFilled(def.username) && isFilled(def.password)) {
         result.push({
             label: "Default account (all other products)",
             desc: def.desc || "",
