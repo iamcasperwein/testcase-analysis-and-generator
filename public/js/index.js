@@ -2567,6 +2567,9 @@ function createActionButtons(tc) {
     <button class="btn btn-sm btn-outline-secondary icon-action-btn" title="See detail" aria-label="See detail">
       <i class="bi bi-eye"></i>
     </button>
+    <button class="btn btn-sm btn-outline-secondary icon-action-btn" title="Duplicate" aria-label="Duplicate">
+      <i class="bi bi-copy"></i>
+    </button>
     <button class="btn btn-sm btn-outline-primary icon-action-btn${isPostedToTestrail ? " is-disabled is-locked" : ""}" title="${isPostedToTestrail ? "Edit disabled for TestRail-posted cases" : "Edit"}" aria-label="${isPostedToTestrail ? "Edit disabled for TestRail-posted cases" : "Edit"}" aria-disabled="${isPostedToTestrail ? "true" : "false"}">
       <i class="bi bi-pencil-square"></i>
     </button>
@@ -2575,8 +2578,9 @@ function createActionButtons(tc) {
     </button>
   `;
 
-  const [btnView, btnEdit, btnDelete] = tdActions.querySelectorAll("button");
+  const [btnView, btnDuplicate, btnEdit, btnDelete] = tdActions.querySelectorAll("button");
   btnView.addEventListener("click", () => openViewModal(tc));
+  btnDuplicate.addEventListener("click", () => openDuplicateTestCaseModal(tc));
   if (isPostedToTestrail) {
     attachLockedEditPopover(btnEdit, tc);
   } else {
@@ -3814,6 +3818,44 @@ function openAddTestCaseModal(section) {
 
   // Default all platforms selected for new test cases
   renderEditModalPlatformChips(EDIT_PLATFORM_OPTIONS.map(o => o.value));
+
+  editTestCaseModal.show();
+}
+
+function openDuplicateTestCaseModal(tc) {
+  isAddMode = true;
+  addTargetSection = null; // section will come from the source TC
+
+  // Update modal chrome to reflect duplicate mode
+  const modalTitle = document.getElementById("editTestCaseModalLabel");
+  const modalSub = document.querySelector(".tc-bloom-modal-sub");
+  const saveBtn = document.querySelector("#editTestCaseForm .tc-save-btn");
+  const iconWrap = document.querySelector(".tc-bloom-icon-edit");
+
+  modalTitle.textContent = "Duplicate Test Case";
+  if (modalSub) modalSub.textContent = `Duplicating: ${tc.title || ""}`;
+  if (saveBtn) saveBtn.innerHTML = '<i class="bi bi-plus-circle me-1"></i>Add Test Case';
+  if (iconWrap) iconWrap.innerHTML = '<i class="bi bi-copy"></i>';
+
+  // Set section picker to source TC's section
+  const sectionOptions = getSectionOptions();
+  editSectionPicker.setOptions(sectionOptions);
+  editSectionPicker.setValue(String(tc.section || "").trim(), {
+    sectionId: tc.sectionId,
+    suiteId: tc.suiteId,
+    source: tc.sectionSource,
+  });
+
+  // Pre-fill all fields from the source TC
+  document.getElementById("editTcId").value = "";
+  document.getElementById("editTcPromptId").value = currentScopePromptId || "";
+  document.getElementById("editTcTitle").value = `Copy of ${tc.title || ""}`;
+  document.getElementById("editTcPreconditions").value = tc.preconditions || "";
+  renderStepEditorRows(Array.isArray(tc.steps) && tc.steps.length ? tc.steps : [{ content: "", expected: "" }]);
+  document.getElementById("editTcExpected").value = tc.expected || "";
+
+  // Pre-select platforms from source TC
+  renderEditModalPlatformChips(Array.isArray(tc.platforms) ? tc.platforms : []);
 
   editTestCaseModal.show();
 }
