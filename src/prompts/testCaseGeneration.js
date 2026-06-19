@@ -243,13 +243,6 @@ const buildTestCaseGenerationPrompt = (input = {}) => {
         );
     }
 
-    if (pageMappingContext) {
-        lines.push(
-            "",
-            pageMappingContext
-        );
-    }
-
     lines.push(
         "",
         "Output JSON schema:",
