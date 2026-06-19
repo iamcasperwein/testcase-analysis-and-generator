@@ -60,14 +60,18 @@ const resolvePromptInput = async (input = {}) => {
 
 const getTestCaseGenerationPrompt = async (input = {}) => {
     const promptInput = await resolvePromptInput(input);
+    // Returns { prompt, log } — prompt goes to AI, log goes to disk
     return buildTestCaseGenerationPrompt({
         ...promptInput,
         analysisContext: String(input.analysisContext || "").trim(),
+        pageMappingContext: String(input.pageMappingContext || "").trim(),
+        testContextContext: String(input.testContextContext || "").trim(),
     });
 };
 
 const getTestAnalysisPrompt = async (input = {}) => {
     const promptInput = await resolvePromptInput(input);
+    // Returns { prompt, log } — prompt goes to AI, log goes to disk
     return buildTestAnalysisPrompt({
         ...promptInput,
     });

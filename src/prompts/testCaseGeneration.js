@@ -1,5 +1,23 @@
 const { DOC_TYPES, DOC_TYPE_MAP, resolveDocType } = require("../constants/docTypes");
 
+// --- Structured log helpers ---
+const LOG_DIVIDER = "━".repeat(50);
+const logSegment = (name, content) =>
+    `${LOG_DIVIDER}\nSEGMENT: ${name}\n${LOG_DIVIDER}\n${String(content || "").trim()}`;
+
+const buildDocumentInventoryLog = (documents = []) => {
+    if (!documents.length) return "  No documents provided.";
+    return documents.map((doc, i) => {
+        const dtDef = DOC_TYPE_MAP[doc.docType] || { label: doc.docType };
+        const label = dtDef.label || doc.docType;
+        const name = String(doc.name || "Unnamed").trim();
+        const chars = String(doc.content || "").trim().length;
+        const status = chars === 0 ? "not extracted" : chars < 120 ? `partial (${chars} chars)` : `extracted (${chars} chars)`;
+        const format = String(doc.format || "file").trim();
+        return `  [${i + 1}] ${label} — "${name}" (${status}) — format: ${format}`;
+    }).join("\n") + "\n  (full document content excluded from log)";
+};
+
 const SYSTEM_PROMPT = `You are a Senior QE Engineer with 10+ years of experience in test planning, test case design, and quality assessment. You specialize in deriving comprehensive, actionable test cases from product specifications.
 
 Your core principles:
@@ -173,6 +191,8 @@ const buildDocumentGuidance = () => [
 const buildTestCaseGenerationPrompt = (input = {}) => {
     const { feature, platforms, additionalContext, documents } = normalizePromptInput(input);
     const analysisContext = String(input.analysisContext || "").trim();
+    const pageMappingContext = String(input.pageMappingContext || "").trim();
+    const testContextContext = String(input.testContextContext || "").trim();
     const attachedLabels = getAttachedDocumentLabels(documents);
     const documentInventory = buildDocumentInventory(documents);
     const platformList = platforms.join(", ");
@@ -209,6 +229,20 @@ const buildTestCaseGenerationPrompt = (input = {}) => {
         );
     }
 
+    if (testContextContext) {
+        lines.push(
+            "",
+            testContextContext
+        );
+    }
+
+    if (pageMappingContext) {
+        lines.push(
+            "",
+            pageMappingContext
+        );
+    }
+
     lines.push(
         "",
         "Output JSON schema:",
@@ -228,6 +262,36 @@ const buildTestCaseGenerationPrompt = (input = {}) => {
         "- Steps must be sequential and each represent exactly one user action or system interaction.",
         "- Prefer stable section names that group related scenarios.",
         "- Do NOT include a sectionId field in the output. The system will assign unique section identifiers automatically.",
+        "",
+        "Precondition Context Rules (MANDATORY — applies to every test case):",
+        "",
+        "Every test case MUST include these preconditions in this exact order:",
+        "1. Server:  \"Server: staging\"",
+        "   → Override to \"Server: production\" ONLY if this specific test case explicitly requires it.",
+        "2. Locale:  \"Locale: IDR / English\"",
+        "   → Override ONLY if this specific test case targets a non-default locale (see Test Execution Context above).",
+        "3. Account: \"Account: <username> | Password: <password>\"",
+        "   → Include ONLY when the test case requires login. Use the product-specific account if available, otherwise use the default account.",
+        "   → OMIT entirely for test cases testing non-authenticated or guest states.",
+        "4. Navigation starting state — annotated with deeplink/url as per Navigation Annotation Rules below.",
+        ...(pageMappingContext ? [
+            "",
+            "Navigation Annotation Rules (applies only when Page & Navigation Reference is provided above):",
+            "",
+            "Preconditions:",
+            "- For preconditions describing a starting screen state — phrases like \"User is on X page\", \"App is at X screen\", \"User navigates to X\" — append the matching entry from the Page & Navigation Reference in parentheses:",
+            "    • Mobile app:  \"(deeplink: <value>)\"",
+            "    • Web:         \"(url: <value>)\"",
+            "  Example: \"User is on the My Account page (deeplink: traveloka://user/myAccount)\"",
+            "- If the matched page has loginRequired: Yes and \"User is logged in\" is not already in the preconditions list, add it as a separate precondition item.",
+            "- Non-navigation preconditions (login state, data setup, feature flags, server state) — plain strings, no annotation needed.",
+            "",
+            "Steps:",
+            "- For any step with navigation intent — phrases like \"Go to\", \"Navigate to\", \"Open\", \"Launch\", \"Access\", \"Tap on [page name]\" — append the matching entry from the Page & Navigation Reference in parentheses using the same format.",
+            "  Example step content: \"Go to My Account page (deeplink: traveloka://user/myAccount)\"",
+            "- Only annotate steps where the destination matches a known page in the Page & Navigation Reference. Do NOT annotate steps that navigate to sub-screens or flows not listed there.",
+            "- Do NOT invent deeplink values or URL paths. Only use values explicitly listed in the Page & Navigation Reference section.",
+        ] : []),
         "",
         "Platform Tagging Rules:",
         `- The target platforms for this feature are: ${platformList}.`,
@@ -263,8 +327,10 @@ const buildTestCaseGenerationPrompt = (input = {}) => {
             "type": "negative",
             "priority": "high",
             "preconditions": [
-                "User is on the login page",
-                "User has not authenticated"
+                "Server: staging",
+                "Locale: IDR / English",
+                "Account: test.user@traveloka.com | Password: TestPass123!",
+                "User is on the Login / Registration page (deeplink: traveloka://login)"
             ],
             "steps": [
                 {
@@ -311,7 +377,56 @@ const buildTestCaseGenerationPrompt = (input = {}) => {
         "If any check fails, revise the affected test cases before responding."
     );
 
-    return lines.join("\n");
+    const prompt = lines.join("\n");
+
+    // --- Build structured log (document content excluded) ---
+    const rulesLines = lines.slice(lines.lastIndexOf("") + 1);
+    const logSegments = [
+        logSegment("System Prompt", SYSTEM_PROMPT),
+        logSegment("Product Context", [
+            `Feature:            ${feature}`,
+            `Target Platforms:   ${platformList}`,
+            `Additional Context: ${additionalContext || "N/A"}`,
+            `Attached Documents: ${attachedLabels.join(", ") || "None"}`,
+        ].join("\n")),
+        logSegment("Document Inventory", buildDocumentInventoryLog(documents)),
+        logSegment("Testing Analysis",
+            analysisContext
+                ? `[included — ${analysisContext.length} chars]\n(content excluded — see data/analyze/{promptId}.md)`
+                : "[not included — no analysis context]"
+        ),
+        logSegment("Test Execution Context",
+            testContextContext || "[not included]"
+        ),
+        logSegment("Page & Navigation Reference",
+            pageMappingContext || "[not included — no products selected]"
+        ),
+        logSegment("Rules & Instructions", [
+            "--- Output JSON Schema ---",
+            TEST_CASE_OUTPUT_SCHEMA,
+            "",
+            "--- Rules ---",
+            "- Return valid JSON only.",
+            `- Precondition Context Rules (Server, Locale, Account order enforced)`,
+            pageMappingContext ? "- Navigation Annotation Rules (active — page registry injected)" : "- Navigation Annotation Rules (inactive — no page registry)",
+            `- Platform Tagging Rules: target = [${platformList}]`,
+            "- Title Convention: Object + Expectation + Condition",
+            "- Well-written example: included",
+            "- Self-evaluation checklist: included",
+        ].join("\n")),
+        logSegment("Full Prompt (sent to AI)", prompt),
+    ];
+
+    const log = [
+        ...logSegments,
+        `${LOG_DIVIDER}\nPROMPT STATS\n${LOG_DIVIDER}`,
+        `Total chars (sent to AI): ${prompt.length}`,
+        `Segments: ${logSegments.length}`,
+        `Documents: ${documents.length} (content excluded from log)`,
+        `Generated at: ${new Date().toISOString()}`,
+    ].join("\n\n");
+
+    return { prompt, log };
 };
 
 const buildTestAnalysisPrompt = (input = {}) => {
@@ -320,7 +435,7 @@ const buildTestAnalysisPrompt = (input = {}) => {
     const documentInventory = buildDocumentInventory(documents);
     const platformList = platforms.join(", ");
 
-    return [
+    const prompt = [
         "Create a testing analysis document in well-structured Markdown format.",
         "Cross-reference ALL provided documents equally. Flag any conflicts or mismatches between documents.",
         "When a Figma design document is provided, explicitly analyze UI elements, interaction patterns, screen states, and visual flows in addition to functional requirements.",
@@ -391,6 +506,33 @@ const buildTestAnalysisPrompt = (input = {}) => {
         "- If a document is missing or has empty content, explicitly mention assumptions.",
         "- When listing test scenarios or cases in the analysis, use the naming pattern: Object + Expectation + Condition (e.g., 'The user should be able to submit the form when all fields are valid').",
     ].join("\n");
+
+    // --- Build structured log (document content excluded) ---
+    const log = [
+        logSegment("System Prompt", SYSTEM_PROMPT),
+        logSegment("Product Context", [
+            `Feature:            ${feature}`,
+            `Target Platforms:   ${platformList}`,
+            `Additional Context: ${additionalContext || "N/A"}`,
+            `Attached Documents: ${attachedLabels.join(", ") || "None"}`,
+        ].join("\n")),
+        logSegment("Document Inventory", buildDocumentInventoryLog(documents)),
+        logSegment("Document Guidance", buildDocumentGuidance()),
+        logSegment("Analysis Structure Instructions", [
+            "Required sections: Summary, Scope, Impact Analysis, Out of Scope,",
+            "  Edge Cases, Risks & Mitigations, Test Strategy Notes, Assumptions,",
+            "  Document Conflicts, Document Assessment, UI/Design Analysis (if Figma).",
+            "Format: Markdown only (no JSON).",
+        ].join("\n")),
+        logSegment("Full Prompt (sent to AI)", prompt),
+        `${LOG_DIVIDER}\nPROMPT STATS\n${LOG_DIVIDER}`,
+        `Total chars (sent to AI): ${prompt.length}`,
+        `Segments: 6`,
+        `Documents: ${documents.length} (content excluded from document inventory)`,
+        `Generated at: ${new Date().toISOString()}`,
+    ].join("\n\n");
+
+    return { prompt, log };
 };
 
 module.exports = {
