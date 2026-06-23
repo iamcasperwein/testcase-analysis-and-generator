@@ -17,3 +17,7 @@ data/promptdata.json
 data/testrail-sync-config.json
 zmd/
 .vscode/
+
+testcase-generator/
+zz-playground/
+[ordered][ignore]testbrain-testgenerator/

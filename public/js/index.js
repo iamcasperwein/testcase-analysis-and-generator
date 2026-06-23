@@ -2,7 +2,7 @@
 const AGENTS = Object.freeze([
   { value: "litellm", label: "LiteLLM", description: "Unified LLM proxy (any provider)" },
   // { value: "copilot", label: "GitHub Copilot", description: "GitHub Models via Copilot token" },
-  // { value: "claude", label: "Claude", description: "Anthropic Claude model" },
+  { value: "claude", label: "Claude", description: "Anthropic Claude model" },
   // { value: "gemini", label: "Gemini", description: "Google Gemini model" },
 ]);
 
@@ -77,13 +77,18 @@ let _bannerTimer = null;
 
 function showBanner(message, type = "success") {
   clearTimeout(_bannerTimer);
-  appBanner.classList.remove("banner-show", "banner-success", "banner-danger");
+  appBanner.classList.remove("banner-show", "banner-success", "banner-danger", "banner-warning");
   appBannerMsg.textContent = String(message || "");
-  appBannerIcon.className = type === "success"
-    ? "bi bi-check-circle-fill"
-    : "bi bi-exclamation-triangle-fill";
-  void appBanner.offsetWidth; // force reflow for transition
-  appBanner.classList.add("banner-show", type === "success" ? "banner-success" : "banner-danger");
+  if (type === "success") {
+    appBannerIcon.className = "bi bi-check-circle-fill";
+    appBanner.classList.add("banner-show", "banner-success");
+  } else if (type === "warning") {
+    appBannerIcon.className = "bi bi-exclamation-circle-fill";
+    appBanner.classList.add("banner-show", "banner-warning");
+  } else {
+    appBannerIcon.className = "bi bi-exclamation-triangle-fill";
+    appBanner.classList.add("banner-show", "banner-danger");
+  }
   _bannerTimer = setTimeout(() => appBanner.classList.remove("banner-show"), 4000);
 }
 
@@ -893,6 +898,7 @@ let DOC_TYPE_OPTIONS = [
   { value: "API_CONTRACT", label: "API Contract", description: "API specification" },
   { value: "USER_STORY", label: "User Story", description: "User story or acceptance criteria" },
   { value: "ARCHITECTURE", label: "Architecture Doc", description: "System architecture document" },
+	{ value: "TEST_STRATEGY", label: "Testing Strategy", description: "Testing Strategy Analysis" },
   { value: "TEST_PLAN", label: "Test Plan", description: "Existing test plan or strategy" },
   { value: "RELEASE_NOTE", label: "Release Note", description: "Release notes or changelog" },
   { value: "OTHER", label: "Other", description: "Other supporting document" },
@@ -2554,6 +2560,28 @@ function renderSections() {
     div.addEventListener("click", () => {
       selectSection(sec.name);
     });
+
+    // --- Drag-and-drop: sidebar section item is a drop target ---
+    div.addEventListener("dragover", (e) => {
+      e.preventDefault();
+      e.dataTransfer.dropEffect = "move";
+      div.classList.add("tc-drop-target");
+    });
+    div.addEventListener("dragleave", (e) => {
+      if (!div.contains(e.relatedTarget)) {
+        div.classList.remove("tc-drop-target");
+      }
+    });
+    div.addEventListener("drop", (e) => {
+      e.preventDefault();
+      div.classList.remove("tc-drop-target");
+      try {
+        const payload = JSON.parse(e.dataTransfer.getData("text/plain"));
+        const targetSection = sections.find(s => s.name === sec.name) || sec;
+        handleDragDrop(payload.tcIds, payload.fromSection, sec.name, targetSection);
+      } catch (_) {}
+    });
+
     sectionListEl.appendChild(div);
   });
 }
@@ -2830,6 +2858,27 @@ function renderAllTestCases() {
 
     sectionCell.appendChild(sectionContentDiv);
     sectionRow.appendChild(sectionCell);
+
+    // --- Drag-and-drop: section header row is a drop target ---
+    sectionRow.addEventListener("dragover", (e) => {
+      e.preventDefault();
+      e.dataTransfer.dropEffect = "move";
+      sectionRow.classList.add("tc-drop-target");
+    });
+    sectionRow.addEventListener("dragleave", (e) => {
+      if (!sectionRow.contains(e.relatedTarget)) {
+        sectionRow.classList.remove("tc-drop-target");
+      }
+    });
+    sectionRow.addEventListener("drop", (e) => {
+      e.preventDefault();
+      sectionRow.classList.remove("tc-drop-target");
+      try {
+        const payload = JSON.parse(e.dataTransfer.getData("text/plain"));
+        handleDragDrop(payload.tcIds, payload.fromSection, section.name, section);
+      } catch (_) {}
+    });
+
     testCaseTableBody.appendChild(sectionRow);
 
     section.testcases.forEach(tc => {
@@ -2838,6 +2887,36 @@ function renderAllTestCases() {
       if (selectedTcIds.has(tc.id)) tr.classList.add("tc-selected");
       tr.dataset.section = section.name;
       tr.dataset.tcId = tc.id || "";
+
+      // --- Drag-and-drop: make row draggable ---
+      tr.draggable = true;
+      tr.addEventListener("dragstart", (e) => {
+        // If this row is part of the active selection, drag the whole selection.
+        // Otherwise drag only this single TC.
+        const dragIds = selectedTcIds.size > 0 && selectedTcIds.has(tc.id)
+          ? Array.from(selectedTcIds)
+          : [tc.id];
+        e.dataTransfer.effectAllowed = "move";
+        e.dataTransfer.setData("text/plain", JSON.stringify({
+          tcIds: dragIds,
+          fromSection: section.name,
+        }));
+        // Dim all dragged rows visually and show grabbing cursor globally
+        document.body.classList.add("tc-dragging-active");
+        dragIds.forEach(id => {
+          const row = testCaseTableBody.querySelector(`tr[data-tc-id="${CSS.escape(id)}"]`);
+          if (row) row.classList.add("tc-dragging");
+        });
+      });
+      tr.addEventListener("dragend", () => {
+        // Restore cursor and clean up drag styles on all rows
+        document.body.classList.remove("tc-dragging-active");
+        testCaseTableBody.querySelectorAll(".tc-dragging")
+          .forEach(r => r.classList.remove("tc-dragging"));
+        // Clean up any lingering drop-target highlights
+        document.querySelectorAll(".tc-drop-target")
+          .forEach(el => el.classList.remove("tc-drop-target"));
+      });
 
       // Checkbox cell
       const tdCheck = document.createElement("td");
@@ -4730,6 +4809,83 @@ function openBlockedMoveDialog(blockedCases, movableCount) {
     overlay.addEventListener("click", onBackdrop);
     document.addEventListener("keydown", onKeydown);
   });
+}
+
+async function handleDragDrop(tcIds, fromSection, targetSectionName, targetSection) {
+  // No-op: missing data or same-section drop
+  if (!targetSectionName || !tcIds || !tcIds.length) return;
+  if (targetSectionName === fromSection) return;
+
+  const activePg = getActivePlatformGroup();
+
+  // Resolve full TC objects for each dragged id
+  const draggedCases = tcIds
+    .map(id => allTestCases.find(tc => tc.id === id))
+    .filter(Boolean);
+
+  if (!draggedCases.length) return;
+
+  // Split into blocked (posted to TestRail) vs movable
+  const blockedCases = draggedCases.filter(tc =>
+    activePg
+      ? hasPostedToTestrailFrontend(tc, activePg)
+      : tc.testrailPost?.status === "success"
+  );
+  const movableCases = draggedCases.filter(tc => !blockedCases.includes(tc));
+
+  // All blocked — single error banner listing each id
+  if (!movableCases.length) {
+    const ids = blockedCases.map(tc => tc.id).join(", ");
+    showBanner(
+      `Cannot move — all selected case(s) are already posted to TestRail: ${ids}`,
+      "danger"
+    );
+    return;
+  }
+
+  // Resolve target section metadata (sectionId, suiteId, source)
+  const resolvedTarget = sections.find(s => s.name === targetSectionName) || targetSection || {};
+
+  try {
+    const res = await apiRequest("/testcase/bulkMoveSection", {
+      method: "POST",
+      body: JSON.stringify({
+        promptId: currentScopePromptId,
+        testcaseIds: movableCases.map(tc => tc.id),
+        target: {
+          sectionName: targetSectionName,
+          sectionId: resolvedTarget.sectionId ?? null,
+          suiteId: resolvedTarget.suiteId ?? null,
+          sectionSource: resolvedTarget.source || "user",
+        },
+        platformGroup: activePg || null,
+      }),
+    });
+
+    await loadTestScope(currentScopePromptId);
+    updateBulkBar();
+
+    // Build combined banner
+    const movedCount = res?.data?.moved ?? movableCases.length;
+    if (blockedCases.length > 0) {
+      const blockedIds = blockedCases.map(tc => tc.id).join(", ");
+      showBanner(
+        `${movedCount} case(s) moved to "${targetSectionName}". ` +
+        `${blockedCases.length} skipped — already posted to TestRail: ${blockedIds}`,
+        "warning"
+      );
+    } else {
+      showBanner(
+        `${movedCount} case(s) moved to "${targetSectionName}".`,
+        "success"
+      );
+    }
+  } catch (err) {
+    showBanner(
+      `Failed to move test cases: ${err.message || "Unknown error"}`,
+      "danger"
+    );
+  }
 }
 
 async function handleBulkEditSection() {

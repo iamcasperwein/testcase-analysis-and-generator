@@ -300,6 +300,17 @@
       font-size: 0.82rem; color: #1d4ed8; font-weight: 600;
       animation: fadeSlideIn 0.2s ease;
     }
+
+    .tc-bulk-drag-hint {
+      font-size: 0.78rem;
+      font-weight: 400;
+      color: #64748b;
+      opacity: 0.85;
+      display: flex;
+      align-items: center;
+      gap: 0.2rem;
+      margin-left: 0.25rem;
+    }
     @keyframes fadeSlideIn { from{opacity:0;transform:translateY(-6px)} to{opacity:1;transform:translateY(0)} }
 
     .tc-table-wrap { flex: 1; overflow-y: auto; border-radius: 0.55rem; border: 1px solid #e3edf8; }
@@ -2671,6 +2682,12 @@
       color: #7f1d1d;
     }
 
+    #appBanner.banner-warning {
+      background: #fef3c7;
+      border: 1px solid #fcd34d;
+      color: #78350f;
+    }
+
     #appBannerClose {
       margin-left: auto;
       background: none;
@@ -3662,4 +3679,36 @@
       align-items: center;
       justify-content: center;
       flex-shrink: 0;
+    }
+
+    /* ── Drag-and-drop: test case move ── */
+
+    /* Grab cursor at rest — signals row is draggable */
+    .testcase-row {
+      cursor: grab;
+    }
+
+    /* Grabbing cursor during active drag (set on body via JS) */
+    body.tc-dragging-active,
+    body.tc-dragging-active * {
+      cursor: grabbing !important;
+    }
+
+    /* Dimmed appearance on the row(s) being dragged */
+    .testcase-row.tc-dragging > td {
+      opacity: 0.35;
+    }
+
+    /* Section header row in the table — active drop target */
+    .scope-section-row.tc-drop-target > td {
+      background: #dbeafe !important;
+      border-top: 2px solid #3b82f6 !important;
+      outline: 2px dashed #3b82f6;
+      outline-offset: -2px;
+    }
+
+    /* Sidebar section item — active drop target */
+    .section-item.tc-drop-target {
+      background: #eff6ff !important;
+      border: 1.5px solid #3b82f6 !important;
     }

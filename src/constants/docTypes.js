@@ -14,6 +14,7 @@ const DOC_TYPES = Object.freeze([
 	{ value: "ARCHITECTURE", label: "Architecture Doc", description: "System architecture or design document" },
 	{ value: "TEST_PLAN", label: "Test Plan", description: "Existing test plan or strategy" },
 	{ value: "RELEASE_NOTE", label: "Release Note", description: "Release notes or changelog" },
+	{ value: "TEST_STRATEGY", label: "Testing Strategy", description: "Testing Strategy Analysis" },
 	{ value: "OTHER", label: "Other", description: "Other supporting document" },
 ])
 

@@ -1,6 +1,6 @@
 {
     "defaults": {
-        "server": "staging",
+        "environment": "staging",
         "currency": "IDR",
         "language": "English"
     },
