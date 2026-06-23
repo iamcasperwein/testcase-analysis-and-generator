@@ -2,7 +2,7 @@
 const AGENTS = Object.freeze([
   { value: "litellm", label: "LiteLLM", description: "Unified LLM proxy (any provider)" },
   // { value: "copilot", label: "GitHub Copilot", description: "GitHub Models via Copilot token" },
-  { value: "claude", label: "Claude", description: "Anthropic Claude model" },
+  // { value: "claude", label: "Claude", description: "Anthropic Claude model" },
   // { value: "gemini", label: "Gemini", description: "Google Gemini model" },
 ]);
 
